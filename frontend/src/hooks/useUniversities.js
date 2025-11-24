@@ -1,0 +1,240 @@
+/**
+ * Universities Hooks Module
+ *
+ * Provides React Query hooks for fetching and managing university data.
+ * These hooks handle caching, loading states, and error handling automatically.
+ *
+ * Key Features:
+ * - Centralized cache: Universities fetched once, shared across all pages
+ * - Long stale time: Universities rarely change, so cache aggressively
+ * - Optimistic updates: UI updates immediately on join/leave
+ *
+ * Available Hooks:
+ * - useUniversities(): Get all universities
+ * - useUniversity(id): Get single university details
+ * - useJoinUniversity(): Mutation to join a university
+ * - useLeaveUniversity(): Mutation to leave a university
+ *
+ * Usage:
+ *   const { data: universities, isLoading } = useUniversities();
+ *   const joinMutation = useJoinUniversity();
+ *   joinMutation.mutate(universityId);
+ */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  getUniversities,
+  getUniversity,
+  joinUniversity,
+  leaveUniversity,
+} from '../api/universities';
+import { STALE_TIMES, GC_TIMES } from '../config/cache';
+
+// =============================================================================
+// Query Keys
+// =============================================================================
+// Centralized query keys ensure consistent cache invalidation.
+// Using a factory pattern allows for structured, type-safe keys.
+
+export const universityKeys = {
+  // Base key for all university queries
+  all: ['universities'],
+
+  // Key for the list of all universities
+  list: () => [...universityKeys.all, 'list'],
+
+  // Key for a specific university's details
+  detail: (id) => [...universityKeys.all, 'detail', id],
+};
+
+// =============================================================================
+// Query Hooks
+// =============================================================================
+
+/**
+ * useUniversities Hook
+ *
+ * Fetches and caches all universities.
+ * Data is shared across RegisterPage, UniversitiesPage, and ProfilePage.
+ *
+ * @returns {object} React Query result
+ * @returns {Array} data - Array of university objects
+ * @returns {boolean} isLoading - True during initial fetch
+ * @returns {boolean} isFetching - True during any fetch (including background)
+ * @returns {Error|null} error - Error object if fetch failed
+ * @returns {Function} refetch - Manually trigger a refetch
+ *
+ * Cache Behavior:
+ * - staleTime: 10 minutes (universities rarely change)
+ * - Data shown immediately from cache on subsequent visits
+ * - Background refetch if data is stale
+ *
+ * @example
+ * function UniversitiesPage() {
+ *   const { data: universities, isLoading, error } = useUniversities();
+ *
+ *   if (isLoading) return <Spinner />;
+ *   if (error) return <Error message={error.message} />;
+ *
+ *   return universities.map(uni => <UniversityCard key={uni.id} {...uni} />);
+ * }
+ */
+export function useUniversities() {
+  return useQuery({
+    queryKey: universityKeys.list(),
+    queryFn: getUniversities,
+
+    // -------------------------------------------------------------------------
+    // Cache Configuration
+    // -------------------------------------------------------------------------
+    // Universities change infrequently, so we use a longer stale time.
+    // This prevents unnecessary API calls when navigating between pages.
+    staleTime: STALE_TIMES.UNIVERSITIES,
+
+    // Keep data in cache for 1 hour even after last subscriber unmounts
+    gcTime: GC_TIMES.UNIVERSITIES,
+
+    // -------------------------------------------------------------------------
+    // Data Transformation
+    // -------------------------------------------------------------------------
+    // The API returns an array, ensure we always have an array
+    select: (data) => Array.isArray(data) ? data : [],
+  });
+}
+
+/**
+ * useUniversity Hook
+ *
+ * Fetches and caches a single university's details.
+ * Used on the UniversityDetailPage.
+ *
+ * @param {number|string} id - University ID
+ * @returns {object} React Query result with university data
+ *
+ * @example
+ * function UniversityDetailPage() {
+ *   const { id } = useParams();
+ *   const { data: university, isLoading } = useUniversity(id);
+ *
+ *   if (isLoading) return <Spinner />;
+ *   return <UniversityDetails university={university} />;
+ * }
+ */
+export function useUniversity(id) {
+  return useQuery({
+    queryKey: universityKeys.detail(id),
+    queryFn: () => getUniversity(id),
+
+    // Only fetch if we have a valid ID
+    enabled: !!id,
+
+    // Use same stale time as universities list
+    staleTime: STALE_TIMES.UNIVERSITIES,
+  });
+}
+
+// =============================================================================
+// Mutation Hooks
+// =============================================================================
+
+/**
+ * useJoinUniversity Hook
+ *
+ * Mutation hook for joining a university.
+ * Handles cache invalidation and optimistic updates.
+ *
+ * @returns {object} React Query mutation result
+ * @returns {Function} mutate - Function to trigger the mutation
+ * @returns {Function} mutateAsync - Async version of mutate
+ * @returns {boolean} isPending - True while mutation is in progress
+ * @returns {boolean} isError - True if mutation failed
+ *
+ * @example
+ * function JoinButton({ universityId }) {
+ *   const joinMutation = useJoinUniversity();
+ *
+ *   const handleJoin = async () => {
+ *     try {
+ *       await joinMutation.mutateAsync(universityId);
+ *       toast.success('Joined successfully!');
+ *     } catch (error) {
+ *       toast.error('Failed to join');
+ *     }
+ *   };
+ *
+ *   return (
+ *     <button onClick={handleJoin} disabled={joinMutation.isPending}>
+ *       {joinMutation.isPending ? 'Joining...' : 'Join'}
+ *     </button>
+ *   );
+ * }
+ */
+export function useJoinUniversity() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: joinUniversity,
+
+    // -------------------------------------------------------------------------
+    // Cache Invalidation
+    // -------------------------------------------------------------------------
+    // After joining, invalidate relevant caches so data is refetched
+    onSuccess: (data, universityId) => {
+      // Invalidate the specific university's cache
+      queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
+
+      // Invalidate the universities list to update member counts
+      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+    },
+  });
+}
+
+/**
+ * useLeaveUniversity Hook
+ *
+ * Mutation hook for leaving a university.
+ * Similar to useJoinUniversity but for leaving.
+ *
+ * @returns {object} React Query mutation result
+ */
+export function useLeaveUniversity() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: leaveUniversity,
+
+    onSuccess: (data, universityId) => {
+      queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
+      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+    },
+  });
+}
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
+
+/**
+ * Prefetch universities data
+ *
+ * Call this before navigating to a page that needs universities data.
+ * Useful for preloading data during hover or before route transition.
+ *
+ * @param {QueryClient} queryClient - The query client instance
+ *
+ * @example
+ * // Prefetch on hover
+ * <Link
+ *   to="/universities"
+ *   onMouseEnter={() => prefetchUniversities(queryClient)}
+ * >
+ *   Universities
+ * </Link>
+ */
+export function prefetchUniversities(queryClient) {
+  return queryClient.prefetchQuery({
+    queryKey: universityKeys.list(),
+    queryFn: getUniversities,
+    staleTime: STALE_TIMES.UNIVERSITIES,
+  });
+}
