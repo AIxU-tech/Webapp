@@ -9,6 +9,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
+      - key: NODE_VERSION
+        value: "20"
       - key: DATABASE_URL
         sync: false
       - key: SECRET_KEY
