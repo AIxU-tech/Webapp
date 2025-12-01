@@ -75,7 +75,8 @@ def create_app(config_class=Config):
         universities_bp,
         community_bp,
         messages_bp,
-        notifications_bp
+        notifications_bp,
+        news_bp
     )
 
     app.register_blueprint(public_bp)
@@ -86,6 +87,7 @@ def create_app(config_class=Config):
     app.register_blueprint(community_bp)
     app.register_blueprint(messages_bp)
     app.register_blueprint(notifications_bp)
+    app.register_blueprint(news_bp)
 
     # =========================================================================
     # Register WebSocket Event Handlers

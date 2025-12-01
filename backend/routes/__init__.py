@@ -6,6 +6,7 @@ from backend.routes.universities import universities_bp
 from backend.routes.community import community_bp
 from backend.routes.messages import messages_bp
 from backend.routes.notifications import notifications_bp
+from backend.routes.news import news_bp
 
 __all__ = [
     'public_bp',
@@ -15,5 +16,6 @@ __all__ = [
     'universities_bp',
     'community_bp',
     'messages_bp',
-    'notifications_bp'
+    'notifications_bp',
+    'news_bp'
 ]

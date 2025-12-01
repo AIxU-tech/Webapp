@@ -8,6 +8,9 @@ Flask-SocketIO>=5.3.0
 SQLAlchemy>=2.0.0
 psycopg2-binary>=2.9.9
 
+# AI/LLM Integration
+anthropic>=0.40.0
+
 # WebSocket Support
 python-engineio>=4.8.0
 python-socketio>=5.10.0

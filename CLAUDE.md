@@ -9,10 +9,10 @@ This file provides essential guidance for working with the AIxU codebase.
 AIxU is a Flask-based social platform connecting AI students and researchers across universities. Users can network, share notes, join university-specific AI clubs, and message each other.
 
 **Architecture:**
-- **Backend:** Flask + SQLAlchemy + PostgreSQL + Flask-Login
-- **Frontend:** React 19 + Vite + React Router + Tailwind CSS
+- **Backend:** Flask + SQLAlchemy + PostgreSQL + Flask-Login + Flask-SocketIO
+- **Frontend:** React 19 + Vite + React Router + TanStack Query + Tailwind CSS
+- **Real-time:** WebSocket via Socket.IO for live messaging and notifications
 - **Deployment:** React SPA served at `/app/*`, API at `/api/*`
-- **Legacy:** Jinja2 templates in `templates/` (reference only, not actively served)
 
 ---
 
@@ -20,80 +20,39 @@ AIxU is a Flask-based social platform connecting AI students and researchers acr
 
 ```
 AIxU_website/
-├── app.py                      # Entry point (creates Flask app)
+├── app.py                      # Entry point (socketio.run)
 ├── requirements.txt            # Python dependencies
 ├── requirements-test.txt       # Testing dependencies
 ├── .env                        # Environment variables (git-ignored)
 │
-├── backend/                    # Flask backend
+├── backend/
 │   ├── __init__.py            # Application factory (create_app)
 │   ├── config.py              # Configuration
 │   ├── constants.py           # Constants & sample data
-│   ├── extensions.py          # Flask extensions (db, login_manager)
-│   ├── models/                # Database models
-│   │   ├── user.py
-│   │   ├── university.py
-│   │   ├── note.py
-│   │   ├── message.py
-│   │   └── relationships.py
-│   ├── routes/                # 8 route blueprints
-│   │   ├── public.py
-│   │   ├── auth.py
-│   │   ├── api_auth.py
-│   │   ├── profile.py
-│   │   ├── universities.py
-│   │   ├── community.py
-│   │   ├── messages.py
-│   │   └── notifications.py
-│   └── utils/
-│       ├── email.py
-│       ├── helpers.py
-│       └── image.py
+│   ├── extensions.py          # Flask extensions (db, login_manager, socketio)
+│   ├── models/                # user, university, note, message, relationships
+│   ├── routes/                # 8 blueprints: public, auth, api_auth, profile,
+│   │                          # universities, community, messages, notifications
+│   ├── sockets/               # WebSocket handlers
+│   │   ├── __init__.py        # register_socket_handlers()
+│   │   └── events.py          # emit_new_message, emit_note_liked, etc.
+│   └── utils/                 # email.py, image.py
 │
-├── frontend/                   # React SPA
-│   ├── package.json
-│   ├── vite.config.js         # Build config (base: '/app/')
-│   ├── tailwind.config.js
-│   ├── index.html
-│   └── src/
-│       ├── main.jsx           # Entry point (AuthProvider + Router)
-│       ├── App.jsx            # Route definitions
-│       ├── styles.css         # Tailwind CSS
-│       ├── api/               # API client modules
-│       │   ├── client.js
-│       │   ├── auth.js
-│       │   ├── universities.js
-│       │   ├── notes.js
-│       │   ├── messages.js
-│       │   └── users.js
-│       ├── components/
-│       │   ├── AppLayout.jsx
-│       │   ├── PlasmaBackground.jsx
-│       │   ├── UniversityForm.jsx
-│       │   └── ProtectedRoute.jsx
-│       ├── contexts/
-│       │   └── AuthContext.jsx
-│       └── pages/
-│           ├── HomePage.jsx
-│           ├── LoginPage.jsx
-│           ├── RegisterPage.jsx
-│           ├── VerifyEmailPage.jsx
-│           └── AddUniversityPage.jsx
+├── frontend/src/
+│   ├── main.jsx               # Entry: QueryProvider > Router > AuthProvider > SocketProvider
+│   ├── App.jsx                # Route definitions
+│   ├── api/                   # client.js, auth.js, universities.js, notes.js, messages.js, users.js
+│   ├── components/            # AppLayout, NavBar, PlasmaBackground, ProtectedRoute, etc.
+│   ├── contexts/              # AuthContext, QueryProvider, SocketContext
+│   ├── hooks/                 # useUniversities, useNotes, useMessages, useUsers (React Query)
+│   ├── pages/                 # HomePage, LoginPage, RegisterPage, CommunityPage,
+│   │                          # UniversitiesPage, ProfilePage, MessagesPage, etc.
+│   ├── config/cache.js        # React Query stale/gc times
+│   └── services/prefetch.js   # Background data prefetching
 │
-├── templates/                  # Jinja2 templates (REFERENCE ONLY)
-│   └── *.html                 # Not actively used, kept for migration reference
+├── static/app/                # React build output (Vite)
 │
-├── static/
-│   └── app/                   # React build output (generated by Vite)
-│
-└── tests/                      # pytest suite (200+ tests)
-    ├── conftest.py
-    ├── test_auth.py
-    ├── test_api.py
-    ├── test_profile.py
-    ├── test_community.py
-    ├── test_universities.py
-    └── test_messaging.py
+└── tests/                     # pytest suite
 ```
 
 ---
@@ -141,21 +100,17 @@ All models in `backend/models/` inherit from `db.Model`.
 
 ```python
 def create_app(config_class=Config):
-    app = Flask(__name__, template_folder='../templates', static_folder='../static')
+    app = Flask(__name__, static_folder='../static')
 
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
+    socketio.init_app(app)  # WebSocket support
 
-    # Register 8 blueprints
-    app.register_blueprint(public_bp)
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(api_auth_bp)
-    app.register_blueprint(profile_bp)
-    app.register_blueprint(universities_bp)
-    app.register_blueprint(community_bp)
-    app.register_blueprint(messages_bp)
-    app.register_blueprint(notifications_bp)
+    # Register 8 blueprints + socket handlers
+    # ...
+    from backend.sockets import register_socket_handlers
+    register_socket_handlers(socketio)
 
     # Serve React SPA at /app/*
     @app.route('/app', defaults={'path': ''})
@@ -203,45 +158,32 @@ SUPER_ADMIN = 2
 
 ### React Frontend Architecture
 
-**Vite Configuration (`frontend/vite.config.js`):**
-```javascript
-{
-  base: '/app/',  // SPA served at /app/
-  build: {
-    outDir: '../static/app',  // Build to Flask static folder
-  },
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': 'http://localhost:5000'  // Proxy API to Flask
-    }
-  }
-}
+**Provider Hierarchy (`main.jsx`):**
+```
+QueryProvider → BrowserRouter → AuthProvider → SocketProvider → App
 ```
 
-**Router Setup:**
-- BrowserRouter with `basename="/app"`
-- AuthProvider wraps app for global auth state
-- Routes defined in `App.jsx`
+**Data Fetching (TanStack Query):**
+- Custom hooks in `frontend/src/hooks/`: `useUniversities()`, `useNotes()`, `useMessages()`, `useUser()`
+- Centralized cache config in `config/cache.js`
+- Automatic background refetching and cache invalidation
 
-**API Client Pattern (`frontend/src/api/client.js`):**
+**WebSocket (`SocketContext`):**
+- Connects when user authenticates
+- Events: `new_message`, `note_liked`, `new_follower`, `university_update`
+- Use `useSocket()` or `useSocketEvent(eventName, handler)` hooks
+
+**API Client (`frontend/src/api/client.js`):**
 ```javascript
-// Convenience methods
 api.get(endpoint)
 api.post(endpoint, body)
 api.put(endpoint, body)
 api.delete(endpoint)
-
-// Automatic credentials for Flask-Login
-credentials: 'include'
+// credentials: 'include' for Flask-Login cookies
 ```
 
-**Global State:**
-- `useAuth()` hook provides: `user`, `setUser`, `loading`, `refreshUser()`
-
-**Styling:**
-- Tailwind CSS utility-first
-- Three.js for plasma background on auth pages
+**Auth State:**
+- `useAuth()` provides: `user`, `isAuthenticated`, `loading`, `refreshUser()`
 
 ---
 
@@ -305,11 +247,12 @@ GET /app/*     - React Router handles client-side routing
 ```
 
 **React Client-Side Routes:**
-- `/app/` - Home
-- `/app/login` - Login
-- `/app/register` - Registration
-- `/app/verify-email` - Email verification
-- `/app/universities/new` - Create university
+- `/app/` - Landing page (redirects to /community if authenticated)
+- `/app/login`, `/app/register`, `/app/verify-email` - Auth flows
+- `/app/community` - Notes feed
+- `/app/universities`, `/app/universities/:id`, `/app/universities/new`
+- `/app/profile`, `/app/users/:userId` - User profiles
+- `/app/messages` - Messaging
 
 ---
 
@@ -466,13 +409,11 @@ class Config:
 
 ### Production Mode
 1. Build React: `cd frontend && npm run build`
-2. Run Flask: `gunicorn app:app`
-3. Flask serves both API and React SPA
+2. Run with eventlet for WebSocket support: `gunicorn --worker-class eventlet -w 1 app:app`
 
 **URL Structure:**
 - `/app/*` - React SPA (client-side routing)
 - `/api/*` - JSON API endpoints
-- Other routes - Legacy Jinja templates (not actively used)
 
 ---
 
@@ -489,15 +430,14 @@ class Config:
 - Check permission: `if current_user.permission_level >= ADMIN:`
 
 ### Working with React
-- Use `useAuth()` hook for current user
-- All API calls via `frontend/src/api/` modules
-- Credentials automatically included (`credentials: 'include'`)
-- React Router handles navigation (no page reloads)
+- Use `useAuth()` for current user, `useSocket()` for WebSocket
+- Data fetching via custom hooks: `useUniversities()`, `useNotes()`, `useMessages()`, `useUser()`
+- Mutations auto-invalidate cache (e.g., `useCreateNote()` invalidates notes list)
+- Real-time updates via `useSocketEvent('event_name', handler)`
 
 ### Session Management
-- Flask-Login uses cookies
-- No JWT tokens needed (same-origin)
-- Sessions work across API and legacy routes
+- Flask-Login uses cookies (same-origin, no JWT needed)
+- WebSocket authenticates via session cookie
 
 ---
 
@@ -537,8 +477,8 @@ UPDATE "user" SET permission_level = 2 WHERE id = 1;  # Super admin
 ### Frontend
 - **Pages:** Route-level components
 - **Components:** Reusable UI components
-- **API:** One file per feature area
-- **Contexts:** Global state only
+- **Hooks:** React Query hooks for data fetching (one per feature)
+- **Contexts:** Auth, Query cache, Socket connection
 
 ### Tests
 - One test file per route blueprint
