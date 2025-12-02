@@ -7,7 +7,7 @@ public_bp = Blueprint('public', __name__)
 @public_bp.route('/')
 def index():
     # Redirect to React SPA during migration from Jinja2 templates
-    return redirect('/app/')
+    return redirect('/app')
 
 
 @public_bp.route('/feedback', methods=['GET', 'POST'])
