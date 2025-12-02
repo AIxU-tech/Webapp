@@ -12,7 +12,7 @@ Architecture:
 - WebSocket Support: Real-time communication via Flask-SocketIO
 """
 
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, jsonify
 import os
 from backend.config import Config
 from backend.extensions import db, login_manager, socketio
@@ -98,9 +98,20 @@ def create_app(config_class=Config):
     register_socket_handlers(socketio)
 
     # =========================================================================
+    # Health Check Endpoint
+    # =========================================================================
+    @app.route('/healthz')
+    def health_check():
+        """Health check endpoint for Render and other orchestrators."""
+        return jsonify({"status": "healthy"}), 200
+
+    # =========================================================================
     # Serve React SPA
     # =========================================================================
     # Serve the React SPA (built assets) under /app
+    # Use absolute path to avoid any path resolution issues in production
+    STATIC_APP_DIR = os.path.abspath(os.path.join(app.root_path, '..', 'static', 'app'))
+
     @app.route('/app', defaults={'path': ''})
     @app.route('/app/<path:path>')
     def serve_react_app(path):
@@ -109,11 +120,9 @@ def create_app(config_class=Config):
         Any /app/* path that isn't a real file returns index.html
         so React Router can handle it.
         """
-        static_app_dir = os.path.join(app.root_path, '..', 'static', 'app')
-
-        if path != "" and os.path.exists(os.path.join(static_app_dir, path)):
-            return send_from_directory(static_app_dir, path)
+        if path != "" and os.path.exists(os.path.join(STATIC_APP_DIR, path)):
+            return send_from_directory(STATIC_APP_DIR, path)
         # Fallback: always serve index.html for SPA routes
-        return send_from_directory(static_app_dir, 'index.html')
+        return send_from_directory(STATIC_APP_DIR, 'index.html')
 
     return app

@@ -14,6 +14,14 @@ Production:
 Note: WebSockets require the eventlet worker for async support.
 """
 
+# =============================================================================
+# CRITICAL: Eventlet monkey patching MUST happen before any other imports
+# =============================================================================
+# This patches Python's standard library to be cooperative with eventlet's
+# green threads. Without this, gunicorn with eventlet worker will fail.
+import eventlet
+eventlet.monkey_patch()
+
 from backend import create_app
 from backend.extensions import socketio
 
