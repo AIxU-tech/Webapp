@@ -217,6 +217,23 @@ export default function RegisterPage() {
   }, [extractEduDomain, universityDomainMap]);
 
   /**
+   * Re-detect University When Data Changes
+   *
+   * This effect ensures university detection runs when:
+   * 1. Universities finish loading (universityDomainMap updates)
+   * 2. User navigates back to page with email already filled
+   *
+   * Without this, navigating away and back would show "University not found"
+   * because the detection only ran in handleChange (on user input).
+   */
+  useEffect(() => {
+    if (formData.email && universityDomainMap.size > 0) {
+      const university = findUniversityByEmail(formData.email);
+      setDetectedUniversity(university);
+    }
+  }, [formData.email, universityDomainMap, findUniversityByEmail]);
+
+  /**
    * Form Input Change Handler
    *
    * Updates form state when user types in any field.
@@ -231,12 +248,6 @@ export default function RegisterPage() {
       ...prev,
       [name]: value,
     }));
-
-    // Auto-detect university when email changes (for display only)
-    if (name === 'email') {
-      const university = findUniversityByEmail(value);
-      setDetectedUniversity(university);
-    }
   };
 
   /**
