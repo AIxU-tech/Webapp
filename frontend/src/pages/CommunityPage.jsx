@@ -564,7 +564,7 @@ export default function CommunityPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
                 {/* Author Avatar */}
-                <Link to={`/profile/${note.author.id}`} className="flex-shrink-0">
+                <Link to={`/users/${note.author.id}`} className="flex-shrink-0">
                   <img
                     src={note.author.avatar}
                     alt={note.author.name}
@@ -575,7 +575,7 @@ export default function CommunityPage() {
                 {/* Author Info */}
                 <div>
                   <Link
-                    to={`/profile/${note.author.id}`}
+                    to={`/users/${note.author.id}`}
                     className="font-semibold text-foreground hover:text-primary transition-colors"
                   >
                     {note.author.name}
