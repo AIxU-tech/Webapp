@@ -69,12 +69,34 @@ function ErrorModal({ isOpen, title, message, onClose }) {
 }
 
 /**
+ * Tooltip Component
+ *
+ * A reusable tooltip that appears on hover. Uses CSS-only approach for
+ * better performance and accessibility.
+ *
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - The trigger element
+ * @param {string} props.content - Tooltip text content
+ */
+function Tooltip({ children, content }) {
+  return (
+    <div className="relative inline-flex group">
+      {children}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 pointer-events-none">
+        {content}
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+      </div>
+    </div>
+  );
+}
+
+/**
  * InfoIcon Component
  *
- * Blue info circle icon for informational callouts.
+ * Small info circle icon for tooltips.
  */
 const InfoIcon = () => (
-  <svg className="h-5 w-5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
 );
@@ -213,10 +235,6 @@ export default function UniversityDetailPage() {
     university.adminId === user?.id || user?.permission_level >= 2
   );
 
-  const isMember = isAuthenticated && university?.members?.some(
-    (member) => member.id === user?.id
-  );
-
   const tags = Array.isArray(university?.tags) ? university.tags : [];
 
   /**
@@ -280,45 +298,6 @@ export default function UniversityDetailPage() {
             </div>
           </div>
 
-          {/*
-            Auto-Enrollment Information Card
-
-            Explains how to join this university - via email domain at registration.
-          */}
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <InfoIcon />
-              <div>
-                <h3 className="font-semibold text-blue-800 mb-1">
-                  How to Join This University
-                </h3>
-                <p className="text-sm text-blue-700">
-                  Members are automatically enrolled when they register with a{' '}
-                  <strong>@{university.emailDomain || '[university]'}.edu</strong> email address.
-                  {!isAuthenticated && (
-                    <span>
-                      {' '}
-                      <Link to="/register" className="underline font-medium">
-                        Register now
-                      </Link>{' '}
-                      with your university email to join.
-                    </span>
-                  )}
-                  {isAuthenticated && !isMember && (
-                    <span>
-                      {' '}Your account is associated with a different university.
-                    </span>
-                  )}
-                  {isMember && (
-                    <span>
-                      {' '}You are a member of this university.
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Main Content - Two Column Layout */}
           <div className="grid md:grid-cols-3 gap-6">
             {/* Left Column - Main Content */}
@@ -373,7 +352,12 @@ export default function UniversityDetailPage() {
             {/* Right Column - Members Sidebar */}
             <aside>
               <div className="bg-card border border-border rounded-lg p-6 shadow-card">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Members</h3>
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-lg font-semibold text-foreground">Members</h3>
+                  <Tooltip content={`Auto-enrolled via @${university.emailDomain || 'university'}.edu email`}>
+                    <InfoIcon />
+                  </Tooltip>
+                </div>
 
                 {university.members && university.members.length > 0 ? (
                   <div className="space-y-3">
