@@ -11,6 +11,8 @@ Extensions:
 - socketio: Flask-SocketIO instance for real-time WebSocket communication
 """
 
+import os
+import sys
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_socketio import SocketIO
@@ -40,11 +42,23 @@ login_manager = LoginManager()
 #
 # Configuration:
 # - cors_allowed_origins: Allows connections from any origin (configure for production)
-# - async_mode: Uses eventlet for async operations in production
+# - async_mode: Uses eventlet for production, threading for local dev (macOS compatibility)
 # - logger/engineio_logger: Disabled in production for performance
+#
+# Note: eventlet has compatibility issues with kqueue (macOS) and psycopg2.
+# We use threading mode for local development to avoid this issue.
+def _get_async_mode():
+    """Determine async mode based on environment."""
+    # Use threading for local development on macOS to avoid eventlet/kqueue issues
+    # Use eventlet in production (Render sets RENDER=true)
+    if os.environ.get('RENDER') or os.environ.get('USE_EVENTLET'):
+        return 'eventlet'
+    # Default to threading for local dev
+    return 'threading'
+
 socketio = SocketIO(
     cors_allowed_origins="*",  # In production, restrict to your domain
-    async_mode='eventlet',     # Use eventlet for production async support
+    async_mode=_get_async_mode(),
     logger=False,              # Disable verbose logging in production
     engineio_logger=False      # Disable engine.io logging
 )

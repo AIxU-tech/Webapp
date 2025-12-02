@@ -1,17 +1,22 @@
 /**
  * RegisterPage Component
  *
- * User registration page with animated plasma background.
- * All fields (email, password, first name, last name, university) are required.
+ * User registration page with animated plasma background and automatic
+ * university enrollment based on .edu email domain.
  *
  * Features:
  * - Animated plasma background using Three.js
- * - All fields required for registration
- * - University selection dropdown with API data
- * - Auto-detection of university from .edu email domain
+ * - All fields required for registration (email, password, name)
+ * - Automatic university detection from .edu email domain
  * - Terms and conditions modal
  * - Form validation
  * - Integration with Flask backend for registration
+ *
+ * Auto-Enrollment:
+ * Users are automatically enrolled in a university based on their .edu email
+ * domain. For example, a user with "student@uoregon.edu" will be automatically
+ * enrolled in the University of Oregon. No manual university selection is
+ * needed or allowed.
  *
  * @component
  */
@@ -65,39 +70,51 @@ const XIcon = () => (
   </svg>
 );
 
+const CheckCircleIcon = () => (
+  <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const AlertCircleIcon = () => (
+  <svg className="h-5 w-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+  </svg>
+);
+
 export default function RegisterPage() {
   /**
    * Form State
    *
    * Stores all form field values.
-   * All fields are required: email, password, firstName, lastName, universityId
+   * Note: universityId is no longer needed - university is auto-detected
+   * from email domain by the backend.
    */
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     firstName: '',
     lastName: '',
-    universityId: '',
   });
 
   /**
    * UI State
    *
-   * - universities: List of universities loaded from API
+   * - universities: List of universities loaded from API (for display only)
    * - loadingUniversities: Whether universities are being fetched
+   * - detectedUniversity: University detected from email domain (display only)
    * - error: Error message to display
    * - loading: Whether form is currently submitting
    * - showTermsModal: Whether terms modal is visible
    * - termsAccepted: Whether user has checked the terms checkbox
-   * - universityAutoDetected: Whether university was auto-selected from email domain
    */
   const [universities, setUniversities] = useState([]);
   const [loadingUniversities, setLoadingUniversities] = useState(true);
+  const [detectedUniversity, setDetectedUniversity] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [universityAutoDetected, setUniversityAutoDetected] = useState(false);
 
   /**
    * Hooks
@@ -115,8 +132,9 @@ export default function RegisterPage() {
     /**
      * Fetch Universities
      *
-     * Loads list of universities for the dropdown.
-     * Users can optionally select their university during registration.
+     * Loads list of universities for domain matching display.
+     * This is used to show the user which university they'll be enrolled in
+     * based on their email domain.
      */
     async function fetchUniversities() {
       try {
@@ -124,7 +142,6 @@ export default function RegisterPage() {
         setUniversities(data);
       } catch (err) {
         console.error('Error loading universities:', err);
-        // Don't show error to user - universities are optional
       } finally {
         setLoadingUniversities(false);
       }
@@ -137,8 +154,8 @@ export default function RegisterPage() {
    * Extract Domain from .edu Email
    *
    * Extracts the institution identifier from a .edu email address.
-   * For example: "user@stanford.edu" returns "stanford"
-   *              "user@cs.mit.edu" returns "cs.mit"
+   * For example: "user@uoregon.edu" returns "uoregon"
+   *              "user@cs.stanford.edu" returns "cs.stanford" (also tries "stanford")
    *
    * @param {string} email - The .edu email address to parse
    * @returns {string|null} The domain before .edu, or null if invalid
@@ -159,24 +176,51 @@ export default function RegisterPage() {
   /**
    * University Domain Lookup Map
    *
-   * Maps email domains (lowercase) to university IDs for O(1) lookup.
+   * Maps email domains (lowercase) to university objects for O(1) lookup.
    * Only includes universities with configured emailDomain field.
    */
   const universityDomainMap = useMemo(() => {
     const map = new Map();
     universities.forEach((uni) => {
       if (uni.emailDomain) {
-        map.set(uni.emailDomain.toLowerCase(), uni.id);
+        map.set(uni.emailDomain.toLowerCase(), uni);
       }
     });
     return map;
   }, [universities]);
 
   /**
+   * Find University by Email
+   *
+   * Attempts to find a matching university for the given email address.
+   * Tries exact subdomain match first, then base domain match.
+   *
+   * @param {string} email - User's email address
+   * @returns {object|null} University object if found, null otherwise
+   */
+  const findUniversityByEmail = useCallback((email) => {
+    const subdomain = extractEduDomain(email);
+    if (!subdomain) return null;
+
+    // Try exact match first (e.g., "uoregon" matches "uoregon")
+    let uni = universityDomainMap.get(subdomain);
+    if (uni) return uni;
+
+    // Try base domain match (e.g., "cs.stanford" -> try "stanford")
+    if (subdomain.includes('.')) {
+      const baseDomain = subdomain.split('.').pop();
+      uni = universityDomainMap.get(baseDomain);
+      if (uni) return uni;
+    }
+
+    return null;
+  }, [extractEduDomain, universityDomainMap]);
+
+  /**
    * Form Input Change Handler
    *
    * Updates form state when user types in any field.
-   * For email changes, attempts to auto-detect and select matching university.
+   * For email changes, attempts to detect matching university for display.
    *
    * @param {Event} e - Input change event
    */
@@ -188,26 +232,24 @@ export default function RegisterPage() {
       [name]: value,
     }));
 
-    // Auto-detect university when email changes
+    // Auto-detect university when email changes (for display only)
     if (name === 'email') {
-      const domain = extractEduDomain(value);
-      if (domain) {
-        const matchedId = universityDomainMap.get(domain);
-        if (matchedId) {
-          setFormData((prev) => ({
-            ...prev,
-            universityId: String(matchedId),
-          }));
-          setUniversityAutoDetected(true);
-        }
-      }
-    }
-
-    // Clear auto-detection flag if user manually changes university
-    if (name === 'universityId') {
-      setUniversityAutoDetected(false);
+      const university = findUniversityByEmail(value);
+      setDetectedUniversity(university);
     }
   };
+
+  /**
+   * Check if Email is Valid .edu Email
+   *
+   * @param {string} email - Email to validate
+   * @returns {boolean} True if valid .edu email format
+   */
+  const isValidEduEmail = useCallback((email) => {
+    if (!email || !email.includes('@')) return false;
+    const domain = email.split('@')[1]?.toLowerCase();
+    return domain?.endsWith('.edu') || false;
+  }, []);
 
   /**
    * Create Account Button Click Handler
@@ -225,11 +267,21 @@ export default function RegisterPage() {
 
     /**
      * Validate All Required Fields
-     *
-     * All fields are now required: email, password, first name, last name, university
      */
     if (!formData.email.trim()) {
       setError('Please enter an email address');
+      return;
+    }
+
+    // Validate .edu email
+    if (!isValidEduEmail(formData.email)) {
+      setError('Please use your university .edu email address');
+      return;
+    }
+
+    // Check if a university was detected for this email
+    if (!detectedUniversity) {
+      setError('No university found for your email domain. Please contact support if you believe this is an error.');
       return;
     }
 
@@ -245,11 +297,6 @@ export default function RegisterPage() {
 
     if (!formData.lastName.trim()) {
       setError('Please enter your last name');
-      return;
-    }
-
-    if (!formData.universityId) {
-      setError('Please select your university');
       return;
     }
 
@@ -279,7 +326,8 @@ export default function RegisterPage() {
    * Terms Accepted Handler
    *
    * Called when user clicks "Accept and Continue" in terms modal.
-   * Submits registration to backend.
+   * Submits registration to backend. The backend will automatically
+   * enroll the user in a university based on their email domain.
    */
   const handleTermsAccepted = async () => {
     if (!termsAccepted) return;
@@ -294,22 +342,23 @@ export default function RegisterPage() {
       /**
        * Prepare Registration Data
        *
-       * Build request payload with all required fields.
-       * All fields are required: email, password, firstName, lastName, universityId
+       * Note: No universityId is sent - the backend automatically determines
+       * the university based on the user's email domain.
        */
       const registrationData = {
         email: formData.email.trim(),
         password: formData.password,
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
-        universityId: parseInt(formData.universityId),
       };
 
       /**
        * Call Registration API
        *
-       * Creates new user account on backend.
-       * Backend stores registration data in session and sends verification email.
+       * The backend will:
+       * 1. Validate the email is a .edu address
+       * 2. Find the matching university based on email domain
+       * 3. Store registration data and send verification email
        */
       const response = await register(registrationData);
 
@@ -317,12 +366,14 @@ export default function RegisterPage() {
        * Redirect to Email Verification
        *
        * After successful registration, user needs to verify their email.
-       * Backend has sent a verification code to their email.
-       * Pass the email address to the verification page via state.
+       * Pass the email and university info to the verification page.
        */
       navigate('/verify-email', {
         replace: true,
-        state: { email: response.email || formData.email }
+        state: {
+          email: response.email || formData.email,
+          university: response.university || detectedUniversity
+        }
       });
 
     } catch (err) {
@@ -330,6 +381,7 @@ export default function RegisterPage() {
        * Handle Registration Errors
        *
        * Common errors:
+       * - No university found for email domain
        * - Email already registered
        * - Invalid email format
        * - Network errors
@@ -410,8 +462,8 @@ export default function RegisterPage() {
           {/*
             Registration Form
 
-            All fields are required: email, password, name, university.
-            University is auto-detected from .edu email domain when possible.
+            All fields are required: email, password, name.
+            University is automatically detected from .edu email domain.
           */}
           <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
 
@@ -457,6 +509,49 @@ export default function RegisterPage() {
                 className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               />
 
+              {/*
+                University Detection Display
+
+                Shows which university the user will be enrolled in based on
+                their email domain. This is determined automatically - no
+                manual selection is allowed.
+              */}
+              {formData.email && isValidEduEmail(formData.email) && (
+                <div className={`p-3 rounded-lg border ${
+                  detectedUniversity
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-amber-50 border-amber-200'
+                }`}>
+                  <div className="flex items-start gap-2">
+                    {detectedUniversity ? (
+                      <>
+                        <CheckCircleIcon />
+                        <div>
+                          <p className="text-sm font-medium text-green-800">
+                            University detected
+                          </p>
+                          <p className="text-sm text-green-700">
+                            You will be enrolled in <strong>{detectedUniversity.name}</strong>
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircleIcon />
+                        <div>
+                          <p className="text-sm font-medium text-amber-800">
+                            University not found
+                          </p>
+                          <p className="text-sm text-amber-700">
+                            No university matches your email domain. Please contact support.
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Password Input - Required */}
               <input
                 type="password"
@@ -469,59 +564,18 @@ export default function RegisterPage() {
                 minLength={6}
                 className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               />
-
-              {/*
-                University Dropdown - Required
-
-                Populated with universities from API.
-                Auto-selects when user enters a matching .edu email.
-                Shows visual indicator when auto-detected.
-              */}
-              <div className="relative">
-                <select
-                  name="universityId"
-                  value={formData.universityId}
-                  onChange={handleChange}
-                  disabled={loading || loadingUniversities}
-                  required
-                  className={`w-full px-4 py-3 bg-muted border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${
-                    universityAutoDetected
-                      ? 'border-green-500 ring-1 ring-green-500'
-                      : 'border-border'
-                  }`}
-                >
-                  <option value="">
-                    {loadingUniversities
-                      ? 'Loading universities...'
-                      : 'Select your university *'}
-                  </option>
-                  {universities.map((uni) => (
-                    <option key={uni.id} value={uni.id}>
-                      {uni.name}
-                      {uni.location ? ` - ${uni.location}` : ''}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Auto-detection indicator */}
-                {universityAutoDetected && (
-                  <p className="mt-1 text-xs text-green-600">
-                    ✓ University detected from your email
-                  </p>
-                )}
-              </div>
             </div>
 
             {/*
               Create Account Button
 
               Opens terms modal when clicked.
-              Disabled during submission.
+              Disabled during submission or if no university detected.
             */}
             <button
               type="button"
               onClick={handleCreateAccount}
-              disabled={loading}
+              disabled={loading || loadingUniversities}
               className="w-full bg-gradient-primary text-white px-6 py-3 rounded-lg font-semibold hover:shadow-hover transition-all duration-200 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creating account...' : 'Create account'}
@@ -529,14 +583,14 @@ export default function RegisterPage() {
           </form>
 
           {/*
-            Profile Completion Note
+            Auto-Enrollment Note
 
-            Informs users they can add more details after registration.
+            Informs users that university is determined by email domain.
           */}
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-700 text-center">
               <InfoIcon />
-              After registration, you can add skills, interests, and a profile picture.
+              Your university is automatically determined by your .edu email domain.
             </p>
           </div>
 

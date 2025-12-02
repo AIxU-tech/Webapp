@@ -1,3 +1,19 @@
+"""
+API Authentication Routes
+
+Handles user authentication flows for the React frontend:
+- Login: Authenticate existing users
+- Registration: Create new accounts with email verification
+- Email Verification: Confirm email ownership with 6-digit codes
+- Logout: End user sessions
+
+Auto-Enrollment:
+During registration, users are automatically enrolled in a university
+based on their .edu email domain. For example, a user registering with
+"student@uoregon.edu" will be automatically enrolled in the University
+of Oregon if it exists in the database with email_domain="uoregon".
+"""
+
 from flask import Blueprint, request, jsonify, session
 from flask_login import login_user, logout_user, login_required
 import time
@@ -63,22 +79,28 @@ def api_login():
 @api_auth_bp.route('/register', methods=['POST'])
 def api_register():
     """
-    API endpoint for user registration
+    API endpoint for user registration with automatic university enrollment.
+
+    Users are automatically enrolled in a university based on their .edu email
+    domain. No manual university selection is required or allowed.
 
     Request body (JSON):
     {
-        "email": "user@example.com",
+        "email": "user@uoregon.edu",
         "password": "password123",
         "firstName": "John",
-        "lastName": "Doe",
-        "universityId": 1
+        "lastName": "Doe"
     }
 
-    All fields are required.
+    Auto-Enrollment Process:
+    1. User provides a .edu email address
+    2. System extracts the email domain (e.g., "uoregon" from "@uoregon.edu")
+    3. System finds a university with matching email_domain field
+    4. If found, user is automatically enrolled upon verification
 
     Returns:
-    - 200: Success, verification email sent
-    - 400: Missing required fields or validation error
+    - 200: Success with university info (if matched), verification email sent
+    - 400: Missing required fields, invalid email format, or no matching university
     - 409: Email already exists
     """
     try:
@@ -90,7 +112,6 @@ def api_register():
         password = data.get('password', '')
         first_name = data.get('firstName', '').strip()
         last_name = data.get('lastName', '').strip()
-        university_id = data.get('universityId')
 
         # Validate all required fields are present
         if not email or not password:
@@ -102,27 +123,34 @@ def api_register():
         if not last_name:
             return jsonify({'error': 'Last name is required'}), 400
 
-        if not university_id:
-            return jsonify({'error': 'University selection is required'}), 400
+        # Validate email format - must be a .edu email
+        if '@' not in email:
+            return jsonify({'error': 'Please enter a valid email address'}), 400
 
-        # Validate university exists
-        university = University.query.get(int(university_id))
+        email_domain = email.split('@')[1].lower()
+        if not email_domain.endswith('.edu'):
+            return jsonify({'error': 'Please use your university .edu email address'}), 400
+
+        # Find university matching the email domain
+        # This uses the University.find_by_email_domain() class method
+        university = University.find_by_email_domain(email)
         if not university:
-            return jsonify({'error': 'Selected university not found'}), 400
+            return jsonify({
+                'error': 'No university found for your email domain. Please contact support if you believe this is an error.'
+            }), 400
 
         # Check if email already exists
         if User.query.filter_by(email=email).first():
             return jsonify({'error': 'Email already exists'}), 409
 
         # Store registration data in session for verification
-        # Note: first_name, last_name, university_id are required for new registrations
-        # but we still store with fallbacks for robustness
+        # University ID is determined automatically from email domain
         session['pending_registration'] = {
             'email': email,
             'password': password,
-            'first_name': first_name or None,
-            'last_name': last_name or None,
-            'university_id': str(university_id) if university_id else None,
+            'first_name': first_name,
+            'last_name': last_name,
+            'university_id': str(university.id),
             'timestamp': time.time()
         }
 
@@ -136,7 +164,13 @@ def api_register():
             return jsonify({
                 'success': True,
                 'message': 'Verification code sent to your email',
-                'email': email
+                'email': email,
+                # Include university info so frontend can display it
+                'university': {
+                    'id': university.id,
+                    'name': university.name,
+                    'clubName': university.clubName
+                }
             }), 200
         else:
             # Failed to send email, clean up session
@@ -154,7 +188,12 @@ def api_register():
 @api_auth_bp.route('/verify-email', methods=['POST'])
 def api_verify_email():
     """
-    API endpoint to verify email with verification code
+    API endpoint to verify email with verification code and complete registration.
+
+    Upon successful verification:
+    1. Creates the user account
+    2. Automatically enrolls them in the university matching their email domain
+    3. Logs them in
 
     Request body (JSON):
     {
@@ -162,7 +201,7 @@ def api_verify_email():
     }
 
     Returns:
-    - 200: Success, user registered and logged in
+    - 200: Success, user registered, enrolled in university, and logged in
     - 400: Missing code or no pending registration
     - 401: Invalid or expired code
     """
@@ -193,30 +232,26 @@ def api_verify_email():
             # Check if user already exists (shouldn't happen, but be safe)
             user = User.query.filter_by(email=reg_data['email']).first()
             if user is None:
-                # Create new user
+                # Get the university for auto-enrollment
+                # University ID was determined during registration based on email domain
+                university_id = reg_data.get('university_id')
+                university = University.query.get(int(university_id)) if university_id else None
+
+                # Create new user with university already set
                 user = User(
                     email=reg_data['email'],
                     first_name=reg_data['first_name'],
                     last_name=reg_data['last_name'],
-                    university=None  # Will be set when joining university
+                    university=university.name if university else None
                 )
                 user.set_password(reg_data['password'])
                 db.session.add(user)
                 db.session.commit()
 
-            # Handle university joining if university_id was provided
-            university_id = reg_data.get('university_id')
-            if university_id:
-                try:
-                    uni = University.query.get(int(university_id))
-                    if uni:
-                        # Add user to university members
-                        uni.add_member(user.id)
-                        # Set user's university name
-                        user.university = uni.name
-                        db.session.commit()
-                except (ValueError, TypeError):
-                    pass  # Invalid university_id, just skip
+                # Add user to university members list (automatic enrollment)
+                if university:
+                    university.add_member(user.id)
+                    db.session.commit()
 
             # Clean up session
             session.pop('pending_registration', None)

@@ -9,8 +9,7 @@
  * Universities:
  * - useUniversities() - Get all universities
  * - useUniversity(id) - Get single university
- * - useJoinUniversity() - Join mutation
- * - useLeaveUniversity() - Leave mutation
+ * - useRemoveMember() - Remove member mutation (admin only)
  * - prefetchUniversities() - Prefetch universities list
  *
  * Notes/Community:
@@ -46,8 +45,7 @@
 export {
   useUniversities,
   useUniversity,
-  useJoinUniversity,
-  useLeaveUniversity,
+  useRemoveMember,
   universityKeys,
   prefetchUniversities,
 } from './useUniversities';

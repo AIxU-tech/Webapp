@@ -14,6 +14,11 @@
  * - Edit profile modal (own profile only)
  * - Profile picture upload with cropping (own profile only)
  *
+ * University Affiliation:
+ * Users are automatically enrolled in a university based on their .edu email
+ * domain during registration. The profile page displays the user's university
+ * but does not allow changing it manually. University affiliation is read-only.
+ *
  * @component
  */
 
@@ -22,7 +27,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { logout } from '../api/auth';
 import { updateProfile, uploadProfilePicture, deleteProfilePicture } from '../api/users';
-import { useUser, useUniversities, userKeys } from '../hooks';
+import { useUser, userKeys } from '../hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import ConfirmationModal from '../components/ConfirmationModal';
 
@@ -156,12 +161,6 @@ export default function ProfilePage() {
   const cropImageRef = useRef(null);
   const cropContainerRef = useRef(null);
 
-  // ---------------------------------------------------------------------------
-  // Universities Data (for edit modal dropdown)
-  // ---------------------------------------------------------------------------
-  // Uses React Query hook - data is likely already cached from prefetch
-  const { data: universities = [] } = useUniversities();
-
   // Track if form has been initialized to prevent resetting on background refetch
   const [formInitialized, setFormInitialized] = useState(false);
 
@@ -171,6 +170,9 @@ export default function ProfilePage() {
    * Sets up form data when the edit modal opens.
    * Only runs once per modal open to prevent losing unsaved changes
    * if a background refetch occurs while the user is editing.
+   *
+   * Note: University affiliation is not editable - it's determined by
+   * the user's email domain at registration time.
    */
   useEffect(() => {
     // Only initialize when modal opens and we have user data
@@ -186,19 +188,10 @@ export default function ProfilePage() {
     }
 
     if (user && isOwnProfile) {
-      // Find the current university ID
-      let universityId = '';
-      if (user.university && universities.length > 0) {
-        const currentUni = universities.find((uni) => uni.name === user.university);
-        if (currentUni) {
-          universityId = currentUni.id;
-        }
-      }
-
+      // Initialize form data - university is read-only (not included)
       setFormData({
         first_name: user.first_name || '',
         last_name: user.last_name || '',
-        university_id: universityId,
         location: user.location || '',
         avatar_url: user.avatar_url || '',
         about_section: user.about_section || '',
@@ -208,7 +201,7 @@ export default function ProfilePage() {
 
       setFormInitialized(true);
     }
-  }, [showEditModal, user, universities, isOwnProfile, formInitialized]);
+  }, [showEditModal, user, isOwnProfile, formInitialized]);
 
   /**
    * Handle Edit Profile
@@ -874,23 +867,19 @@ export default function ProfilePage() {
                   />
                 </div>
               </div>
+              {/*
+                University Display (Read-only)
+
+                University affiliation is determined by the user's .edu email
+                domain at registration. It cannot be changed manually.
+              */}
               <div>
                 <label className="block text-sm text-muted-foreground mb-1">University</label>
-                <select
-                  value={formData.university_id || ''}
-                  onChange={(e) => setFormData({ ...formData, university_id: e.target.value })}
-                  className="w-full px-3 py-2 bg-muted border border-border rounded-md"
-                >
-                  <option value="">No university (leave all universities)</option>
-                  {universities.map((uni) => (
-                    <option key={uni.id} value={uni.id}>
-                      {uni.name}{uni.location ? ` - ${uni.location}` : ''}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-foreground">
+                  {user?.university || 'No university affiliated'}
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Changing your university will remove you from your current one and add you to the new one.
-                  You can only be a member of one university at a time.
+                  University is determined by your .edu email domain and cannot be changed.
                 </p>
               </div>
               <div>

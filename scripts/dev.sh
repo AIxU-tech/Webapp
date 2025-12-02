@@ -82,7 +82,7 @@ echo -e "${CYAN}======================================${NC}"
 echo -e "${GREEN}Starting AIxU Development Servers...${NC}"
 echo -e "${CYAN}======================================${NC}"
 echo -e "${YELLOW}Backend:${NC}  http://localhost:5000"
-echo -e "${YELLOW}Frontend:${NC} http://localhost:5173/app/"
+echo -e "${YELLOW}Frontend:${NC} http://localhost:5173/app"
 echo ""
 
 # Start Flask backend

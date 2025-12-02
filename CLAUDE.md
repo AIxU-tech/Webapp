@@ -6,13 +6,16 @@ This file provides essential guidance for working with the AIxU codebase.
 
 ## Overview
 
-AIxU is a Flask-based social platform connecting AI students and researchers across universities. Users can network, share notes, join university-specific AI clubs, and message each other.
+AIxU is a Flask-based social platform connecting AI students and researchers across universities. Users can network, share notes, participate in university-specific AI clubs, and message each other.
+
+**University Auto-Enrollment:**
+Users are automatically enrolled in a university based on their .edu email domain during registration. For example, a user registering with `student@uoregon.edu` is automatically enrolled in the University of Oregon. Manual joining is not supported.
 
 **Architecture:**
 - **Backend:** Flask + SQLAlchemy + PostgreSQL + Flask-Login + Flask-SocketIO
 - **Frontend:** React 19 + Vite + React Router + TanStack Query + Tailwind CSS
 - **Real-time:** WebSocket via Socket.IO for live messaging and notifications
-- **Deployment:** React SPA served at `/app/*`, API at `/api/*`
+- **Deployment:** React SPA served at `/app*`, API at `/api/*`
 
 ---
 
@@ -50,7 +53,7 @@ AIxU_website/
 │   ├── config/cache.js        # React Query stale/gc times
 │   └── services/prefetch.js   # Background data prefetching
 │
-├── static/app/                # React build output (Vite)
+├── static/app                # React build output (Vite)
 │
 └── tests/                     # pytest suite
 ```
@@ -74,11 +77,12 @@ All models in `backend/models/` inherit from `db.Model`.
 - `to_dict()` - Serialize to JSON
 
 ### University (`backend/models/university.py`)
-**Fields:** `id`, `name`, `clubName`, `location`, `description`, `admin_id`
+**Fields:** `id`, `name`, `clubName`, `location`, `description`, `admin_id`, `email_domain`
 **JSON fields:** `tags`, `members` (array of user IDs)
 
 **Key methods:**
 - `add_member()`, `remove_member()` - Member management
+- `find_by_email_domain(email)` - Find university matching a .edu email
 - `to_dict()` - Serialize to JSON
 
 ### Note (`backend/models/note.py`)
@@ -214,9 +218,10 @@ POST /delete_profile_picture      - Delete profile picture
 GET  /api/universities            - List all
 GET  /api/universities/<id>       - Get by ID
 POST /universities/new            - Create university
-POST /universities/<id>/join      - Join university
+POST /universities/<id>/remove_member/<user_id> - Remove member (admin only)
 POST /api/universities/<id>/like  - Like/unlike
 ```
+Note: Users are auto-enrolled based on email domain at registration. No manual join endpoint.
 
 ### Notes (`/api/notes/*`)
 ```
@@ -247,7 +252,7 @@ GET /app/*     - React Router handles client-side routing
 ```
 
 **React Client-Side Routes:**
-- `/app/` - Landing page (redirects to /community if authenticated)
+- `/app` - Landing page (redirects to /community if authenticated)
 - `/app/login`, `/app/register`, `/app/verify-email` - Auth flows
 - `/app/community` - Notes feed
 - `/app/universities`, `/app/universities/:id`, `/app/universities/new`
@@ -268,7 +273,7 @@ python app.py
 cd frontend && npm run dev
 ```
 
-Visit: `http://localhost:5173/app/`
+Visit: `http://localhost:5173/app`
 
 **How it works:**
 - Vite proxies `/api/*` to Flask on port 5000
@@ -281,7 +286,7 @@ Visit: `http://localhost:5173/app/`
 cd frontend && npm run build
 ```
 
-Output goes to `static/app/` and Flask serves it at `/app` route.
+Output goes to `static/app` and Flask serves it at `/app` route.
 
 ### Adding New React Pages
 

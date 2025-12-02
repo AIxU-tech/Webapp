@@ -1,3 +1,21 @@
+"""
+Universities Routes
+
+Handles university-related endpoints for both the legacy Flask templates
+and the React frontend API.
+
+Auto-Enrollment System:
+Users are automatically enrolled in a university based on their .edu email
+domain during registration. Manual joining is not supported - university
+membership is determined solely by the user's email domain.
+
+Available Endpoints:
+- GET /api/universities/list - List all universities
+- GET /api/universities/<id> - Get university details
+- POST /universities/<id>/remove_member/<user_id> - Remove member (admin only)
+- POST /universities/<id>/delete - Delete university (admin only)
+"""
+
 from flask import Blueprint, request, flash, redirect, url_for, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import func
@@ -9,69 +27,63 @@ from backend.constants import SUPER_ADMIN
 universities_bp = Blueprint('universities', __name__)
 
 
-@universities_bp.route('/universities/<int:university_id>/join', methods=['POST'])
-@login_required
-def join_university(university_id: int):
-    uni = University.query.get(university_id)
-    if not uni:
-        flash('University not found', 'error')
-        return redirect(url_for('universities.universities'))
-
-    # Check membership
-    member_ids = uni.get_members_list()
-    if current_user.id in member_ids:
-        flash('You are already a member of this university.', 'info')
-        return redirect(url_for('universities.university_detail', university_id=uni.id))
-
-    # Prevent joining more than one university
-    if current_user.university and current_user.university != uni.name:
-        flash('You are already affiliated with another university.', 'error')
-        return redirect(url_for('universities.university_detail', university_id=uni.id))
-
-    # Check email domain matches admin's
-    admin_user = User.query.get(uni.admin_id) if uni.admin_id else None
-    if not admin_user or not admin_user.email or '@' not in admin_user.email:
-        flash('This university is not configured for domain-based membership.', 'error')
-        return redirect(url_for('universities.university_detail', university_id=uni.id))
-
-    admin_domain = admin_user.email.split('@', 1)[1].lower()
-    user_domain = current_user.email.split('@', 1)[1].lower() if current_user.email and '@' in current_user.email else ''
-
-    if admin_domain != user_domain:
-        flash(f'You must have an email ending in @{admin_domain} to join this university.', 'error')
-        return redirect(url_for('universities.university_detail', university_id=uni.id))
-
-    # Add member
-    uni.add_member(current_user.id)
-    # Optionally reflect on user's profile
-    current_user.university = uni.name
-    db.session.commit()
-    flash('You have joined the university.', 'success')
-    return redirect(url_for('universities.university_detail', university_id=uni.id))
+# NOTE: The join_university endpoint has been removed.
+# Users are now automatically enrolled in a university based on their
+# .edu email domain during registration. See api_auth.py for the
+# auto-enrollment implementation.
 
 
 @universities_bp.route('/universities/<int:university_id>/remove_member/<int:user_id>', methods=['POST'])
 @login_required
 def remove_member(university_id: int, user_id: int):
+    """
+    Remove a member from a university (admin only).
+
+    This endpoint allows university admins or super admins to remove a member
+    from the university. The removed user will no longer be associated with
+    the university.
+
+    Note: Removing a member does NOT prevent them from re-enrolling if they
+    register again with the same .edu email. To permanently block a user,
+    additional measures would be needed.
+
+    Args:
+        university_id: ID of the university
+        user_id: ID of the user to remove
+
+    Authorization:
+        - University admin (admin_id matches current user)
+        - Super admin (permission_level >= 2)
+
+    Returns:
+        Redirect to university detail page with flash message
+    """
     uni = University.query.get(university_id)
     if not uni:
         flash('University not found', 'error')
         return redirect(url_for('universities.universities'))
-    # Allow university admin OR super admin (level 2) to remove members
+
+    # Authorization check: only university admin or super admin can remove members
     if uni.admin_id != current_user.id and current_user.permission_level < SUPER_ADMIN:
         flash('You are not authorized to remove members.', 'error')
         return redirect(url_for('universities.university_detail', university_id=uni.id))
+
     member_ids = uni.get_members_list()
     if user_id in member_ids:
+        # Remove user from university members list
         member_ids.remove(user_id)
         uni.set_members_list(member_ids)
+
+        # Clear the user's university affiliation
         user = User.query.get(user_id)
         if user and user.university == uni.name:
             user.university = None
+
         db.session.commit()
         flash('Member removed.', 'success')
     else:
         flash('Member not found in this university.', 'error')
+
     return redirect(url_for('universities.university_detail', university_id=uni.id))
 
 
@@ -130,7 +142,22 @@ def api_universities_list():
 def api_university_detail(university_id: int):
     """
     Get detailed information about a single university for React frontend.
-    Includes members list, stats, tags, and admin information.
+
+    Returns university information including:
+    - Basic info (name, location, description)
+    - Statistics (member count, posts, events)
+    - Members list with profile information
+    - Admin information
+
+    Note: Since users are automatically enrolled based on email domain,
+    this endpoint no longer includes join eligibility information.
+    Users can only be enrolled during registration.
+
+    Args:
+        university_id: ID of the university to retrieve
+
+    Returns:
+        JSON object with university details
     """
     # Fetch university from database
     uni = University.query.get(university_id)
@@ -140,7 +167,7 @@ def api_university_detail(university_id: int):
     # Update post count for accuracy
     uni.update_post_count()
 
-    # Get members list
+    # Get members list with their profile information
     members = []
     member_ids = uni.get_members_list()
     if member_ids:
@@ -158,13 +185,7 @@ def api_university_detail(university_id: int):
                 'postCount': m.post_count or 0,
             })
 
-    # Derive required domain from admin email
-    admin_user = User.query.get(uni.admin_id) if uni.admin_id else None
-    required_domain = None
-    if admin_user and admin_user.email and '@' in admin_user.email:
-        required_domain = admin_user.email.split('@', 1)[1].lower()
-
-    # Check if current user is a member
+    # Check if current user is a member (for UI display purposes)
     is_member = (current_user.is_authenticated and current_user.id in member_ids) if member_ids else False
 
     # Build response
@@ -173,6 +194,7 @@ def api_university_detail(university_id: int):
         'name': uni.name,
         'location': uni.location or '',
         'clubName': uni.clubName or f"{uni.name} AI Club",
+        'emailDomain': uni.email_domain or '',
         'memberCount': uni.member_count or 0,
         'recentPosts': uni.recent_posts or 0,
         'upcomingEvents': uni.upcoming_events or 0,
@@ -180,7 +202,6 @@ def api_university_detail(university_id: int):
         'tags': json.loads(uni.tags) if uni.tags else [],
         'members': members,
         'adminId': uni.admin_id,
-        'requiredDomain': required_domain,
         'isMember': is_member,
     }
     return jsonify(detail)

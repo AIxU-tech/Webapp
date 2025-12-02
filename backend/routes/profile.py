@@ -1,4 +1,26 @@
-from flask import Blueprint, request, flash, redirect, url_for, jsonify, send_file
+"""
+Profile Routes
+
+Handles user profile management for the React frontend API.
+
+University Affiliation:
+Users are automatically enrolled in a university based on their .edu email
+domain during registration. The profile page displays the user's university
+but does not allow changing it manually. To change university affiliation,
+users would need to register with a different .edu email address.
+
+Available Endpoints:
+- GET /api/user/profile - Get current user profile
+- GET /api/users/<id> - Get user profile by ID
+- GET /api/user/stats - Get current user statistics
+- GET /user/<id>/profile_picture - Serve profile picture from database
+- POST /api/update_profile - Update profile (name, bio, skills, interests, etc.)
+- POST /api/upload_profile_picture - Upload profile picture
+- POST /api/delete_profile_picture - Delete profile picture
+- POST /api/delete_account - Delete user account
+"""
+
+from flask import Blueprint, request, jsonify, send_file, redirect
 from flask_login import login_required, current_user, logout_user
 from datetime import datetime
 import base64
@@ -10,90 +32,65 @@ from backend.utils.image import allowed_file, compress_image
 profile_bp = Blueprint('profile', __name__)
 
 
-# This callback is used to reload the user object from the user ID stored in the session
+# =============================================================================
+# Flask-Login Configuration
+# =============================================================================
+
 from backend.extensions import login_manager
 
 
 @login_manager.user_loader
 def load_user(user_id):
+    """
+    Load user by ID for Flask-Login session management.
+
+    This callback is used to reload the user object from the user ID
+    stored in the session.
+
+    Args:
+        user_id: User ID stored in session
+
+    Returns:
+        User object or None if not found
+    """
     return User.query.get(int(user_id))
 
 
 @login_manager.unauthorized_handler
 def handle_unauthorized():
-    # Return 401 for API requests so frontend can handle it cleanly
-    if request.path.startswith('/api/'):
-        return jsonify({'error': 'Unauthorized'}), 401
-    return redirect(url_for('auth.login'))
+    """
+    Handle unauthorized access attempts.
+
+    Returns 401 JSON response for API requests so the React frontend
+    can handle authentication redirects cleanly.
+
+    Returns:
+        JSON error response with 401 status for API routes
+    """
+    return jsonify({'error': 'Unauthorized'}), 401
 
 
-# Route to update a users profile on the edit profile button on the profile.html page
-@profile_bp.route('/update_profile', methods=['POST'])
-@login_required
-def update_profile():
-    current_user.first_name = request.form.get('first_name', '').strip() or None
-    current_user.last_name = request.form.get('last_name', '').strip() or None
-    current_user.about_section = request.form.get('about_section', '').strip() or None
-    current_user.location = request.form.get('location', '').strip() or None
-    current_user.avatar_url = request.form.get('avatar_url', '').strip() or None
-
-    # Handle university selection and joining with comprehensive cleanup
-    university_id = request.form.get('university_id', '').strip()
-
-    # First, remove user from ALL universities to prevent dual membership
-    # This ensures clean state regardless of any data inconsistencies
-    all_universities = University.query.all()
-    for uni in all_universities:
-        member_ids = uni.get_members_list()
-        if current_user.id in member_ids:
-            uni.remove_member(current_user.id)
-
-    # Now handle the new university selection
-    if university_id:
-        try:
-            new_uni = University.query.get(int(university_id))
-            if new_uni:
-                # Add user to the selected university
-                new_uni.add_member(current_user.id)
-                # Update user's university name
-                current_user.university = new_uni.name
-            else:
-                # Invalid university selected, clear user's university
-                current_user.university = None
-        except (ValueError, TypeError):
-            # Invalid university_id, clear user's university
-            current_user.university = None
-    else:
-        # No university selected, user is leaving all universities
-        current_user.university = None
-
-    # Handle skills (comma-separated string to list)
-    skills_input = request.form.get('skills', '')
-    if skills_input.strip():
-        skills_list = [skill.strip() for skill in skills_input.split(',') if skill.strip()]
-        current_user.set_skills_list(skills_list)
-    else:
-        current_user.set_skills_list([])
-
-    # Handle interests (comma-separated string to list)
-    interests_input = request.form.get('interests', '')
-    if interests_input.strip():
-        interests_list = [interest.strip() for interest in interests_input.split(',') if interest.strip()]
-        current_user.set_interests_list(interests_list)
-    else:
-        current_user.set_interests_list([])
-
-    db.session.commit()
-    flash('Profile updated successfully!')
-    return redirect(url_for('profile.profile'))
-
+# =============================================================================
+# Profile Picture Serving
+# =============================================================================
 
 @profile_bp.route('/user/<int:user_id>/profile_picture')
 def get_profile_picture(user_id):
-    """Serve profile picture from database"""
+    """
+    Serve profile picture from database.
+
+    Returns the user's uploaded profile picture as binary image data.
+    Falls back to a default avatar URL if no picture is set.
+
+    Args:
+        user_id: ID of the user whose picture to serve
+
+    Returns:
+        Binary image data with appropriate MIME type, or redirect to default
+    """
     user = User.query.get(user_id)
     if not user or not user.profile_picture:
-        # Return default avatar or 404
+        # Return default avatar
         return redirect('https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face')
 
     return send_file(
@@ -103,140 +100,39 @@ def get_profile_picture(user_id):
     )
 
 
-@profile_bp.route('/upload_profile_picture', methods=['POST'])
-@login_required
-def upload_profile_picture():
-    """Handle profile picture upload (both file upload and camera capture)"""
-    try:
-        image_data = None
-        filename = None
-        mimetype = None
+# =============================================================================
+# API Endpoints - User Profile
+# =============================================================================
 
-        # Handle file upload
-        if 'profile_picture' in request.files:
-            file = request.files['profile_picture']
-            if file and file.filename != '' and allowed_file(file.filename):
-                filename = file.filename
-                mimetype = file.content_type
-                image_data = file.read()
-
-        # Handle base64 camera capture
-        elif 'camera_image' in request.form:
-            camera_data = request.form['camera_image']
-            if camera_data.startswith('data:image/'):
-                # Remove data URL prefix
-                header, data = camera_data.split(',', 1)
-                image_data = base64.b64decode(data)
-                # Extract MIME type from header
-                mimetype = header.split(';')[0].split(':')[1]
-                filename = f"camera_capture_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.jpg"
-
-        if not image_data:
-            flash('No image data received', 'error')
-            return redirect(url_for('profile.profile'))
-
-        # Compress image to reduce size
-        compressed_data = compress_image(image_data)
-
-        # Set profile picture
-        current_user.set_profile_picture(compressed_data, filename, 'image/jpeg')
-        db.session.commit()
-
-        flash('Profile picture updated successfully!', 'success')
-        return redirect(url_for('profile.profile'))
-
-    except ValueError as e:
-        flash(str(e), 'error')
-        return redirect(url_for('profile.profile'))
-    except Exception as e:
-        flash('Error uploading profile picture. Please try again.', 'error')
-        return redirect(url_for('profile.profile'))
-
-
-@profile_bp.route('/delete_profile_picture', methods=['POST'])
-@login_required
-def delete_profile_picture():
-    """Delete current profile picture"""
-    current_user.delete_profile_picture()
-    db.session.commit()
-    flash('Profile picture removed successfully!', 'success')
-    return redirect(url_for('profile.profile'))
-
-
-@profile_bp.route('/delete_account', methods=['POST'])
-@login_required
-def delete_account():
-    """Delete user account and all associated data"""
-    user_id = current_user.id
-
-    try:
-        # 1. Delete all notes created by the user
-        Note.query.filter_by(author_id=user_id).delete()
-
-        # 2. Delete all messages sent or received by the user
-        Message.query.filter(
-            db.or_(
-                Message.sender_id == user_id,
-                Message.recipient_id == user_id
-            )
-        ).delete()
-
-        # 3. Delete all user follows (both following and followers)
-        UserFollows.query.filter(
-            db.or_(
-                UserFollows.follower_id == user_id,
-                UserFollows.following_id == user_id
-            )
-        ).delete()
-
-        # 4. Delete all liked universities
-        UserLikedUniversity.query.filter_by(user_id=user_id).delete()
-
-        # 5. Remove user from all university member lists
-        all_universities = University.query.all()
-        for uni in all_universities:
-            member_ids = uni.get_members_list()
-            if user_id in member_ids:
-                uni.remove_member(user_id)
-
-        # 6. If user is admin of any universities, handle them
-        # Option: Delete universities OR set admin to None
-        administered_universities = University.query.filter_by(admin_id=user_id).all()
-        for uni in administered_universities:
-            # Set admin to None (keep university but remove admin)
-            uni.admin_id = None
-            # Alternative: Delete the university entirely
-            # db.session.delete(uni)
-
-        # 7. Finally, delete the user account
-        user_to_delete = User.query.get(user_id)
-        db.session.delete(user_to_delete)
-
-        # Commit all deletions
-        db.session.commit()
-
-        # Log out the user
-        logout_user()
-
-        flash('Your account has been permanently deleted. We\'re sorry to see you go.', 'info')
-        return redirect(url_for('public.index'))
-
-    except Exception as e:
-        db.session.rollback()
-        flash('An error occurred while deleting your account. Please try again or contact support.', 'error')
-        return redirect(url_for('profile.profile'))
-
-
-# API endpoints
 @profile_bp.route('/api/user/profile')
 @login_required
 def api_user_profile():
+    """
+    Get current authenticated user's profile.
+
+    Returns:
+        JSON object with user profile data
+    """
     return jsonify(current_user.to_dict())
 
 
 @profile_bp.route('/api/users/<int:user_id>')
 def api_user_detail(user_id: int):
-    """Get user profile by ID with recent activity"""
+    """
+    Get user profile by ID with recent activity.
+
+    Returns detailed user information including:
+    - Basic profile info (name, university, location, etc.)
+    - Skills and interests
+    - Recent activity feed (posts)
+    - Profile picture URL
+
+    Args:
+        user_id: ID of the user to retrieve
+
+    Returns:
+        JSON object with user profile and activity data
+    """
     user = User.query.get(user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
@@ -256,7 +152,7 @@ def api_user_detail(user_id: int):
             'created_at': post.created_at.isoformat() if post.created_at else None
         })
 
-    # If no posts, add join activity
+    # If no posts, add join activity as placeholder
     if not recent_activity:
         recent_activity.append({
             'type': 'join',
@@ -276,6 +172,12 @@ def api_user_detail(user_id: int):
 @profile_bp.route('/api/user/stats')
 @login_required
 def api_user_stats():
+    """
+    Get current user's statistics.
+
+    Returns:
+        JSON object with post count, follower count, and following count
+    """
     return jsonify({
         'posts': current_user.post_count,
         'followers': current_user.follower_count,
@@ -283,10 +185,41 @@ def api_user_stats():
     })
 
 
+# =============================================================================
+# API Endpoints - Profile Updates
+# =============================================================================
+
 @profile_bp.route('/api/update_profile', methods=['POST'])
 @login_required
 def api_update_profile():
-    """API endpoint to update user profile"""
+    """
+    Update user profile information.
+
+    Allows updating:
+    - first_name, last_name: User's name
+    - about_section: Bio/about text
+    - location: Geographic location
+    - avatar_url: Fallback avatar URL
+    - skills: Array or comma-separated string of skills
+    - interests: Array or comma-separated string of interests
+
+    Note: University affiliation cannot be changed through this endpoint.
+    Users are automatically enrolled in a university based on their .edu
+    email domain during registration.
+
+    Request body (JSON):
+    {
+        "first_name": "John",
+        "last_name": "Doe",
+        "about_section": "AI researcher...",
+        "location": "Portland, OR",
+        "skills": ["Python", "Machine Learning"],
+        "interests": ["NLP", "Computer Vision"]
+    }
+
+    Returns:
+        JSON object with success status and updated user data
+    """
     try:
         data = request.json
 
@@ -302,35 +235,12 @@ def api_update_profile():
         if 'avatar_url' in data:
             current_user.avatar_url = data['avatar_url'].strip() or None
 
-        # Handle university selection and joining with comprehensive cleanup
-        if 'university_id' in data:
-            university_id = data['university_id']
+        # NOTE: University selection has been removed.
+        # Users are automatically enrolled in a university based on their
+        # .edu email domain during registration. The university field is
+        # read-only and cannot be changed through this endpoint.
 
-            # First, remove user from ALL universities to prevent dual membership
-            all_universities = University.query.all()
-            for uni in all_universities:
-                member_ids = uni.get_members_list()
-                if current_user.id in member_ids:
-                    uni.remove_member(current_user.id)
-
-            # Now handle the new university selection
-            if university_id:
-                try:
-                    new_uni = University.query.get(int(university_id))
-                    if new_uni:
-                        # Add user to the selected university
-                        new_uni.add_member(current_user.id)
-                        # Update user's university name
-                        current_user.university = new_uni.name
-                    else:
-                        current_user.university = None
-                except (ValueError, TypeError):
-                    current_user.university = None
-            else:
-                # No university selected, user is leaving all universities
-                current_user.university = None
-
-        # Handle skills (array to JSON)
+        # Handle skills (array or comma-separated string)
         if 'skills' in data:
             skills = data['skills']
             if isinstance(skills, list):
@@ -342,7 +252,7 @@ def api_update_profile():
             else:
                 current_user.set_skills_list([])
 
-        # Handle interests (array to JSON)
+        # Handle interests (array or comma-separated string)
         if 'interests' in data:
             interests = data['interests']
             if isinstance(interests, list):
@@ -371,10 +281,25 @@ def api_update_profile():
         }), 400
 
 
+# =============================================================================
+# API Endpoints - Profile Picture Management
+# =============================================================================
+
 @profile_bp.route('/api/upload_profile_picture', methods=['POST'])
 @login_required
 def api_upload_profile_picture():
-    """API endpoint to upload profile picture"""
+    """
+    Upload or update profile picture.
+
+    Accepts either:
+    - File upload via 'profile_picture' form field
+    - Base64 encoded image via 'camera_image' form field
+
+    Images are automatically compressed to reduce storage size.
+
+    Returns:
+        JSON object with success status and new profile picture URL
+    """
     try:
         image_data = None
         filename = None
@@ -405,7 +330,7 @@ def api_upload_profile_picture():
                 'error': 'No image data received'
             }), 400
 
-        # Compress image to reduce size
+        # Compress image to reduce storage size
         compressed_data = compress_image(image_data)
 
         # Set profile picture
@@ -434,7 +359,14 @@ def api_upload_profile_picture():
 @profile_bp.route('/api/delete_profile_picture', methods=['POST', 'DELETE'])
 @login_required
 def api_delete_profile_picture():
-    """API endpoint to delete profile picture"""
+    """
+    Delete current profile picture.
+
+    Removes the user's uploaded profile picture, reverting to the default avatar.
+
+    Returns:
+        JSON object with success status and default profile picture URL
+    """
     try:
         current_user.delete_profile_picture()
         db.session.commit()
@@ -452,10 +384,27 @@ def api_delete_profile_picture():
         }), 500
 
 
+# =============================================================================
+# API Endpoints - Account Management
+# =============================================================================
+
 @profile_bp.route('/api/delete_account', methods=['POST', 'DELETE'])
 @login_required
 def api_delete_account():
-    """API endpoint to delete user account"""
+    """
+    Permanently delete user account and all associated data.
+
+    This action is irreversible and will delete:
+    - All notes/posts created by the user
+    - All messages sent or received
+    - All follow relationships
+    - All university likes
+    - University membership (removes from member lists)
+    - If user is admin of any universities, admin is set to None
+
+    Returns:
+        JSON object with success status
+    """
     user_id = current_user.id
 
     try:

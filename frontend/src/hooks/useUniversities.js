@@ -4,29 +4,17 @@
  * Provides React Query hooks for fetching and managing university data.
  * These hooks handle caching, loading states, and error handling automatically.
  *
- * Key Features:
- * - Centralized cache: Universities fetched once, shared across all pages
- * - Long stale time: Universities rarely change, so cache aggressively
- * - Optimistic updates: UI updates immediately on join/leave
- *
  * Available Hooks:
  * - useUniversities(): Get all universities
  * - useUniversity(id): Get single university details
- * - useJoinUniversity(): Mutation to join a university
- * - useLeaveUniversity(): Mutation to leave a university
- *
- * Usage:
- *   const { data: universities, isLoading } = useUniversities();
- *   const joinMutation = useJoinUniversity();
- *   joinMutation.mutate(universityId);
+ * - useRemoveMember(): Mutation to remove a member (admin only)
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getUniversities,
   getUniversity,
-  joinUniversity,
-  leaveUniversity,
+  removeMember,
 } from '../api/universities';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
 
@@ -138,10 +126,10 @@ export function useUniversity(id) {
 // =============================================================================
 
 /**
- * useJoinUniversity Hook
+ * useRemoveMember Hook
  *
- * Mutation hook for joining a university.
- * Handles cache invalidation and optimistic updates.
+ * Mutation hook for removing a member from a university (admin only).
+ * Handles cache invalidation after successful removal.
  *
  * @returns {object} React Query mutation result
  * @returns {Function} mutate - Function to trigger the mutation
@@ -150,61 +138,40 @@ export function useUniversity(id) {
  * @returns {boolean} isError - True if mutation failed
  *
  * @example
- * function JoinButton({ universityId }) {
- *   const joinMutation = useJoinUniversity();
+ * function RemoveMemberButton({ universityId, userId }) {
+ *   const removeMutation = useRemoveMember();
  *
- *   const handleJoin = async () => {
+ *   const handleRemove = async () => {
  *     try {
- *       await joinMutation.mutateAsync(universityId);
- *       toast.success('Joined successfully!');
+ *       await removeMutation.mutateAsync({ universityId, userId });
+ *       toast.success('Member removed!');
  *     } catch (error) {
- *       toast.error('Failed to join');
+ *       toast.error('Failed to remove member');
  *     }
  *   };
  *
  *   return (
- *     <button onClick={handleJoin} disabled={joinMutation.isPending}>
- *       {joinMutation.isPending ? 'Joining...' : 'Join'}
+ *     <button onClick={handleRemove} disabled={removeMutation.isPending}>
+ *       {removeMutation.isPending ? 'Removing...' : 'Remove'}
  *     </button>
  *   );
  * }
  */
-export function useJoinUniversity() {
+export function useRemoveMember() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: joinUniversity,
+    mutationFn: ({ universityId, userId }) => removeMember(universityId, userId),
 
     // -------------------------------------------------------------------------
     // Cache Invalidation
     // -------------------------------------------------------------------------
-    // After joining, invalidate relevant caches so data is refetched
-    onSuccess: (data, universityId) => {
+    // After removing a member, invalidate relevant caches so data is refetched
+    onSuccess: (_data, { universityId }) => {
       // Invalidate the specific university's cache
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
 
       // Invalidate the universities list to update member counts
-      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
-    },
-  });
-}
-
-/**
- * useLeaveUniversity Hook
- *
- * Mutation hook for leaving a university.
- * Similar to useJoinUniversity but for leaving.
- *
- * @returns {object} React Query mutation result
- */
-export function useLeaveUniversity() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: leaveUniversity,
-
-    onSuccess: (data, universityId) => {
-      queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
       queryClient.invalidateQueries({ queryKey: universityKeys.list() });
     },
   });

@@ -5,7 +5,7 @@ import { resolve } from 'path';
 export default defineConfig({
   plugins: [react()],
   // This is where the SPA will be hosted in prod
-  base: '/app/',
+  base: '/app',
 
   build: {
     // Put built assets into Flask's static folder
@@ -16,7 +16,7 @@ export default defineConfig({
   server: {
     port: 5173,
     // Open browser at /app/ path
-    open: '/app/',
+    open: '/app',
     // Proxy API calls and WebSocket connections to Flask backend during development
     proxy: {
       // REST API proxy

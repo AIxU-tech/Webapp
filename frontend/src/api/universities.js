@@ -1,15 +1,18 @@
-// frontend/src/api/universities.js
 /**
  * Universities API Module
  *
  * Handles all university-related API calls:
  * - List universities
  * - Get university details
- * - Create university
- * - Join/leave university
+ * - Create university (admin only)
  * - Update university (admin only)
  * - Delete university (admin only)
- * - Like/unlike university
+ * - Remove member (admin only)
+ *
+ * Auto-Enrollment System:
+ * Users are automatically enrolled in a university based on their .edu email
+ * domain during registration. Manual joining is not supported - the join and
+ * leave functions have been removed. See api/auth.js for registration flow.
  */
 
 import { api } from './client';
@@ -17,15 +20,17 @@ import { api } from './client';
 /**
  * Get all universities
  *
- * Note: Flask endpoint is /api/universities/list
- * The api client adds /api prefix automatically
+ * Returns list of all universities with basic info.
+ * Each university includes emailDomain for display purposes.
  *
- * @returns {Promise<object>} Object with universities array
- * @property {Array} universities - Array of university objects
+ * Note: Flask endpoint is /api/universities/list
+ * The api client adds /api prefix automatically.
+ *
+ * @returns {Promise<Array>} Array of university objects
  *
  * @example
- * const data = await getUniversities();
- * data.universities.forEach(uni => console.log(uni.name));
+ * const universities = await getUniversities();
+ * universities.forEach(uni => console.log(uni.name, uni.emailDomain));
  */
 export async function getUniversities() {
   const data = await api.get('/universities/list');
@@ -36,13 +41,15 @@ export async function getUniversities() {
 /**
  * Get single university by ID
  *
+ * Returns full university details including members list.
+ *
  * @param {number} id - University ID
  * @returns {Promise<object>} University object with full details
  * @throws {ApiError} If university not found (404)
  *
  * @example
  * const university = await getUniversity(1);
- * console.log(university.name, university.member_count);
+ * console.log(university.name, university.memberCount);
  */
 export async function getUniversity(id) {
   return api.get(`/universities/${id}`);
@@ -52,6 +59,8 @@ export async function getUniversity(id) {
  * Create a new university
  *
  * Requires authentication. User becomes the admin of created university.
+ * The admin's email domain is used to determine which users can be
+ * auto-enrolled in this university.
  *
  * @param {object} universityData - University data
  * @param {string} universityData.name - University name
@@ -75,37 +84,10 @@ export async function createUniversity(universityData) {
   return api.post('/universities/new', universityData);
 }
 
-/**
- * Join a university
- *
- * Adds current user to university's member list.
- *
- * @param {number} id - University ID
- * @returns {Promise<object>} Response with success status
- * @throws {ApiError} If already a member or not authenticated
- *
- * @example
- * await joinUniversity(1);
- */
-export async function joinUniversity(id) {
-  return api.post(`/universities/${id}/join`);
-}
-
-/**
- * Leave a university
- *
- * Removes current user from university's member list.
- *
- * @param {number} id - University ID
- * @returns {Promise<object>} Response with success status
- * @throws {ApiError} If not a member or not authenticated
- *
- * @example
- * await leaveUniversity(1);
- */
-export async function leaveUniversity(id) {
-  return api.post(`/universities/${id}/leave`);
-}
+// NOTE: joinUniversity and leaveUniversity functions have been removed.
+// Users are now automatically enrolled in a university based on their
+// .edu email domain during registration. See the registration flow in
+// api/auth.js for details.
 
 /**
  * Update university details (admin only)
@@ -145,6 +127,10 @@ export async function deleteUniversity(id) {
 
 /**
  * Remove a member from university (admin only)
+ *
+ * Removes a user from the university's member list.
+ * Note: This does NOT prevent them from re-enrolling if they
+ * register again with the same .edu email.
  *
  * @param {number} universityId - University ID
  * @param {number} userId - User ID to remove

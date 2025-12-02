@@ -11,16 +11,21 @@ Development:
 Production:
     gunicorn --worker-class eventlet -w 1 app:app
 
-Note: WebSockets require the eventlet worker for async support.
+Note: WebSockets require the eventlet worker for async support in production.
+Local development uses threading mode to avoid eventlet/kqueue/psycopg2 issues on macOS.
 """
 
+import os
+
 # =============================================================================
-# CRITICAL: Eventlet monkey patching MUST happen before any other imports
+# Conditional Eventlet Monkey Patching
 # =============================================================================
-# This patches Python's standard library to be cooperative with eventlet's
-# green threads. Without this, gunicorn with eventlet worker will fail.
-import eventlet
-eventlet.monkey_patch()
+# Only apply eventlet monkey patching in production (Render) or when explicitly requested.
+# On macOS, eventlet has compatibility issues with kqueue and psycopg2 that cause
+# database connection failures. We use threading mode for local development instead.
+if os.environ.get('RENDER') or os.environ.get('USE_EVENTLET'):
+    import eventlet
+    eventlet.monkey_patch()
 
 from backend import create_app
 from backend.extensions import socketio
@@ -40,8 +45,8 @@ if __name__ == '__main__':
     # In development:
     #   - debug=True enables auto-reload and debug mode
     #   - port=5000 is the default Flask port
-    #   - WebSocket connections are handled via eventlet
+    #   - allow_unsafe_werkzeug=True permits threading mode for local dev
     #
     # For production, use gunicorn with eventlet worker:
     #   gunicorn --worker-class eventlet -w 1 app:app
-    socketio.run(app, debug=True, port=5000)
+    socketio.run(app, debug=True, port=5000, allow_unsafe_werkzeug=True)
