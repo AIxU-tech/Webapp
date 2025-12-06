@@ -565,10 +565,10 @@ export default function RegisterPage() {
                         <CheckCircleIcon />
                         <div>
                           <p className="text-sm font-medium text-blue-800">
-                            Welcome, beta tester!
+                            Whitelisted email detected
                           </p>
                           <p className="text-sm text-blue-700">
-                            You can create an account without a university affiliation.
+                            You can create an account without a university affiliation
                           </p>
                         </div>
                       </div>
