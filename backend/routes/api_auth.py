@@ -20,6 +20,7 @@ import time
 from backend.extensions import db
 from backend.models import User, University
 from backend.utils.email import generate_verification_code, send_verification_email
+from backend.utils.validation import is_whitelisted_domain
 
 api_auth_bp = Blueprint('api_auth', __name__, url_prefix='/api/auth')
 
@@ -123,18 +124,21 @@ def api_register():
         if not last_name:
             return jsonify({'error': 'Last name is required'}), 400
 
-        # Validate email format - must be a .edu email
+        # Validate email format - must be a .edu email (or whitelisted domain)
         if '@' not in email:
             return jsonify({'error': 'Please enter a valid email address'}), 400
 
         email_domain = email.split('@')[1].lower()
-        if not email_domain.endswith('.edu'):
+        is_whitelisted = is_whitelisted_domain(email)
+
+        if not email_domain.endswith('.edu') and not is_whitelisted:
             return jsonify({'error': 'Please use your university .edu email address'}), 400
 
         # Find university matching the email domain
         # This uses the University.find_by_email_domain() class method
+        # Whitelisted domains bypass university requirement
         university = University.find_by_email_domain(email)
-        if not university:
+        if not university and not is_whitelisted:
             return jsonify({
                 'error': 'No university found for your email domain. Please contact support if you believe this is an error.'
             }), 400
@@ -144,13 +148,13 @@ def api_register():
             return jsonify({'error': 'Email already exists'}), 409
 
         # Store registration data in session for verification
-        # University ID is determined automatically from email domain
+        # University ID is determined automatically from email domain (None for whitelisted domains)
         session['pending_registration'] = {
             'email': email,
             'password': password,
             'first_name': first_name,
             'last_name': last_name,
-            'university_id': str(university.id),
+            'university_id': str(university.id) if university else None,
             'timestamp': time.time()
         }
 
@@ -161,17 +165,19 @@ def api_register():
 
         # Send verification email
         if send_verification_email(email, verification_code):
-            return jsonify({
+            response_data = {
                 'success': True,
                 'message': 'Verification code sent to your email',
                 'email': email,
-                # Include university info so frontend can display it
-                'university': {
+            }
+            # Include university info so frontend can display it (if available)
+            if university:
+                response_data['university'] = {
                     'id': university.id,
                     'name': university.name,
                     'clubName': university.clubName
                 }
-            }), 200
+            return jsonify(response_data), 200
         else:
             # Failed to send email, clean up session
             session.pop('pending_registration', None)

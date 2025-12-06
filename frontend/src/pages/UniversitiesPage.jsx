@@ -390,27 +390,6 @@ export default function UniversitiesPage() {
         </div>
       )}
 
-      {/* Call to Action - Register Your University */}
-      {(!isAuthenticated || !user?.university) && (
-        <div className="mt-12 text-center">
-          <div className="bg-gradient-to-br from-card to-muted p-8 rounded-2xl shadow-card border border-border">
-            <h3 className="text-2xl font-bold text-foreground mb-4">
-              Don't see your university?
-            </h3>
-            <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-              Join the growing network of AI clubs worldwide. Add your university and
-              start connecting with like-minded students and researchers across the
-              globe.
-            </p>
-            <button
-              onClick={() => navigate('/register_university')}
-              className="bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white px-8 py-3 rounded-lg shadow-card hover:shadow-hover transition-all duration-200"
-            >
-              Register Your Club
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

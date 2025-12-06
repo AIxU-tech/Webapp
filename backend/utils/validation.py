@@ -8,6 +8,24 @@ Extracted to avoid code duplication in routes.
 from __future__ import annotations
 
 
+# =============================================================================
+# TEMPORARY: Whitelisted non-.edu domains for testing
+# Remove this list and related code when no longer needed
+# =============================================================================
+WHITELISTED_DOMAINS = [
+    'peekz.com',
+]
+# =============================================================================
+
+
+def is_whitelisted_domain(email: str) -> bool:
+    """Check if email domain is in the temporary whitelist."""
+    if not email or '@' not in email:
+        return False
+    domain = email.split('@')[1].lower()
+    return domain in WHITELISTED_DOMAINS
+
+
 def validate_edu_email(email: str) -> tuple[bool, str | None, str | None]:
     """
     Validate that an email is a valid .edu email address.

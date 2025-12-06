@@ -623,7 +623,7 @@ export default function MessagesPage() {
                           />
                           <div>
                             <div className="text-sm font-medium text-foreground">{user.name}</div>
-                            <div className="text-xs text-muted-foreground">{user.university}</div>
+                            <div className="text-xs text-muted-foreground">{user.university || 'No university'}</div>
                           </div>
                         </div>
                       ))}
