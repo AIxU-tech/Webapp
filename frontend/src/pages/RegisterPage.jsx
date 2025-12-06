@@ -554,7 +554,31 @@ export default function RegisterPage() {
                             University not found
                           </p>
                           <p className="text-sm text-amber-700">
-                            No university matches your email domain. Please contact support.
+                            No university matches your email domain.{' '}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if (!formData.firstName.trim()) {
+                                  setError('Please enter your first name');
+                                  return;
+                                }
+                                if (!formData.lastName.trim()) {
+                                  setError('Please enter your last name');
+                                  return;
+                                }
+                                navigate('/request-university', {
+                                  state: {
+                                    email: formData.email,
+                                    firstName: formData.firstName,
+                                    lastName: formData.lastName
+                                  }
+                                });
+                              }}
+                              className="text-amber-800 font-medium underline hover:text-amber-900"
+                            >
+                              Request to add your university
+                            </button>
                           </p>
                         </div>
                       </>

@@ -159,6 +159,31 @@ const MessagesIcon = () => (
 );
 
 /**
+ * NewsIcon
+ *
+ * Icon representing the News section - shows a newspaper/document
+ * to indicate AI news and research content.
+ */
+const NewsIcon = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2" />
+    <path d="M9 9h1" />
+    <path d="M9 13h6" />
+    <path d="M9 17h6" />
+  </svg>
+);
+
+/**
  * ProfileIcon
  *
  * Icon representing the Profile section - shows a single user
@@ -181,6 +206,29 @@ const ProfileIcon = () => (
   </svg>
 );
 
+/**
+ * AdminIcon
+ *
+ * Icon representing admin features - shows a shield with checkmark
+ * to indicate administrative/moderation features.
+ */
+const AdminIcon = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <path d="M9 12l2 2 4-4" />
+  </svg>
+);
+
 // =============================================================================
 // MAIN NAVBAR COMPONENT
 // =============================================================================
@@ -196,13 +244,19 @@ const ProfileIcon = () => (
  *
  * @returns {JSX.Element} The navigation bar
  */
+// Permission level constant for admin check
+const ADMIN_PERMISSION_LEVEL = 1;
+
 export default function NavBar() {
   // Get current route for active link highlighting
   const location = useLocation();
   const currentPath = location.pathname;
 
-  // Get authentication state from context
-  const { isAuthenticated } = useAuth();
+  // Get authentication state and user from context
+  const { isAuthenticated, user } = useAuth();
+
+  // Check if user is an admin (permission level >= 1)
+  const isAdmin = user && user.permissionLevel >= ADMIN_PERMISSION_LEVEL;
 
   return (
     <nav
@@ -252,6 +306,11 @@ export default function NavBar() {
               <MessagesIcon />
               <span>Messages</span>
             </NavLink>
+
+            <NavLink to="/news" currentPath={currentPath}>
+              <NewsIcon />
+              <span>News</span>
+            </NavLink>
           </div>
         )}
 
@@ -259,15 +318,26 @@ export default function NavBar() {
             ACTION SECTION (Right)
 
             Shows different content based on authentication:
-            - Authenticated: Profile navigation link
+            - Authenticated: Admin link (if admin) + Profile navigation link
             - Unauthenticated: "Join AIxU" call-to-action button
             ================================================================= */}
         {isAuthenticated ? (
-          // Profile link for authenticated users
-          <NavLink to="/profile" currentPath={currentPath}>
-            <ProfileIcon />
-            <span>Profile</span>
-          </NavLink>
+          // Links for authenticated users
+          <div className="flex items-center gap-1">
+            {/* Admin link - only visible to admins */}
+            {isAdmin && (
+              <NavLink to="/admin/university-requests" currentPath={currentPath}>
+                <AdminIcon />
+                <span>Admin</span>
+              </NavLink>
+            )}
+
+            {/* Profile link for all authenticated users */}
+            <NavLink to="/profile" currentPath={currentPath}>
+              <ProfileIcon />
+              <span>Profile</span>
+            </NavLink>
+          </div>
         ) : (
           // Join button for unauthenticated users
           <Link

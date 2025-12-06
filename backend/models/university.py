@@ -7,6 +7,7 @@ enrolled in a university based on their email domain during registration.
 Key Features:
 - Automatic enrollment: Users with matching .edu email domains are auto-enrolled
 - Member management: Tracks university members via JSON list of user IDs
+- Role-based permissions: President, Executives, and Members with different access levels
 - Post tracking: Aggregates post counts from all university members
 
 Email Domain Matching:
@@ -14,11 +15,17 @@ The email_domain field stores the subdomain portion of the university's email
 (e.g., "uoregon" for uoregon.edu, "stanford" for stanford.edu).
 During registration, the system extracts the user's email domain and matches
 it against universities to automatically enroll them.
+
+Role Hierarchy:
+- PRESIDENT: Full control over club, can manage executives
+- EXECUTIVE: Can manage members (remove, etc.)
+- MEMBER: Standard member access
 """
 
 import json
 from sqlalchemy import func
 from backend.extensions import db
+from backend.constants import UniversityRoles
 
 
 class University(db.Model):
@@ -118,6 +125,110 @@ class University(db.Model):
             'members': self.get_members_list(),
             'adminId': self.admin_id,
         }
+
+    # -------------------------------------------------------------------------
+    # Role Management Methods
+    # -------------------------------------------------------------------------
+
+    def get_president(self):
+        """
+        Get the president of this university.
+
+        Returns:
+            UniversityRole instance for the president, or None
+        """
+        from backend.models.university_role import UniversityRole
+        return UniversityRole.get_university_president(self.id)
+
+    def get_president_user(self):
+        """
+        Get the User object for this university's president.
+
+        Returns:
+            User instance for the president, or None
+        """
+        from backend.models.user import User
+        president_role = self.get_president()
+        if president_role:
+            return User.query.get(president_role.user_id)
+        return None
+
+    def get_executives(self):
+        """
+        Get all executives (including president) for this university.
+
+        Returns:
+            List of UniversityRole instances with role >= EXECUTIVE
+        """
+        from backend.models.university_role import UniversityRole
+        return UniversityRole.get_university_executives(self.id)
+
+    def get_executive_users(self):
+        """
+        Get User objects for all executives (including president).
+
+        Returns:
+            List of User instances
+        """
+        from backend.models.user import User
+        exec_roles = self.get_executives()
+        user_ids = [r.user_id for r in exec_roles]
+        if user_ids:
+            return User.query.filter(User.id.in_(user_ids)).all()
+        return []
+
+    def get_member_role(self, user_id: int):
+        """
+        Get a specific member's role at this university.
+
+        Args:
+            user_id: The user's ID
+
+        Returns:
+            UniversityRole instance if found, None otherwise
+        """
+        from backend.models.university_role import UniversityRole
+        return UniversityRole.get_role(user_id, self.id)
+
+    def get_member_role_level(self, user_id: int) -> int:
+        """
+        Get a specific member's role level at this university.
+
+        Args:
+            user_id: The user's ID
+
+        Returns:
+            Role level integer (MEMBER, EXECUTIVE, or PRESIDENT)
+        """
+        from backend.models.university_role import UniversityRole
+        return UniversityRole.get_role_level(user_id, self.id)
+
+    def set_member_role(self, user_id: int, role: int, updated_by_id: int = None):
+        """
+        Set a member's role at this university.
+
+        Args:
+            user_id: The user's ID
+            role: Role level (use UniversityRoles constants)
+            updated_by_id: ID of user making this change
+
+        Returns:
+            UniversityRole instance
+        """
+        from backend.models.university_role import UniversityRole
+        return UniversityRole.set_role(user_id, self.id, role, updated_by_id)
+
+    def is_member_executive(self, user_id: int) -> bool:
+        """Check if a user is an executive or president at this university."""
+        return self.get_member_role_level(user_id) >= UniversityRoles.EXECUTIVE
+
+    def is_member_president(self, user_id: int) -> bool:
+        """Check if a user is the president at this university."""
+        return self.get_member_role_level(user_id) >= UniversityRoles.PRESIDENT
+
+    # -------------------------------------------------------------------------
+    # Class Methods
+    # -------------------------------------------------------------------------
 
     @classmethod
     def find_by_email_domain(cls, email):

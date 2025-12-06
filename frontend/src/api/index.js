@@ -13,6 +13,7 @@
 export * from './client';
 export * from './auth';
 export * from './universities';
+export * from './universityRequests';
 export * from './notes';
 export * from './users';
 export * from './messages';

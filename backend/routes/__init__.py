@@ -3,6 +3,7 @@ from backend.routes.auth import auth_bp
 from backend.routes.api_auth import api_auth_bp
 from backend.routes.profile import profile_bp
 from backend.routes.universities import universities_bp
+from backend.routes.university_requests import university_requests_bp
 from backend.routes.community import community_bp
 from backend.routes.messages import messages_bp
 from backend.routes.notifications import notifications_bp
@@ -14,6 +15,7 @@ __all__ = [
     'api_auth_bp',
     'profile_bp',
     'universities_bp',
+    'university_requests_bp',
     'community_bp',
     'messages_bp',
     'notifications_bp',

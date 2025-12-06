@@ -35,8 +35,24 @@
  * - useDeleteProfilePicture() - Delete picture mutation
  * - prefetchUser() - Prefetch user profile
  *
+ * News:
+ * - useAIContent() - Get both stories and papers (recommended)
+ * - useNews() - Get only news stories
+ * - usePapers() - Get only research papers
+ * - useRefreshAIContent() - Trigger content refresh (admin)
+ * - useStoryChatMutation() - Chat about a news story
+ * - usePaperChatMutation() - Chat about a research paper
+ * - useChatHistory(sessionId) - Get chat history
+ * - useClearChatMutation() - Clear chat session
+ * - prefetchAIContent() - Prefetch news content
+ *
+ * University Requests (Admin):
+ * - usePendingRequests() - Get pending university requests
+ * - useApproveRequest() - Approve a request mutation
+ * - useRejectRequest() - Reject a request mutation
+ *
  * Usage:
- *   import { useUniversities, useNotes, useConversations } from '../hooks';
+ *   import { useUniversities, useNotes, useAIContent } from '../hooks';
  */
 
 // =============================================================================
@@ -88,3 +104,29 @@ export {
   userKeys,
   prefetchUser,
 } from './useUsers';
+
+// =============================================================================
+// News Hooks
+// =============================================================================
+export {
+  useAIContent,
+  useNews,
+  usePapers,
+  useRefreshAIContent,
+  useStoryChatMutation,
+  usePaperChatMutation,
+  useChatHistory,
+  useClearChatMutation,
+  newsKeys,
+  prefetchAIContent,
+} from './useNews';
+
+// =============================================================================
+// University Request Hooks (Admin)
+// =============================================================================
+export {
+  usePendingRequests,
+  useApproveRequest,
+  useRejectRequest,
+  universityRequestKeys,
+} from './useUniversityRequests';

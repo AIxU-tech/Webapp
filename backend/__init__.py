@@ -73,6 +73,7 @@ def create_app(config_class=Config):
         api_auth_bp,
         profile_bp,
         universities_bp,
+        university_requests_bp,
         community_bp,
         messages_bp,
         notifications_bp,
@@ -84,6 +85,7 @@ def create_app(config_class=Config):
     app.register_blueprint(api_auth_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(universities_bp)
+    app.register_blueprint(university_requests_bp)
     app.register_blueprint(community_bp)
     app.register_blueprint(messages_bp)
     app.register_blueprint(notifications_bp)

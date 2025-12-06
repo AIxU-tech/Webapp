@@ -4,6 +4,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
 from backend.extensions import db
+from backend.constants import ADMIN, UniversityRoles
 
 
 # Extended User model that works with Flask-Login
@@ -134,7 +135,8 @@ class User(UserMixin, db.Model):
             'profile_picture_url': self.get_profile_picture_url(),
             'location': self.location,
             'skills': self.get_skills_list(),
-            'interests': self.get_interests_list()
+            'interests': self.get_interests_list(),
+            'permissionLevel': self.permission_level,
         }
 
     def get_profile_picture_url(self):
@@ -164,3 +166,116 @@ class User(UserMixin, db.Model):
         self.profile_picture = None
         self.profile_picture_filename = None
         self.profile_picture_mimetype = None
+
+    # -------------------------------------------------------------------------
+    # Permission Methods
+    # -------------------------------------------------------------------------
+
+    def is_site_admin(self) -> bool:
+        """
+        Check if this user is a site administrator.
+
+        Site admins have elevated privileges across all universities.
+
+        Returns:
+            True if user is a site admin, False otherwise
+        """
+        return self.permission_level >= ADMIN
+
+    def get_university_role(self, university_id: int):
+        """
+        Get this user's role at a specific university.
+
+        Args:
+            university_id: The university's ID
+
+        Returns:
+            UniversityRole instance if found, None otherwise
+        """
+        from backend.models.university_role import UniversityRole
+        return UniversityRole.get_role(self.id, university_id)
+
+    def get_university_role_level(self, university_id: int) -> int:
+        """
+        Get this user's role level at a specific university.
+
+        Args:
+            university_id: The university's ID
+
+        Returns:
+            Role level integer (MEMBER, EXECUTIVE, or PRESIDENT)
+        """
+        from backend.models.university_role import UniversityRole
+        return UniversityRole.get_role_level(self.id, university_id)
+
+    def is_executive_at(self, university_id: int) -> bool:
+        """
+        Check if this user is an executive or president at a university.
+
+        Args:
+            university_id: The university's ID
+
+        Returns:
+            True if user is executive or higher, False otherwise
+        """
+        from backend.models.university_role import UniversityRole
+        return UniversityRole.is_executive_or_higher(self.id, university_id)
+
+    def is_president_at(self, university_id: int) -> bool:
+        """
+        Check if this user is the president at a university.
+
+        Args:
+            university_id: The university's ID
+
+        Returns:
+            True if user is president, False otherwise
+        """
+        from backend.models.university_role import UniversityRole
+        return UniversityRole.is_president(self.id, university_id)
+
+    def can_manage_members_at(self, university_id: int) -> bool:
+        """
+        Check if this user can manage members at a university.
+
+        A user can manage members if they are:
+        - A site admin
+        - An executive or president at that university
+
+        Args:
+            university_id: The university's ID
+
+        Returns:
+            True if user can manage members, False otherwise
+        """
+        if self.is_site_admin():
+            return True
+        return self.is_executive_at(university_id)
+
+    def can_manage_executives_at(self, university_id: int) -> bool:
+        """
+        Check if this user can manage executives at a university.
+
+        A user can manage executives if they are:
+        - A site admin
+        - The president at that university
+
+        Args:
+            university_id: The university's ID
+
+        Returns:
+            True if user can manage executives, False otherwise
+        """
+        if self.is_site_admin():
+            return True
+        return self.is_president_at(university_id)
+
+    def get_all_university_roles(self) -> list:
+        """
+        Get all university roles for this user.
+
+        Returns:
+            List of UniversityRole instances
+        """
+        from backend.models.university_role import UniversityRole
+        return UniversityRole.get_user_roles(self.id)

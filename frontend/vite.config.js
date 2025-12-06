@@ -5,7 +5,7 @@ import { resolve } from 'path';
 export default defineConfig({
   plugins: [react()],
   // This is where the SPA will be hosted in prod
-  base: '/app',
+  base: '/app/',
 
   build: {
     // Put built assets into Flask's static folder

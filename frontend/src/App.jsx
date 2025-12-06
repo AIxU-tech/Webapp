@@ -21,8 +21,13 @@ import CommunityPage from './pages/CommunityPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import RequestUniversityVerifyPage from './pages/RequestUniversityVerifyPage';
+import UniversityRequestDetailsPage from './pages/UniversityRequestDetailsPage';
+import UniversityRequestSubmittedPage from './pages/UniversityRequestSubmittedPage';
 import ProfilePage from './pages/ProfilePage';
 import MessagesPage from './pages/MessagesPage';
+import NewsPage from './pages/NewsPage';
+import AdminUniversityRequestsPage from './pages/AdminUniversityRequestsPage';
 
 function App() {
   return (
@@ -36,6 +41,18 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
+
+      {/*
+        University Request Routes
+
+        Multi-step flow for requesting to add a new university:
+        1. /request-university - Verify email (code sent from RegisterPage data)
+        2. /request-university/details - Enter university and club details
+        3. /request-university/submitted - Confirmation page
+      */}
+      <Route path="/request-university" element={<RequestUniversityVerifyPage />} />
+      <Route path="/request-university/details" element={<UniversityRequestDetailsPage />} />
+      <Route path="/request-university/submitted" element={<UniversityRequestSubmittedPage />} />
 
       {/*
         Landing Page Route
@@ -60,7 +77,10 @@ function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/users/:userId" element={<ProfilePage />} />
         <Route path="/messages" element={<MessagesPage />} />
-        {/* As you convert more templates, add routes here */}
+        <Route path="/news" element={<NewsPage />} />
+
+        {/* Admin Routes */}
+        <Route path="/admin/university-requests" element={<AdminUniversityRequestsPage />} />
       </Route>
     </Routes>
   );
