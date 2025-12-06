@@ -875,7 +875,7 @@ function InitialFetchLoading() {
 
 export default function NewsPage() {
   const { user } = useAuth();
-  const isAdmin = user?.permission_level > 0;
+  const isAdmin = user?.permissionLevel > 0;
 
   // Track if we've already triggered an auto-fetch
   const [hasTriggeredAutoFetch, setHasTriggeredAutoFetch] = useState(false);
