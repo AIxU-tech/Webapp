@@ -26,6 +26,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { register, getUniversities } from '../api';
 import PlasmaBackground from '../components/PlasmaBackground';
 
+// =============================================================================
+// TEMPORARY: Whitelisted non-.edu domains for testing
+// Remove this list when no longer needed (must match backend/utils/validation.py)
+// =============================================================================
+const WHITELISTED_DOMAINS = ['peekz.com'];
+// =============================================================================
+
 /**
  * Lucide Icon Components
  *
@@ -259,7 +266,8 @@ export default function RegisterPage() {
   const isValidEduEmail = useCallback((email) => {
     if (!email || !email.includes('@')) return false;
     const domain = email.split('@')[1]?.toLowerCase();
-    return domain?.endsWith('.edu') || false;
+    // Allow .edu emails or whitelisted domains
+    return domain?.endsWith('.edu') || WHITELISTED_DOMAINS.includes(domain);
   }, []);
 
   /**
@@ -290,8 +298,10 @@ export default function RegisterPage() {
       return;
     }
 
-    // Check if a university was detected for this email
-    if (!detectedUniversity) {
+    // Check if a university was detected for this email (skip for whitelisted domains)
+    const domain = formData.email.split('@')[1]?.toLowerCase();
+    const isWhitelisted = WHITELISTED_DOMAINS.includes(domain);
+    if (!detectedUniversity && !isWhitelisted) {
       setError('No university found for your email domain. Please contact support if you believe this is an error.');
       return;
     }
@@ -527,15 +537,14 @@ export default function RegisterPage() {
                 their email domain. This is determined automatically - no
                 manual selection is allowed.
               */}
-              {formData.email && isValidEduEmail(formData.email) && (
-                <div className={`p-3 rounded-lg border ${
-                  detectedUniversity
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-amber-50 border-amber-200'
-                }`}>
-                  <div className="flex items-start gap-2">
-                    {detectedUniversity ? (
-                      <>
+              {formData.email && isValidEduEmail(formData.email) && (() => {
+                const emailDomain = formData.email.split('@')[1]?.toLowerCase();
+                const isWhitelistedDomain = WHITELISTED_DOMAINS.includes(emailDomain);
+
+                if (detectedUniversity) {
+                  return (
+                    <div className="p-3 rounded-lg border bg-green-50 border-green-200">
+                      <div className="flex items-start gap-2">
                         <CheckCircleIcon />
                         <div>
                           <p className="text-sm font-medium text-green-800">
@@ -545,9 +554,30 @@ export default function RegisterPage() {
                             You will be enrolled in <strong>{detectedUniversity.name}</strong>
                           </p>
                         </div>
-                      </>
-                    ) : (
-                      <>
+                      </div>
+                    </div>
+                  );
+                } else if (isWhitelistedDomain) {
+                  // Whitelisted domain - show success without university
+                  return (
+                    <div className="p-3 rounded-lg border bg-blue-50 border-blue-200">
+                      <div className="flex items-start gap-2">
+                        <CheckCircleIcon />
+                        <div>
+                          <p className="text-sm font-medium text-blue-800">
+                            Welcome, beta tester!
+                          </p>
+                          <p className="text-sm text-blue-700">
+                            You can create an account without a university affiliation.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="p-3 rounded-lg border bg-amber-50 border-amber-200">
+                      <div className="flex items-start gap-2">
                         <AlertCircleIcon />
                         <div>
                           <p className="text-sm font-medium text-amber-800">
@@ -581,11 +611,11 @@ export default function RegisterPage() {
                             </button>
                           </p>
                         </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
+                      </div>
+                    </div>
+                  );
+                }
+              })()}
 
               {/* Password Input - Required */}
               <input
