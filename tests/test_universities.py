@@ -1,434 +1,353 @@
 """
-Tests for university functionality
+Universities API Tests
+
+Tests for university-related endpoints:
+- GET /api/universities/list - List all universities
+- GET /api/universities/<id> - Get university details
+- POST /universities/<id>/remove_member/<user_id> - Remove member
+- POST /universities/<id>/delete - Delete university
 """
+
 import pytest
-import json
-from backend.models import University, User, UserLikedUniversity
+from backend.models import User, University, UniversityRole
 from backend.extensions import db
-
-@pytest.mark.university
-class TestUniversitiesPage:
-    """Test universities listing page"""
-
-    def test_universities_page_loads(self, client, init_database):
-        """Test that universities page loads successfully"""
-        response = client.get('/universities')
-        assert response.status_code == 200
-
-    def test_universities_displays_universities(self, client, test_university):
-        """Test that universities page displays universities"""
-        response = client.get('/universities')
-        assert response.status_code == 200
-        assert test_university['name'].encode() in response.data
-
-    def test_universities_shows_member_count(self, client, test_university):
-        """Test that universities page shows member count"""
-        response = client.get('/universities')
-        assert response.status_code == 200
-        # Member count should be displayed somewhere on the page
+from backend.constants import ADMIN, UniversityRoles
 
 
-@pytest.mark.university
-class TestUniversityCreation:
-    """Test creating new universities"""
+class TestUniversityListing:
+    """Tests for university listing endpoints"""
 
-    def test_create_university_as_admin(self, admin_authenticated_client, app):
-        """Test that admin can create a university"""
-        response = admin_authenticated_client.post('/universities/new', data={
-            'name': 'New University',
-            'clubName': 'New AI Club',
-            'location': 'New City, State',
-            'description': 'A new university club',
-            'tags': 'AI, ML, Research'
-        }, follow_redirects=True)
-
-        assert response.status_code == 200
-
-        # Verify university was created
+    def test_list_universities_returns_all(self, client, test_university, second_university, app):
+        """Test that list endpoint returns all universities"""
         with app.app_context():
-            uni = University.query.filter_by(name='New University').first()
-            assert uni is not None
-            assert uni.clubName == 'New AI Club'
-            assert uni.location == 'New City, State'
+            response = client.get('/api/universities/list')
 
-    def test_create_university_as_regular_user(self, authenticated_client):
-        """Test that regular user cannot create a university"""
-        response = authenticated_client.post('/universities/new', data={
-            'name': 'Unauthorized University',
-            'clubName': 'Unauthorized Club',
-        }, follow_redirects=True)
+            assert response.status_code == 200
+            data = response.get_json()
+            assert 'universities' in data
+            assert len(data['universities']) == 2
 
-        # Should be denied
-        assert response.status_code == 200
-        assert b'permission' in response.data.lower() or b'not authorized' in response.data.lower()
-
-    def test_create_university_duplicate_name(self, admin_authenticated_client, test_university):
-        """Test that creating university with duplicate name fails"""
-        response = admin_authenticated_client.post('/universities/new', data={
-            'name': test_university['name'],  # Duplicate name
-            'clubName': 'Different Club Name',
-        }, follow_redirects=True)
-
-        assert response.status_code == 200
-        assert b'already exists' in response.data.lower()
-
-    def test_create_university_missing_name(self, admin_authenticated_client):
-        """Test that creating university without name fails"""
-        response = admin_authenticated_client.post('/universities/new', data={
-            'clubName': 'Club Without Uni Name',
-        }, follow_redirects=True)
-
-        assert response.status_code == 200
-        assert b'required' in response.data.lower()
-
-    def test_create_university_with_tags(self, admin_authenticated_client, app):
-        """Test creating university with tags"""
-        response = admin_authenticated_client.post('/universities/new', data={
-            'name': 'Tagged University',
-            'clubName': 'Tagged Club',
-            'tags': 'AI, Machine Learning, Deep Learning'
-        }, follow_redirects=True)
-
-        assert response.status_code == 200
-
+    def test_list_universities_sorted_by_name(self, client, app):
+        """Test that universities are returned sorted alphabetically"""
         with app.app_context():
-            uni = University.query.filter_by(name='Tagged University').first()
-            if uni:
-                tags = json.loads(uni.tags) if uni.tags else []
-                assert 'AI' in tags
+            # Create universities with different names
+            uni_z = University(
+                name='ZZZ University',
+                email_domain='zulu',
+                clubName='ZZZ AI Club'
+            )
+            uni_a = University(
+                name='AAA University',
+                email_domain='alpha',
+                clubName='AAA AI Club'
+            )
+            db.session.add_all([uni_z, uni_a])
+            db.session.commit()
+
+            response = client.get('/api/universities/list')
+            data = response.get_json()
+
+            names = [u['name'] for u in data['universities']]
+            assert names == sorted(names)
+
+    def test_list_universities_includes_stats(self, client, test_university, app):
+        """Test that university list includes member count and stats"""
+        with app.app_context():
+            response = client.get('/api/universities/list')
+            data = response.get_json()
+
+            uni = data['universities'][0]
+            assert 'memberCount' in uni
+            assert 'recentPosts' in uni
+            assert 'tags' in uni
+            assert 'emailDomain' in uni
 
 
-@pytest.mark.university
 class TestUniversityDetail:
-    """Test university detail page"""
+    """Tests for university detail endpoint"""
 
-    def test_university_detail_page_loads(self, client, test_university):
-        """Test that university detail page loads"""
-        response = client.get(f'/universities/{test_university["id"]}')
-        assert response.status_code == 200
-        assert test_university['name'].encode() in response.data
-
-    def test_university_detail_shows_members(self, client, test_university, admin_user, app):
-        """Test that university detail page shows members"""
-        response = client.get(f'/universities/{test_university["id"]}')
-        assert response.status_code == 200
-        # Admin user should be shown as a member
-
-    def test_university_detail_nonexistent(self, client, init_database):
-        """Test that nonexistent university returns error"""
-        response = client.get('/universities/99999', follow_redirects=True)
-        assert response.status_code == 200
-        assert b'not found' in response.data.lower()
-
-
-@pytest.mark.university
-class TestUniversityJoin:
-    """Test joining universities"""
-
-    def test_join_university_with_matching_domain(self, client, test_user, admin_user, app):
-        """Test joining university with matching email domain"""
-        # Create university with admin who has specific domain
+    def test_university_detail_success(self, client, test_university, app):
+        """Test getting university details by ID"""
         with app.app_context():
-            # Update admin user to have a specific domain
-            admin = User.query.get(admin_user['id'])
-            admin.email = 'admin@university.edu'
+            university = db.session.get(University, test_university.id)
+            response = client.get(f'/api/universities/{university.id}')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['name'] == 'Test University'
+            assert data['clubName'] == 'Test AI Club'
+
+    def test_university_detail_not_found(self, client, app):
+        """Test getting non-existent university returns 404"""
+        response = client.get('/api/universities/99999')
+
+        assert response.status_code == 404
+        data = response.get_json()
+        assert 'error' in data
+
+    def test_university_detail_includes_members(self, client, test_university, test_user_with_university, app):
+        """Test that university detail includes member list"""
+        with app.app_context():
+            university = db.session.get(University, test_university.id)
+            response = client.get(f'/api/universities/{university.id}')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert 'members' in data
+            assert len(data['members']) > 0
+            # Check member has expected fields
+            member = data['members'][0]
+            assert 'id' in member
+            assert 'name' in member
+            assert 'email' in member
+
+    def test_university_detail_shows_membership_status(
+        self, authenticated_client, test_university, test_user, app
+    ):
+        """Test that detail shows if current user is a member"""
+        with app.app_context():
+            university = db.session.get(University, test_university.id)
+            user = db.session.get(User, test_user.id)
+
+            # Add user to university
+            user.university = university.name
+            university.add_member(user.id)
             db.session.commit()
 
-            # Update test user to have same domain and clear existing university affiliation
-            user = User.query.get(test_user['id'])
-            user.email = 'student@university.edu'
-            user.university = None  # Clear existing university to allow joining
-            db.session.commit()
+            response = authenticated_client.get(f'/api/universities/{university.id}')
+            data = response.get_json()
 
-            # Create university
-            uni = University(
-                name='Domain Test University',
-                clubName='Domain Test Club',
-                admin_id=admin.id
+            assert data['isMember'] is True
+
+    def test_university_detail_includes_permissions(
+        self, authenticated_admin_client, test_university, admin_user, app
+    ):
+        """Test that detail includes user permissions"""
+        with app.app_context():
+            university = db.session.get(University, test_university.id)
+
+            response = authenticated_admin_client.get(f'/api/universities/{university.id}')
+            data = response.get_json()
+
+            assert 'permissions' in data
+            # Admin should have management permissions
+            assert data['permissions']['isSiteAdmin'] is True
+
+
+class TestMemberManagement:
+    """Tests for removing members from universities"""
+
+    def test_remove_member_as_site_admin(
+        self, authenticated_admin_client, test_university, member_user, admin_user, app
+    ):
+        """Test that site admin can remove any member"""
+        with app.app_context():
+            university = db.session.get(University, test_university.id)
+            member = db.session.get(User, member_user.id)
+
+            # Verify member is in university
+            assert member.id in university.get_members_list()
+
+            response = authenticated_admin_client.post(
+                f'/universities/{university.id}/remove_member/{member.id}'
             )
-            uni.set_members_list([admin.id])
-            db.session.add(uni)
-            db.session.commit()
-            uni_id = uni.id
 
-        # Login as test user
-        client.post('/login', data={
-            'email': test_user['email'],
-            'password': test_user['password']
-        })
+            # Should redirect (legacy route returns redirect)
+            assert response.status_code in [200, 302]
 
-        # Try to join university
-        response = client.post(f'/universities/{uni_id}/join', follow_redirects=True)
-        assert response.status_code == 200
+            # Verify member is removed
+            db.session.refresh(university)
+            assert member.id not in university.get_members_list()
 
-        # Verify membership
+    def test_remove_member_as_executive(
+        self, authenticated_executive_client, test_university, member_user, executive_user, app
+    ):
+        """Test that executive can remove member"""
         with app.app_context():
-            uni = University.query.get(uni_id)
-            members = uni.get_members_list()
-            assert test_user['id'] in members
+            university = db.session.get(University, test_university.id)
+            member = db.session.get(User, member_user.id)
 
-    def test_join_university_with_mismatched_domain(self, client, test_user, admin_user, app):
-        """Test that joining fails with mismatched email domain"""
-        with app.app_context():
-            admin = User.query.get(admin_user['id'])
-            admin.email = 'admin@university.edu'
-            db.session.commit()
-
-            user = User.query.get(test_user['id'])
-            user.email = 'student@different.edu'  # Different domain
-            db.session.commit()
-
-            uni = University(
-                name='Domain Check University',
-                clubName='Domain Check Club',
-                admin_id=admin.id
+            response = authenticated_executive_client.post(
+                f'/universities/{university.id}/remove_member/{member.id}'
             )
-            uni.set_members_list([admin.id])
-            db.session.add(uni)
-            db.session.commit()
-            uni_id = uni.id
 
-        client.post('/login', data={
-            'email': 'student@different.edu',
-            'password': test_user['password']
-        })
+            assert response.status_code in [200, 302]
 
-        response = client.post(f'/universities/{uni_id}/join', follow_redirects=True)
-        assert response.status_code == 200
-        assert b'must have an email' in response.data.lower() or b'domain' in response.data.lower()
-
-    def test_join_university_already_member(self, authenticated_client, test_university, test_user, app):
-        """Test joining university when already a member"""
-        # Add user to university first
+    def test_remove_member_as_president(
+        self, authenticated_president_client, test_university, member_user, president_user, app
+    ):
+        """Test that president can remove member"""
         with app.app_context():
-            uni = University.query.get(test_university['id'])
-            uni.add_member(test_user['id'])
+            university = db.session.get(University, test_university.id)
+            member = db.session.get(User, member_user.id)
+
+            response = authenticated_president_client.post(
+                f'/universities/{university.id}/remove_member/{member.id}'
+            )
+
+            assert response.status_code in [200, 302]
+
+    def test_remove_member_as_regular_member_fails(
+        self, authenticated_member_client, test_university, app
+    ):
+        """Test that regular member cannot remove others"""
+        with app.app_context():
+            university = db.session.get(University, test_university.id)
+
+            # Create another member to try to remove
+            other_user = User(
+                email='other@example.edu',
+                first_name='Other',
+                last_name='User',
+                university=university.name
+            )
+            other_user.set_password('password123')
+            db.session.add(other_user)
+            db.session.commit()
+            university.add_member(other_user.id)
             db.session.commit()
 
-        response = authenticated_client.post(f'/universities/{test_university["id"]}/join',
-                                            follow_redirects=True)
-        assert response.status_code == 200
-        assert b'already a member' in response.data.lower()
+            response = authenticated_member_client.post(
+                f'/universities/{university.id}/remove_member/{other_user.id}'
+            )
 
-    def test_join_university_requires_authentication(self, client, test_university):
-        """Test that joining university requires authentication"""
-        response = client.post(f'/universities/{test_university["id"]}/join',
-                              follow_redirects=False)
-        assert response.status_code == 302
+            # Should redirect with error or return 403
+            assert response.status_code in [302, 403]
 
+            # Member should still be in university
+            db.session.refresh(university)
+            assert other_user.id in university.get_members_list()
 
-@pytest.mark.university
-class TestUniversityEdit:
-    """Test editing universities"""
-
-    def test_edit_university_as_admin(self, admin_authenticated_client, test_university, app):
-        """Test that university admin can edit their university"""
-        response = admin_authenticated_client.post(
-            f'/universities/{test_university["id"]}/edit',
-            data={
-                'name': 'Updated University Name',
-                'clubName': 'Updated Club Name',
-                'location': 'Updated Location',
-                'description': 'Updated description',
-                'tags': 'Updated, Tags'
-            },
-            follow_redirects=True
-        )
-
-        assert response.status_code == 200
-
-        # Verify changes
+    def test_remove_member_not_in_university(
+        self, authenticated_admin_client, test_university, second_user, admin_user, app
+    ):
+        """Test removing user who is not a member"""
         with app.app_context():
-            uni = University.query.get(test_university['id'])
-            assert uni.name == 'Updated University Name'
-            assert uni.clubName == 'Updated Club Name'
+            university = db.session.get(University, test_university.id)
+            user = db.session.get(User, second_user.id)
 
-    def test_edit_university_as_non_admin(self, authenticated_client, test_university):
-        """Test that non-admin cannot edit university"""
-        response = authenticated_client.post(
-            f'/universities/{test_university["id"]}/edit',
-            data={
-                'name': 'Hacked Name'
-            },
-            follow_redirects=True
-        )
+            # Verify user is NOT in university
+            assert user.id not in university.get_members_list()
 
-        assert response.status_code == 200
-        assert b'not authorized' in response.data.lower()
+            response = authenticated_admin_client.post(
+                f'/universities/{university.id}/remove_member/{user.id}'
+            )
 
-    def test_edit_university_page_loads(self, admin_authenticated_client, test_university):
-        """Test that edit university page loads for admin"""
-        response = admin_authenticated_client.get(
-            f'/universities/{test_university["id"]}/edit'
-        )
-        assert response.status_code == 200
+            # Should redirect with error message
+            assert response.status_code in [302, 400]
+
+    def test_cannot_remove_president(
+        self, authenticated_admin_client, test_university, president_user, admin_user, app
+    ):
+        """Test that president cannot be removed without transferring first"""
+        with app.app_context():
+            university = db.session.get(University, test_university.id)
+            president = db.session.get(User, president_user.id)
+
+            response = authenticated_admin_client.post(
+                f'/universities/{university.id}/remove_member/{president.id}'
+            )
+
+            # Should redirect with error
+            assert response.status_code in [302, 400]
+
+            # President should still be in university
+            db.session.refresh(university)
+            assert president.id in university.get_members_list()
 
 
-@pytest.mark.university
 class TestUniversityDeletion:
-    """Test deleting universities"""
+    """Tests for deleting universities"""
 
-    def test_delete_university_as_admin(self, admin_authenticated_client, app, admin_user):
-        """Test that admin can delete their university"""
-        # Create a university to delete
+    def test_delete_university_as_site_admin(
+        self, authenticated_admin_client, test_university, admin_user, app
+    ):
+        """Test that site admin can delete university"""
         with app.app_context():
-            uni = University(
-                name='Delete Test University',
-                clubName='Delete Test Club',
-                admin_id=admin_user['id']
+            university = db.session.get(University, test_university.id)
+            uni_id = university.id
+
+            response = authenticated_admin_client.post(
+                f'/universities/{uni_id}/delete'
             )
-            db.session.add(uni)
-            db.session.commit()
-            uni_id = uni.id
 
-        response = admin_authenticated_client.post(
-            f'/universities/{uni_id}/delete',
-            follow_redirects=True
-        )
+            assert response.status_code in [200, 302]
 
-        assert response.status_code == 200
+            # Verify university is deleted
+            deleted_uni = db.session.get(University, uni_id)
+            assert deleted_uni is None
 
-        # Verify deletion
+    def test_delete_university_as_president_fails(
+        self, authenticated_president_client, test_university, president_user, app
+    ):
+        """Test that president cannot delete university"""
         with app.app_context():
-            uni = University.query.get(uni_id)
-            assert uni is None
+            university = db.session.get(University, test_university.id)
+            uni_id = university.id
 
-    def test_delete_university_as_non_admin(self, authenticated_client, test_university):
-        """Test that non-admin cannot delete university"""
-        response = authenticated_client.post(
-            f'/universities/{test_university["id"]}/delete',
-            follow_redirects=True
-        )
-
-        assert response.status_code == 200
-        assert b'not authorized' in response.data.lower()
-
-
-@pytest.mark.university
-class TestUniversityMembers:
-    """Test university member management"""
-
-    def test_remove_member_as_admin(self, admin_authenticated_client, test_university, test_user, app):
-        """Test that admin can remove members"""
-        # Add user as member first
-        with app.app_context():
-            uni = University.query.get(test_university['id'])
-            uni.add_member(test_user['id'])
-            db.session.commit()
-
-        response = admin_authenticated_client.post(
-            f'/universities/{test_university["id"]}/remove_member/{test_user["id"]}',
-            follow_redirects=True
-        )
-
-        assert response.status_code == 200
-
-        # Verify removal
-        with app.app_context():
-            uni = University.query.get(test_university['id'])
-            members = uni.get_members_list()
-            assert test_user['id'] not in members
-
-    def test_remove_member_as_non_admin(self, authenticated_client, test_university, test_user2):
-        """Test that non-admin cannot remove members"""
-        response = authenticated_client.post(
-            f'/universities/{test_university["id"]}/remove_member/{test_user2["id"]}',
-            follow_redirects=True
-        )
-
-        assert response.status_code == 200
-        assert b'not authorized' in response.data.lower()
-
-
-@pytest.mark.university
-class TestUniversityLikes:
-    """Test university like functionality"""
-
-    def test_like_university(self, authenticated_client, test_university, test_user, app):
-        """Test liking a university"""
-        response = authenticated_client.post(
-            f'/api/universities/{test_university["id"]}/like'
-        )
-
-        assert response.status_code in [200, 201]
-        data = json.loads(response.data)
-        assert data['success'] is True
-
-        # Verify like in database
-        with app.app_context():
-            like = UserLikedUniversity.query.filter_by(
-                user_id=test_user['id'],
-                university_id=str(test_university['id'])
-            ).first()
-            assert like is not None
-
-    def test_unlike_university(self, authenticated_client, test_university, test_user, app):
-        """Test unliking a university"""
-        # Like it first
-        with app.app_context():
-            like = UserLikedUniversity(
-                user_id=test_user['id'],
-                university_id=str(test_university['id'])
+            response = authenticated_president_client.post(
+                f'/universities/{uni_id}/delete'
             )
-            db.session.add(like)
-            db.session.commit()
 
-        # Unlike it
-        response = authenticated_client.post(
-            f'/api/universities/{test_university["id"]}/like'
-        )
+            # Should fail
+            assert response.status_code in [302, 403]
 
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert data['liked'] is False
+            # University should still exist
+            still_exists = db.session.get(University, uni_id)
+            assert still_exists is not None
 
-        # Verify unlike in database
+    def test_delete_university_as_regular_user_fails(
+        self, authenticated_client, test_university, test_user, app
+    ):
+        """Test that regular user cannot delete university"""
         with app.app_context():
-            like = UserLikedUniversity.query.filter_by(
-                user_id=test_user['id'],
-                university_id=str(test_university['id'])
-            ).first()
-            assert like is None
+            university = db.session.get(University, test_university.id)
+            uni_id = university.id
 
+            response = authenticated_client.post(
+                f'/universities/{uni_id}/delete'
+            )
 
-@pytest.mark.university
-class TestUniversityModel:
-    """Test University model methods"""
+            assert response.status_code in [302, 403]
 
-    def test_add_member(self, app, test_university, test_user):
-        """Test adding a member to university"""
+            # University should still exist
+            still_exists = db.session.get(University, uni_id)
+            assert still_exists is not None
+
+    def test_delete_university_removes_roles(
+        self, authenticated_admin_client, test_university, president_user, executive_user, admin_user, app
+    ):
+        """Test that deleting university removes all associated roles"""
         with app.app_context():
-            uni = University.query.get(test_university['id'])
-            initial_count = uni.member_count
+            university = db.session.get(University, test_university.id)
+            uni_id = university.id
 
-            uni.add_member(test_user['id'])
-            db.session.commit()
+            # Verify roles exist
+            roles_before = UniversityRole.query.filter_by(university_id=uni_id).count()
+            assert roles_before > 0
 
-            assert test_user['id'] in uni.get_members_list()
-            assert uni.member_count == initial_count + 1
+            # Delete university
+            authenticated_admin_client.post(f'/universities/{uni_id}/delete')
 
-    def test_remove_member(self, app, test_university, test_user):
-        """Test removing a member from university"""
+            # Verify roles are deleted
+            roles_after = UniversityRole.query.filter_by(university_id=uni_id).count()
+            assert roles_after == 0
+
+    def test_delete_nonexistent_university(
+        self, authenticated_admin_client, admin_user, app
+    ):
+        """Test deleting non-existent university"""
+        response = authenticated_admin_client.post('/universities/99999/delete')
+
+        # Should redirect with error
+        assert response.status_code in [302, 404]
+
+    def test_delete_university_unauthenticated(self, client, test_university, app):
+        """Test that unauthenticated user cannot delete university"""
         with app.app_context():
-            uni = University.query.get(test_university['id'])
-            uni.add_member(test_user['id'])
-            db.session.commit()
+            university = db.session.get(University, test_university.id)
 
-            initial_count = uni.member_count
+            response = client.post(f'/universities/{university.id}/delete')
 
-            uni.remove_member(test_user['id'])
-            db.session.commit()
-
-            assert test_user['id'] not in uni.get_members_list()
-            assert uni.member_count == initial_count - 1
-
-    def test_university_to_dict(self, app, test_university):
-        """Test converting university to dictionary"""
-        with app.app_context():
-            uni = University.query.get(test_university['id'])
-            uni_dict = uni.to_dict()
-
-            assert uni_dict['id'] == test_university['id']
-            assert uni_dict['name'] == test_university['name']
-            assert 'memberCount' in uni_dict
-            assert 'members' in uni_dict
+            # Should redirect to login or return 401
+            assert response.status_code in [302, 401]

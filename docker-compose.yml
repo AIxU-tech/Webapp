@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: aixu
+      POSTGRES_PASSWORD: aixu_dev_password
+      POSTGRES_DB: aixu
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aixu -d aixu"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Map DEV_ variables from .env to what the app expects
+      DATABASE_URL: ${DEV_DATABASE_URL}
+      SECRET_KEY: ${DEV_SECRET_KEY}
+
+volumes:
+  postgres_data:

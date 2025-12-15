@@ -25,37 +25,43 @@ Users are automatically enrolled in a university based on their .edu email domai
 AIxU_website/
 ├── app.py                      # Entry point (socketio.run)
 ├── requirements.txt            # Python dependencies
-├── requirements-test.txt       # Testing dependencies
+├── requirements-test.txt       # Testing dependencies (pytest, coverage)
+├── pytest.ini                  # Pytest configuration
 ├── .env                        # Environment variables (git-ignored)
+├── .python-version             # Python 3.11.11 (pyenv)
 │
 ├── backend/
 │   ├── __init__.py            # Application factory (create_app)
-│   ├── config.py              # Configuration
+│   ├── config.py              # Config + TestConfig classes
 │   ├── constants.py           # Constants & sample data
 │   ├── extensions.py          # Flask extensions (db, login_manager, socketio)
 │   ├── models/                # user, university, note, message, relationships
-│   ├── routes/                # 8 blueprints: public, auth, api_auth, profile,
-│   │                          # universities, community, messages, notifications
+│   ├── routes/                # 10 blueprints: public, auth, api_auth, profile,
+│   │                          # universities, university_requests, community,
+│   │                          # messages, notifications, news
 │   ├── sockets/               # WebSocket handlers
-│   │   ├── __init__.py        # register_socket_handlers()
-│   │   └── events.py          # emit_new_message, emit_note_liked, etc.
-│   └── utils/                 # email.py, image.py
+│   └── utils/                 # email.py, image.py, validation.py
 │
 ├── frontend/src/
 │   ├── main.jsx               # Entry: QueryProvider > Router > AuthProvider > SocketProvider
 │   ├── App.jsx                # Route definitions
-│   ├── api/                   # client.js, auth.js, universities.js, notes.js, messages.js, users.js
+│   ├── api/                   # client.js, auth.js, universities.js, notes.js, etc.
 │   ├── components/            # AppLayout, NavBar, PlasmaBackground, ProtectedRoute, etc.
 │   ├── contexts/              # AuthContext, QueryProvider, SocketContext
-│   ├── hooks/                 # useUniversities, useNotes, useMessages, useUsers (React Query)
-│   ├── pages/                 # HomePage, LoginPage, RegisterPage, CommunityPage,
-│   │                          # UniversitiesPage, ProfilePage, MessagesPage, etc.
+│   ├── hooks/                 # useUniversities, useNotes, useMessages, useUsers
+│   ├── pages/                 # All page components
 │   ├── config/cache.js        # React Query stale/gc times
 │   └── services/prefetch.js   # Background data prefetching
 │
-├── static/app                # React build output (Vite)
+├── static/app/                 # React build output (Vite)
 │
-└── tests/                     # pytest suite
+├── tests/                      # pytest test suite
+│   ├── conftest.py            # Fixtures (app, client, test_user, etc.)
+│   ├── test_auth.py           # Auth endpoint tests
+│   └── test_health.py         # Health check & startup tests
+│
+└── .github/workflows/
+    └── test.yml               # CI: runs pytest on push/PR
 ```
 
 ---
@@ -340,37 +346,14 @@ Output goes to `static/app` and Flask serves it at `/app` route.
 
 ## Testing
 
-### Running Tests
+Tests run automatically on push/PR via GitHub Actions. See `README_TESTING.md` for details.
 
 ```bash
-pytest                                  # All tests
-pytest tests/test_auth.py               # Specific file
-pytest --cov=. --cov-report=html        # With coverage
+pytest                              # Run all tests
+pytest tests/test_auth.py -v        # Specific file
 ```
 
-### Test Fixtures (`tests/conftest.py`)
-
-- `app` - Test Flask app with SQLite
-- `client` - Test client for requests
-- `init_database` - Clean database for each test
-- `test_user` - Creates test user
-- `test_university` - Creates test university
-- `test_note` - Creates test note
-
-### Test Pattern (AAA)
-
-```python
-def test_example(client, test_user):
-    # Arrange
-    data = {'key': 'value'}
-
-    # Act
-    response = client.post('/api/endpoint', json=data)
-
-    # Assert
-    assert response.status_code == 200
-    assert response.json['success'] == True
-```
+**Fixtures** (`tests/conftest.py`): `app`, `client`, `test_user`, `test_university`, `authenticated_client`
 
 ---
 
@@ -450,22 +433,17 @@ class Config:
 
 ```bash
 # Development
-python app.py                          # Flask backend
-cd frontend && npm run dev             # React dev server
+python app.py                          # Flask backend (port 5000)
+cd frontend && npm run dev             # React dev server (port 5173)
 
 # Build
 cd frontend && npm run build           # Build React to static/app/
 
 # Testing
 pytest                                 # All tests
-pytest tests/test_auth.py              # Specific test file
+pytest -v                              # Verbose output
 
-# Database
-flask shell
->>> from backend.extensions import db
->>> db.create_all()
-
-# User permissions (PostgreSQL)
+# Database (PostgreSQL)
 UPDATE "user" SET permission_level = 2 WHERE id = 1;  # Super admin
 ```
 
@@ -486,11 +464,10 @@ UPDATE "user" SET permission_level = 2 WHERE id = 1;  # Super admin
 - **Contexts:** Auth, Query cache, Socket connection
 
 ### Tests
-- One test file per route blueprint
-- Use fixtures for setup
+- One test file per route blueprint (e.g., `test_auth.py` for auth routes)
+- Use fixtures from `conftest.py` for setup
 - Test both success and error cases
-- Follow AAA pattern (Arrange, Act, Assert)
 
 ---
 
-For setup instructions, see `README.md`
+For setup instructions, see `README.md`. For testing details, see `README_TESTING.md`.

@@ -35,3 +35,28 @@ class Config:
     SMTP_USER = os.getenv('SMTP_USER')
     SMTP_PASS = os.getenv('SMTP_PASS')
     ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'admin@aixu.tech')
+
+
+class TestConfig(Config):
+    """Test configuration - uses SQLite for isolated, fast tests"""
+
+    TESTING = True
+    SECRET_KEY = 'test-secret-key'
+
+    # Use SQLite for testing (in-memory for speed, or file for debugging)
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+
+    # Disable connection pooling for SQLite
+    SQLALCHEMY_ENGINE_OPTIONS = {}
+
+    # Disable CSRF for easier testing
+    WTF_CSRF_ENABLED = False
+
+    # Use simpler password hashing for faster tests
+    # Note: Still secure, just fewer iterations
+    BCRYPT_LOG_ROUNDS = 4
+
+    # Disable email sending in tests
+    SMTP_HOST = None
+    SMTP_USER = None
+    SMTP_PASS = None
