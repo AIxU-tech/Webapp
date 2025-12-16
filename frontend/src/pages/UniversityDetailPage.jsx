@@ -129,12 +129,14 @@ export default function UniversityDetailPage() {
    * - university: Full university data including members
    * - loading: Whether initial data is still loading
    * - errorModal: Object containing error modal state
-   * - actionLoading: Whether a button action is in progress
+   * - deleteLoading: Whether university delete is in progress
+   * - memberActionLoading: Whether a member action (role change/remove) is in progress
    */
   const [university, setUniversity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: '', message: '' });
-  const [actionLoading, setActionLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [memberActionLoading, setMemberActionLoading] = useState(false);
 
   // Popover state - tracks which member's popover is open
   const [activePopoverMemberId, setActivePopoverMemberId] = useState(null);
@@ -204,7 +206,7 @@ export default function UniversityDetailPage() {
     }
 
     try {
-      setActionLoading(true);
+      setDeleteLoading(true);
       await deleteUniversity(id);
       navigate('/universities');
     } catch (error) {
@@ -214,7 +216,7 @@ export default function UniversityDetailPage() {
         title: 'Delete Failed',
         message: error.message || 'Failed to delete university.',
       });
-      setActionLoading(false);
+      setDeleteLoading(false);
     }
   };
 
@@ -228,7 +230,7 @@ export default function UniversityDetailPage() {
    */
   const handleRoleChange = async (userId, newRole) => {
     try {
-      setActionLoading(true);
+      setMemberActionLoading(true);
       await updateMemberRole(id, userId, newRole);
 
       // Refresh university data
@@ -242,7 +244,7 @@ export default function UniversityDetailPage() {
         message: error.message || 'Failed to update role.',
       });
     } finally {
-      setActionLoading(false);
+      setMemberActionLoading(false);
     }
   };
 
@@ -262,7 +264,7 @@ export default function UniversityDetailPage() {
       variant: 'warning',
       onConfirm: async () => {
         try {
-          setActionLoading(true);
+          setMemberActionLoading(true);
           await updateMemberRole(id, userId, ROLES.PRESIDENT);
 
           // Refresh university data
@@ -276,7 +278,7 @@ export default function UniversityDetailPage() {
             message: error.message || 'Failed to transfer presidency.',
           });
         } finally {
-          setActionLoading(false);
+          setMemberActionLoading(false);
         }
       },
     });
@@ -298,7 +300,7 @@ export default function UniversityDetailPage() {
       variant: 'danger',
       onConfirm: async () => {
         try {
-          setActionLoading(true);
+          setMemberActionLoading(true);
           await removeMember(id, userId);
 
           // Refresh university data
@@ -312,7 +314,7 @@ export default function UniversityDetailPage() {
             message: error.message || 'Failed to remove member.',
           });
         } finally {
-          setActionLoading(false);
+          setMemberActionLoading(false);
         }
       },
     });
@@ -410,10 +412,10 @@ export default function UniversityDetailPage() {
               {isAdmin && (
                 <button
                   onClick={handleDelete}
-                  disabled={actionLoading}
+                  disabled={deleteLoading}
                   className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {actionLoading ? 'Deleting...' : 'Delete'}
+                  {deleteLoading ? 'Deleting...' : 'Delete'}
                 </button>
               )}
             </div>
@@ -520,7 +522,7 @@ export default function UniversityDetailPage() {
                               onClick={() => setActivePopoverMemberId(
                                 activePopoverMemberId === member.id ? null : member.id
                               )}
-                              disabled={actionLoading}
+                              disabled={memberActionLoading}
                               className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               aria-label={`Manage ${member.name}`}
                             >
