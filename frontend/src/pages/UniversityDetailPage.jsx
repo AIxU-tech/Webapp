@@ -327,8 +327,9 @@ export default function UniversityDetailPage() {
   const { isSiteAdmin, canManageMembers, canManageExecutives } = permissions;
 
   // Legacy isAdmin for Edit/Delete university buttons (site admin only)
+  // Note: API returns 'permissionLevel' (camelCase)
   const isAdmin = isAuthenticated && (
-    isSiteAdmin || user?.permission_level >= 1
+    isSiteAdmin || user?.permissionLevel >= 1
   );
 
   const tags = Array.isArray(university?.tags) ? university.tags : [];
