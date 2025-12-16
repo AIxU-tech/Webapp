@@ -18,9 +18,10 @@ Permission System:
 Available Endpoints:
 - GET /api/universities/list - List all universities
 - GET /api/universities/<id> - Get university details
-- POST /universities/<id>/remove_member/<user_id> - Remove member (executive+)
-- POST /universities/<id>/delete - Delete university (president or admin only)
+- POST /api/universities/<id>/remove_member/<user_id> - Remove member (executive+)
+- POST /api/universities/<id>/delete - Delete university (site admin only)
 - POST /api/universities/<id>/roles/<user_id> - Update user role (president or admin)
+- DELETE /api/universities/<id>/roles/<user_id> - Remove user role (president or admin)
 - GET /api/universities/<id>/roles - Get all roles for a university
 """
 
@@ -46,7 +47,7 @@ universities_bp = Blueprint('universities', __name__)
 # auto-enrollment implementation.
 
 
-@universities_bp.route('/universities/<int:university_id>/remove_member/<int:user_id>', methods=['POST'])
+@universities_bp.route('/api/universities/<int:university_id>/remove_member/<int:user_id>', methods=['POST'])
 @login_required
 def remove_member(university_id: int, user_id: int):
     """
@@ -69,46 +70,41 @@ def remove_member(university_id: int, user_id: int):
         - Club executive at this university
 
     Returns:
-        Redirect to university detail page with flash message
+        JSON response with success status
     """
     uni = University.query.get(university_id)
     if not uni:
-        flash('University not found', 'error')
-        return redirect(url_for('universities.api_universities_list'))
+        return jsonify({'error': 'University not found'}), 404
 
     # Authorization check: site admin, president, or executive can remove members
     if not can_manage_university_members(current_user, university_id):
-        flash('You are not authorized to remove members.', 'error')
-        return redirect(url_for('universities.api_university_detail', university_id=uni.id))
+        return jsonify({'error': 'You are not authorized to remove members.'}), 403
 
     # Prevent removing the president (must transfer presidency first)
     if uni.is_member_president(user_id):
-        flash('Cannot remove the club president. Transfer presidency first.', 'error')
-        return redirect(url_for('universities.api_university_detail', university_id=uni.id))
+        return jsonify({'error': 'Cannot remove the club president. Transfer presidency first.'}), 400
 
     member_ids = uni.get_members_list()
-    if user_id in member_ids:
-        # Remove user from university members list
-        member_ids.remove(user_id)
-        uni.set_members_list(member_ids)
+    if user_id not in member_ids:
+        return jsonify({'error': 'Member not found in this university.'}), 404
 
-        # Remove user's role at this university
-        UniversityRole.remove_role(user_id, university_id)
+    # Remove user from university members list
+    member_ids.remove(user_id)
+    uni.set_members_list(member_ids)
 
-        # Clear the user's university affiliation
-        user = User.query.get(user_id)
-        if user and user.university == uni.name:
-            user.university = None
+    # Remove user's role at this university
+    UniversityRole.remove_role(user_id, university_id)
 
-        db.session.commit()
-        flash('Member removed.', 'success')
-    else:
-        flash('Member not found in this university.', 'error')
+    # Clear the user's university affiliation
+    user = User.query.get(user_id)
+    if user and user.university == uni.name:
+        user.university = None
 
-    return redirect(url_for('universities.api_university_detail', university_id=uni.id))
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Member removed successfully'})
 
 
-@universities_bp.route('/universities/<int:university_id>/delete', methods=['POST'])
+@universities_bp.route('/api/universities/<int:university_id>/delete', methods=['POST'])
 @login_required
 def delete_university(university_id: int):
     """
@@ -119,24 +115,24 @@ def delete_university(university_id: int):
 
     Note: This is a destructive action. All university data and roles will be deleted.
     Club presidents cannot delete universities - only site admins can.
+
+    Returns:
+        JSON response with success status
     """
     uni = University.query.get(university_id)
     if not uni:
-        flash('University not found', 'error')
-        return redirect(url_for('universities.api_universities_list'))
+        return jsonify({'error': 'University not found'}), 404
 
     # Only site admin can delete universities
     if not current_user.is_site_admin():
-        flash('You are not authorized to delete this university.', 'error')
-        return redirect(url_for('universities.api_university_detail', university_id=uni.id))
+        return jsonify({'error': 'You are not authorized to delete this university.'}), 403
 
     # Delete all roles associated with this university
     UniversityRole.query.filter_by(university_id=university_id).delete()
 
     db.session.delete(uni)
     db.session.commit()
-    flash('University deleted successfully', 'success')
-    return redirect(url_for('universities.api_universities_list'))
+    return jsonify({'success': True, 'message': 'University deleted successfully'})
 
 
 # API endpoints

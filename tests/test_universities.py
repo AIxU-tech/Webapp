@@ -4,8 +4,8 @@ Universities API Tests
 Tests for university-related endpoints:
 - GET /api/universities/list - List all universities
 - GET /api/universities/<id> - Get university details
-- POST /universities/<id>/remove_member/<user_id> - Remove member
-- POST /universities/<id>/delete - Delete university
+- POST /api/universities/<id>/remove_member/<user_id> - Remove member
+- POST /api/universities/<id>/delete - Delete university
 """
 
 import pytest
@@ -149,11 +149,12 @@ class TestMemberManagement:
             assert member.id in university.get_members_list()
 
             response = authenticated_admin_client.post(
-                f'/universities/{university.id}/remove_member/{member.id}'
+                f'/api/universities/{university.id}/remove_member/{member.id}'
             )
 
-            # Should redirect (legacy route returns redirect)
-            assert response.status_code in [200, 302]
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
 
             # Verify member is removed
             db.session.refresh(university)
@@ -168,10 +169,12 @@ class TestMemberManagement:
             member = db.session.get(User, member_user.id)
 
             response = authenticated_executive_client.post(
-                f'/universities/{university.id}/remove_member/{member.id}'
+                f'/api/universities/{university.id}/remove_member/{member.id}'
             )
 
-            assert response.status_code in [200, 302]
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
 
     def test_remove_member_as_president(
         self, authenticated_president_client, test_university, member_user, president_user, app
@@ -182,10 +185,12 @@ class TestMemberManagement:
             member = db.session.get(User, member_user.id)
 
             response = authenticated_president_client.post(
-                f'/universities/{university.id}/remove_member/{member.id}'
+                f'/api/universities/{university.id}/remove_member/{member.id}'
             )
 
-            assert response.status_code in [200, 302]
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
 
     def test_remove_member_as_regular_member_fails(
         self, authenticated_member_client, test_university, app
@@ -208,11 +213,12 @@ class TestMemberManagement:
             db.session.commit()
 
             response = authenticated_member_client.post(
-                f'/universities/{university.id}/remove_member/{other_user.id}'
+                f'/api/universities/{university.id}/remove_member/{other_user.id}'
             )
 
-            # Should redirect with error or return 403
-            assert response.status_code in [302, 403]
+            assert response.status_code == 403
+            data = response.get_json()
+            assert 'error' in data
 
             # Member should still be in university
             db.session.refresh(university)
@@ -230,11 +236,12 @@ class TestMemberManagement:
             assert user.id not in university.get_members_list()
 
             response = authenticated_admin_client.post(
-                f'/universities/{university.id}/remove_member/{user.id}'
+                f'/api/universities/{university.id}/remove_member/{user.id}'
             )
 
-            # Should redirect with error message
-            assert response.status_code in [302, 400]
+            assert response.status_code == 404
+            data = response.get_json()
+            assert 'error' in data
 
     def test_cannot_remove_president(
         self, authenticated_admin_client, test_university, president_user, admin_user, app
@@ -245,11 +252,12 @@ class TestMemberManagement:
             president = db.session.get(User, president_user.id)
 
             response = authenticated_admin_client.post(
-                f'/universities/{university.id}/remove_member/{president.id}'
+                f'/api/universities/{university.id}/remove_member/{president.id}'
             )
 
-            # Should redirect with error
-            assert response.status_code in [302, 400]
+            assert response.status_code == 400
+            data = response.get_json()
+            assert 'error' in data
 
             # President should still be in university
             db.session.refresh(university)
@@ -268,10 +276,12 @@ class TestUniversityDeletion:
             uni_id = university.id
 
             response = authenticated_admin_client.post(
-                f'/universities/{uni_id}/delete'
+                f'/api/universities/{uni_id}/delete'
             )
 
-            assert response.status_code in [200, 302]
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
 
             # Verify university is deleted
             deleted_uni = db.session.get(University, uni_id)
@@ -286,11 +296,12 @@ class TestUniversityDeletion:
             uni_id = university.id
 
             response = authenticated_president_client.post(
-                f'/universities/{uni_id}/delete'
+                f'/api/universities/{uni_id}/delete'
             )
 
-            # Should fail
-            assert response.status_code in [302, 403]
+            assert response.status_code == 403
+            data = response.get_json()
+            assert 'error' in data
 
             # University should still exist
             still_exists = db.session.get(University, uni_id)
@@ -305,10 +316,12 @@ class TestUniversityDeletion:
             uni_id = university.id
 
             response = authenticated_client.post(
-                f'/universities/{uni_id}/delete'
+                f'/api/universities/{uni_id}/delete'
             )
 
-            assert response.status_code in [302, 403]
+            assert response.status_code == 403
+            data = response.get_json()
+            assert 'error' in data
 
             # University should still exist
             still_exists = db.session.get(University, uni_id)
@@ -327,7 +340,8 @@ class TestUniversityDeletion:
             assert roles_before > 0
 
             # Delete university
-            authenticated_admin_client.post(f'/universities/{uni_id}/delete')
+            response = authenticated_admin_client.post(f'/api/universities/{uni_id}/delete')
+            assert response.status_code == 200
 
             # Verify roles are deleted
             roles_after = UniversityRole.query.filter_by(university_id=uni_id).count()
@@ -337,17 +351,18 @@ class TestUniversityDeletion:
         self, authenticated_admin_client, admin_user, app
     ):
         """Test deleting non-existent university"""
-        response = authenticated_admin_client.post('/universities/99999/delete')
+        response = authenticated_admin_client.post('/api/universities/99999/delete')
 
-        # Should redirect with error
-        assert response.status_code in [302, 404]
+        assert response.status_code == 404
+        data = response.get_json()
+        assert 'error' in data
 
     def test_delete_university_unauthenticated(self, client, test_university, app):
         """Test that unauthenticated user cannot delete university"""
         with app.app_context():
             university = db.session.get(University, test_university.id)
 
-            response = client.post(f'/universities/{university.id}/delete')
+            response = client.post(f'/api/universities/{university.id}/delete')
 
             # Should redirect to login or return 401
             assert response.status_code in [302, 401]
