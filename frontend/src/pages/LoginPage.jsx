@@ -21,20 +21,7 @@ import { login } from '../api/auth';
 import AuthFormLayout from '../components/AuthFormLayout';
 import FormInput from '../components/FormInput';
 import FormButton from '../components/FormButton';
-
-/**
- * ChevronDownIcon for "Learn more" button
- */
-const ChevronDownIcon = () => (
-  <svg
-    className="h-4 w-4 ml-1"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-  </svg>
-);
+import TermsLink from '../components/TermsLink';
 
 export default function LoginPage() {
   /**
@@ -115,27 +102,8 @@ export default function LoginPage() {
       {/* Legal Text */}
       <p className="text-xs text-muted-foreground mt-6 text-center leading-relaxed">
         By continuing, you agree to AIxU's{' '}
-        <a href="#" className="text-primary hover:underline">
-          Terms of Service
-        </a>{' '}
-        and{' '}
-        <a href="#" className="text-primary hover:underline">
-          Privacy Policy
-        </a>
-        .
+        <TermsLink />.
       </p>
-
-      {/* Learn More Button */}
-      <div className="text-center mt-6">
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground transition-colors duration-200 flex items-center justify-center mx-auto"
-          onClick={() => alert('Learn more functionality coming soon!')}
-        >
-          Learn more
-          <ChevronDownIcon />
-        </button>
-      </div>
     </>
   );
 

@@ -34,6 +34,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryProvider } from './contexts/QueryProvider';
 import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
+import { TermsProvider } from './contexts/TermsContext';
 import AppPrefetcher from './components/AppPrefetcher';
 import App from './App';
 import './styles.css';
@@ -47,18 +48,21 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       {/* BrowserRouter enables client-side routing */}
       {/* basename="/app" means all routes are under /app/ path */}
       <BrowserRouter basename="/app">
-        {/* AuthProvider checks login status and provides user state */}
-        <AuthProvider>
-          {/* AppPrefetcher loads all main page data in the background */}
-          {/* Runs once after auth check, doesn't block initial render */}
-          <AppPrefetcher />
+        {/* TermsProvider enables Terms modal to be opened from any page */}
+        <TermsProvider>
+          {/* AuthProvider checks login status and provides user state */}
+          <AuthProvider>
+            {/* AppPrefetcher loads all main page data in the background */}
+            {/* Runs once after auth check, doesn't block initial render */}
+            <AppPrefetcher />
 
-          {/* SocketProvider manages WebSocket connection for real-time features */}
-          {/* Must be inside AuthProvider to access user state */}
-          <SocketProvider>
-            <App />
-          </SocketProvider>
-        </AuthProvider>
+            {/* SocketProvider manages WebSocket connection for real-time features */}
+            {/* Must be inside AuthProvider to access user state */}
+            <SocketProvider>
+              <App />
+            </SocketProvider>
+          </AuthProvider>
+        </TermsProvider>
       </BrowserRouter>
     </QueryProvider>
   </React.StrictMode>

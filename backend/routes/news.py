@@ -293,6 +293,28 @@ def cleanup_batches():
     })
 
 
+@news_bp.route('/api/news/scheduler', methods=['GET'])
+@login_required
+def get_scheduler_info():
+    """
+    Get the status of the background news refresh scheduler. Admin only.
+
+    Returns:
+        JSON response with scheduler status and job information
+    """
+    is_admin, error_response = require_admin()
+    if not is_admin:
+        return error_response
+
+    from backend.services.scheduler import get_scheduler_status
+    status = get_scheduler_status()
+
+    return jsonify({
+        'success': True,
+        'scheduler': status
+    })
+
+
 # =============================================================================
 # Chat Endpoints
 # =============================================================================

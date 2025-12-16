@@ -140,3 +140,23 @@ export async function deleteUniversity(id) {
 export async function removeMember(universityId, userId) {
   return api.post(`/universities/${universityId}/remove_member/${userId}`);
 }
+
+// =============================================================================
+// Role Management API Functions
+// =============================================================================
+
+/**
+ * Update a member's role at a university
+ *
+ * Changes a user's role (Member/Executive/President) at a university.
+ * If promoting to President, the current president is demoted to Executive.
+ *
+ * @param {number} universityId - University ID
+ * @param {number} userId - User ID to update
+ * @param {number} role - New role (0=Member, 1=Executive, 2=President)
+ * @returns {Promise<object>} Response with updated role info
+ * @throws {ApiError} If not authorized (403) or invalid role (400)
+ */
+export async function updateMemberRole(universityId, userId, role) {
+  return api.post(`/universities/${universityId}/roles/${userId}`, { role });
+}

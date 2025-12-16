@@ -15,6 +15,7 @@ import {
   getUniversities,
   getUniversity,
   removeMember,
+  updateMemberRole,
 } from '../api/universities';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
 
@@ -173,6 +174,48 @@ export function useRemoveMember() {
 
       // Invalidate the universities list to update member counts
       queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+    },
+  });
+}
+
+/**
+ * useUpdateMemberRole Hook
+ *
+ * Mutation hook for updating a member's role at a university.
+ * Handles cache invalidation after successful role update.
+ *
+ * @returns {object} React Query mutation result
+ *
+ * @example
+ * function RoleButton({ universityId, userId, newRole }) {
+ *   const updateRole = useUpdateMemberRole();
+ *
+ *   const handleClick = async () => {
+ *     try {
+ *       await updateRole.mutateAsync({ universityId, userId, role: newRole });
+ *       toast.success('Role updated!');
+ *     } catch (error) {
+ *       toast.error('Failed to update role');
+ *     }
+ *   };
+ *
+ *   return (
+ *     <button onClick={handleClick} disabled={updateRole.isPending}>
+ *       {updateRole.isPending ? 'Updating...' : 'Update Role'}
+ *     </button>
+ *   );
+ * }
+ */
+export function useUpdateMemberRole() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ universityId, userId, role }) =>
+      updateMemberRole(universityId, userId, role),
+
+    onSuccess: (_data, { universityId }) => {
+      // Invalidate the specific university's cache to refresh member roles
+      queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
     },
   });
 }

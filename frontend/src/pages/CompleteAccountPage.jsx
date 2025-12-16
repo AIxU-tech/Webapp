@@ -27,6 +27,7 @@ import { validateAccountToken, completeAccount } from '../api/auth';
 import AuthFormLayout from '../components/AuthFormLayout';
 import FormInput from '../components/FormInput';
 import FormButton from '../components/FormButton';
+import TermsLink from '../components/TermsLink';
 
 /**
  * CheckCircleIcon - Success indicator
@@ -332,14 +333,7 @@ export default function CompleteAccountPage() {
       {/* Security Note */}
       <p className="text-xs text-muted-foreground mt-6 text-center leading-relaxed">
         By completing your account, you agree to AIxU's{' '}
-        <a href="#" className="text-primary hover:underline">
-          Terms of Service
-        </a>{' '}
-        and{' '}
-        <a href="#" className="text-primary hover:underline">
-          Privacy Policy
-        </a>
-        .
+        <TermsLink />.
       </p>
     </AuthFormLayout>
   );

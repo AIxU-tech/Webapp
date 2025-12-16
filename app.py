@@ -37,6 +37,16 @@ from backend.extensions import socketio
 # This allows different configurations for development, testing, and production.
 app = create_app()
 
+# =============================================================================
+# Initialize Background Task Scheduler
+# =============================================================================
+# Start the scheduler for automatic news refresh every 24 hours.
+# Only start in the main process (not in Flask's reloader subprocess).
+# WERKZEUG_RUN_MAIN is set to 'true' in the reloader child process.
+if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
+    from backend.services.scheduler import init_scheduler
+    init_scheduler(app)
+
 if __name__ == '__main__':
     # =========================================================================
     # Start Development Server with WebSocket Support

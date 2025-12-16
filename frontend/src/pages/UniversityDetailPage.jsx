@@ -22,7 +22,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getUniversity, deleteUniversity, removeMember } from '../api/universities';
+import { getUniversity, deleteUniversity, removeMember, updateMemberRole } from '../api/universities';
+import RoleBadge, { ROLES } from '../components/RoleBadge';
+import MemberActionsPopover from '../components/MemberActionsPopover';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 /**
  * ErrorModal Component
@@ -101,6 +104,17 @@ const InfoIcon = () => (
   </svg>
 );
 
+/**
+ * EditIcon Component
+ *
+ * Pencil icon for member actions popover trigger.
+ */
+const EditIcon = () => (
+  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+  </svg>
+);
+
 export default function UniversityDetailPage() {
   /**
    * Route Parameters and Navigation
@@ -121,6 +135,18 @@ export default function UniversityDetailPage() {
   const [loading, setLoading] = useState(true);
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: '', message: '' });
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Popover state - tracks which member's popover is open
+  const [activePopoverMemberId, setActivePopoverMemberId] = useState(null);
+
+  // Confirmation modal state for destructive actions
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    variant: 'warning',
+    onConfirm: () => {},
+  });
 
   /**
    * Fetch University Data
@@ -193,33 +219,27 @@ export default function UniversityDetailPage() {
   };
 
   /**
-   * Handle Remove Member
+   * Handle Role Change
    *
-   * Removes a member from the university. Only available to admin.
+   * Changes a member's role (Member/Executive). Instant action.
    *
-   * @param {number} userId - ID of user to remove
-   * @param {string} userName - Name of user (for confirmation)
+   * @param {number} userId - ID of user to update
+   * @param {number} newRole - New role value
    */
-  const handleRemoveMember = async (userId, userName) => {
-    if (!window.confirm(`Remove ${userName} from the university?`)) {
-      return;
-    }
-
+  const handleRoleChange = async (userId, newRole) => {
     try {
       setActionLoading(true);
-      await removeMember(id, userId);
+      await updateMemberRole(id, userId, newRole);
 
       // Refresh university data
       const updatedData = await getUniversity(id);
       setUniversity(updatedData);
-
-      alert('Member removed successfully');
     } catch (error) {
-      console.error('Error removing member:', error);
+      console.error('Error updating role:', error);
       setErrorModal({
         isOpen: true,
-        title: 'Remove Failed',
-        message: error.message || 'Failed to remove member.',
+        title: 'Update Failed',
+        message: error.message || 'Failed to update role.',
       });
     } finally {
       setActionLoading(false);
@@ -227,15 +247,113 @@ export default function UniversityDetailPage() {
   };
 
   /**
+   * Handle Make President
+   *
+   * Shows confirmation modal before transferring presidency.
+   *
+   * @param {number} userId - ID of user to make president
+   */
+  const handleMakePresident = (userId) => {
+    const member = university?.members?.find((m) => m.id === userId);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Transfer Presidency',
+      message: `Make ${member?.name || 'this member'} the club president? The current president will be demoted to Executive.`,
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          setActionLoading(true);
+          await updateMemberRole(id, userId, ROLES.PRESIDENT);
+
+          // Refresh university data
+          const updatedData = await getUniversity(id);
+          setUniversity(updatedData);
+        } catch (error) {
+          console.error('Error transferring presidency:', error);
+          setErrorModal({
+            isOpen: true,
+            title: 'Transfer Failed',
+            message: error.message || 'Failed to transfer presidency.',
+          });
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
+  };
+
+  /**
+   * Handle Remove Member
+   *
+   * Shows confirmation modal before removing a member.
+   *
+   * @param {number} userId - ID of user to remove
+   */
+  const handleRemoveMember = (userId) => {
+    const member = university?.members?.find((m) => m.id === userId);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Member',
+      message: `Remove ${member?.name || 'this member'} from the club? They can re-join by registering with their university email.`,
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          setActionLoading(true);
+          await removeMember(id, userId);
+
+          // Refresh university data
+          const updatedData = await getUniversity(id);
+          setUniversity(updatedData);
+        } catch (error) {
+          console.error('Error removing member:', error);
+          setErrorModal({
+            isOpen: true,
+            title: 'Remove Failed',
+            message: error.message || 'Failed to remove member.',
+          });
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
+  };
+
+  /**
    * Derived State
    *
-   * Calculate permissions from user and university data.
+   * Use permissions from API response.
    */
-  const isAdmin = isAuthenticated && university && (
-    university.adminId === user?.id || user?.permission_level >= 2
+  const permissions = university?.permissions || {};
+  const { isSiteAdmin, canManageMembers, canManageExecutives } = permissions;
+
+  // Legacy isAdmin for Edit/Delete university buttons (site admin only)
+  const isAdmin = isAuthenticated && (
+    isSiteAdmin || user?.permission_level >= 1
   );
 
   const tags = Array.isArray(university?.tags) ? university.tags : [];
+
+  // Sort members: President first, then Executives, then Members
+  const sortedMembers = [...(university?.members || [])].sort((a, b) => {
+    const roleA = a.role ?? 0;
+    const roleB = b.role ?? 0;
+    return roleB - roleA; // Higher role first
+  });
+
+  /**
+   * Check if current user can manage a specific member
+   *
+   * Rules:
+   * - Cannot manage yourself
+   * - Need canManageMembers or canManageExecutives permission
+   * - Cannot manage the president unless you're site admin
+   */
+  const canManageMember = (member) => {
+    if (!isAuthenticated) return false;
+    if (member.id === user?.id) return false;
+    if (member.role === ROLES.PRESIDENT && !isSiteAdmin) return false;
+    return canManageMembers || canManageExecutives;
+  };
 
   /**
    * Render Loading State
@@ -263,6 +381,17 @@ export default function UniversityDetailPage() {
         onClose={handleErrorModalClose}
       />
 
+      {/* Confirmation Modal for destructive actions */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText="Confirm"
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+      />
+
       {university && (
         <div className="container mx-auto px-4 py-10">
           {/* Page Header */}
@@ -276,15 +405,6 @@ export default function UniversityDetailPage() {
 
             {/* Admin Action Buttons */}
             <div className="flex gap-2 flex-wrap">
-              {/* Edit Button - Admin only */}
-              {isAdmin && (
-                <Link to={`/universities/${id}/edit`}>
-                  <button className="bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white px-4 py-2 rounded-md hover:shadow-lg transition-all">
-                    Edit University
-                  </button>
-                </Link>
-              )}
-
               {/* Delete Button - Admin only */}
               {isAdmin && (
                 <button
@@ -359,9 +479,9 @@ export default function UniversityDetailPage() {
                   </Tooltip>
                 </div>
 
-                {university.members && university.members.length > 0 ? (
+                {sortedMembers.length > 0 ? (
                   <div className="space-y-3">
-                    {university.members.map((member) => (
+                    {sortedMembers.map((member) => (
                       <div
                         key={member.id}
                         className="flex items-center gap-3 justify-between"
@@ -380,8 +500,11 @@ export default function UniversityDetailPage() {
                             }}
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="text-sm text-foreground hover:underline truncate">
-                              {member.name}
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-foreground hover:underline truncate">
+                                {member.name}
+                              </span>
+                              <RoleBadge role={member.role} size="xs" />
                             </div>
                             <div className="text-xs text-muted-foreground truncate">
                               {member.location || 'Location not set'}
@@ -389,16 +512,30 @@ export default function UniversityDetailPage() {
                           </div>
                         </Link>
 
-                        {/* Remove Button - Admin only, not for self */}
-                        {isAdmin && member.id !== user?.id && (
-                          <button
-                            onClick={() => handleRemoveMember(member.id, member.name)}
-                            disabled={actionLoading}
-                            className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                            aria-label={`Remove ${member.name}`}
-                          >
-                            Remove
-                          </button>
+                        {/* Edit Button - Opens actions popover */}
+                        {canManageMember(member) && (
+                          <div className="relative flex-shrink-0">
+                            <button
+                              onClick={() => setActivePopoverMemberId(
+                                activePopoverMemberId === member.id ? null : member.id
+                              )}
+                              disabled={actionLoading}
+                              className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              aria-label={`Manage ${member.name}`}
+                            >
+                              <EditIcon />
+                            </button>
+
+                            <MemberActionsPopover
+                              isOpen={activePopoverMemberId === member.id}
+                              onClose={() => setActivePopoverMemberId(null)}
+                              member={member}
+                              permissions={permissions}
+                              onRoleChange={handleRoleChange}
+                              onRemove={handleRemoveMember}
+                              onMakePresident={handleMakePresident}
+                            />
+                          </div>
                         )}
                       </div>
                     ))}

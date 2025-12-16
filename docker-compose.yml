@@ -3,6 +3,8 @@ services:
     image: postgres:15-alpine
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  # Expose to host on 5433 (5432 may be used by local postgres)
     environment:
       POSTGRES_USER: aixu
       POSTGRES_PASSWORD: aixu_dev_password
