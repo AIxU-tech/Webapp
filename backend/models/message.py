@@ -1,5 +1,6 @@
 from datetime import datetime
 from backend.extensions import db
+from backend.utils.time import get_time_ago
 
 
 class Message(db.Model):
@@ -18,25 +19,7 @@ class Message(db.Model):
 
     def get_time_ago(self):
         """Calculate time ago string"""
-        now = datetime.utcnow()
-        diff = now - self.created_at
-
-        if diff.days > 0:
-            if diff.days == 1:
-                return '1 day ago'
-            return f'{diff.days} days ago'
-        elif diff.seconds >= 3600:
-            hours = diff.seconds // 3600
-            if hours == 1:
-                return '1 hour ago'
-            return f'{hours} hours ago'
-        elif diff.seconds >= 60:
-            minutes = diff.seconds // 60
-            if minutes == 1:
-                return '1 minute ago'
-            return f'{minutes} minutes ago'
-        else:
-            return 'Just now'
+        return get_time_ago(self.created_at)
 
     def to_dict(self):
         """Convert message to dictionary for JSON responses"""

@@ -28,6 +28,7 @@ import io
 from backend.extensions import db
 from backend.models import User, Note, Message, University, UserFollows, UserLikedUniversity
 from backend.utils.image import allowed_file, compress_image
+from backend.utils.time import format_full_date, format_join_date, to_iso
 
 profile_bp = Blueprint('profile', __name__)
 
@@ -149,7 +150,7 @@ def api_user_detail(user_id: int):
             'content': post.content[:100] + '...' if len(post.content) > 100 else post.content,
             'likes': post.likes,
             'time': post.get_time_ago(),
-            'created_at': post.created_at.isoformat() if post.created_at else None
+            'created_at': to_iso(post.created_at)
         })
 
     # If no posts, add join activity as placeholder
@@ -157,14 +158,14 @@ def api_user_detail(user_id: int):
         recent_activity.append({
             'type': 'join',
             'content': 'Joined AIxU community',
-            'time': user.join_date.strftime('%B %d, %Y') if user.join_date else 'Recently',
+            'time': format_full_date(user.join_date) if user.join_date else 'Recently',
         })
 
     # Combine user data with activity
     user_data = user.to_dict()
     user_data['recent_activity'] = recent_activity
     user_data['profile_picture_url'] = user.get_profile_picture_url()
-    user_data['joined_formatted'] = user.join_date.strftime('%B %Y') if user.join_date else 'Unknown'
+    user_data['joined_formatted'] = format_join_date(user.join_date)
 
     return jsonify(user_data)
 

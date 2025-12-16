@@ -353,6 +353,6 @@ def reject(request_id: int):
         return jsonify({'error': f'Request already {uni_request.status}'}), 400
 
     data = request.get_json() or {}
-    uni_request.reject(current_user.id, data.get('notes'))
+    uni_request.reject(current_user.id, data.get('notes'), commit=True)
 
     return jsonify({'success': True, 'message': 'Request rejected'}), 200

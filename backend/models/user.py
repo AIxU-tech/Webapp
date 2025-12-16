@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import json
 from backend.extensions import db
 from backend.constants import ADMIN, UniversityRoles
+from backend.utils.time import format_join_date, to_iso
 
 
 # Extended User model that works with Flask-Login
@@ -125,8 +126,8 @@ class User(UserMixin, db.Model):
             'last_name': self.last_name,
             'full_name': self.get_full_name(),
             'university': self.university,
-            'join_date': self.join_date.isoformat() if self.join_date else None,
-            'joined_formatted': self.join_date.strftime('%B %Y') if self.join_date else 'Unknown',
+            'join_date': to_iso(self.join_date),
+            'joined_formatted': format_join_date(self.join_date),
             'post_count': self.post_count,
             'follower_count': self.follower_count,
             'following_count': self.following_count,

@@ -183,39 +183,43 @@ class UniversityRequest(db.Model):
             status=RequestStatus.PENDING
         ).first() is not None
 
-    def approve(self, admin_id: int, notes: str = None):
+    def approve(self, admin_id: int, notes: str = None, commit: bool = False):
         """
         Approve this request.
 
         Note: This only updates the request status.
         The caller is responsible for creating the actual University
-        and User records.
+        and User records, and for committing the transaction.
 
         Args:
             admin_id: ID of the admin approving the request
             notes: Optional notes about the approval
+            commit: Whether to commit the transaction (default False)
         """
         self.status = RequestStatus.APPROVED
         self.reviewed_at = datetime.utcnow()
         self.reviewed_by_id = admin_id
         if notes:
             self.admin_notes = notes
-        db.session.commit()
+        if commit:
+            db.session.commit()
 
-    def reject(self, admin_id: int, notes: str = None):
+    def reject(self, admin_id: int, notes: str = None, commit: bool = False):
         """
         Reject this request.
 
         Args:
             admin_id: ID of the admin rejecting the request
             notes: Reason for rejection (recommended)
+            commit: Whether to commit the transaction (default False)
         """
         self.status = RequestStatus.REJECTED
         self.reviewed_at = datetime.utcnow()
         self.reviewed_by_id = admin_id
         if notes:
             self.admin_notes = notes
-        db.session.commit()
+        if commit:
+            db.session.commit()
 
     def generate_account_creation_token(self, expiry_days: int = 7) -> str:
         """
