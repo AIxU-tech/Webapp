@@ -22,6 +22,7 @@ import CommunityPage from './pages/CommunityPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import CompleteAccountPage from './pages/CompleteAccountPage';
 import RequestUniversityVerifyPage from './pages/RequestUniversityVerifyPage';
 import UniversityRequestDetailsPage from './pages/UniversityRequestDetailsPage';
 import UniversityRequestSubmittedPage from './pages/UniversityRequestSubmittedPage';
@@ -36,12 +37,13 @@ function App() {
       {/*
         Authentication Routes
 
-        Login, Register, and Verify Email pages don't use AppLayout because
-        they have full-screen plasma backgrounds and custom layouts.
+        Login, Register, Verify Email, and Complete Account pages don't use
+        AppLayout because they have full-screen plasma backgrounds and custom layouts.
       */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/complete-account" element={<CompleteAccountPage />} />
 
       {/*
         University Request Routes

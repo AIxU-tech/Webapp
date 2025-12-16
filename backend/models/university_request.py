@@ -7,14 +7,19 @@ is not yet in the system.
 
 Request Lifecycle:
 1. PENDING - Initial state, awaiting admin review
-2. APPROVED - Admin approved, university created
+2. APPROVED - Admin approved, university created, account creation token generated
 3. REJECTED - Admin rejected the request
+
+Account Creation Flow:
+When a request is approved, a secure token is generated and sent via email.
+The requester uses this token to complete their account setup (just password,
+no email verification needed since their email was already verified).
 
 The requester's email is verified before submission, proving they are
 actually a student at the claimed university.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from backend.extensions import db
 
 
@@ -109,8 +114,20 @@ class UniversityRequest(db.Model):
     # Admin Notes
     admin_notes = db.Column(db.Text, nullable=True)
 
+    # Account Creation Token (for secure account creation link after approval)
+    # Generated when request is approved, expires after 7 days
+    account_creation_token = db.Column(db.String(64), nullable=True, unique=True, index=True)
+    token_expires_at = db.Column(db.DateTime, nullable=True)
+
+    # Tracks if the requester has completed account creation
+    # References the User created from this request
+    account_created_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
     # Relationship to admin who reviewed
-    reviewed_by = db.relationship('User', backref='reviewed_university_requests')
+    reviewed_by = db.relationship('User', backref='reviewed_university_requests', foreign_keys=[reviewed_by_id])
+
+    # Relationship to user created from this request
+    created_user = db.relationship('User', backref='university_request_origin', foreign_keys=[account_created_user_id])
 
     def __repr__(self):
         return f'<UniversityRequest {self.id}: {self.university_name} ({self.status})>'
@@ -137,6 +154,9 @@ class UniversityRequest(db.Model):
             'reviewedAt': self.reviewed_at.isoformat() if self.reviewed_at else None,
             'reviewedById': self.reviewed_by_id,
             'adminNotes': self.admin_notes,
+            # Token expiry info (token itself is not exposed for security)
+            'tokenExpiresAt': self.token_expires_at.isoformat() if self.token_expires_at else None,
+            'accountCreated': self.account_created_user_id is not None,
         }
 
     @classmethod
@@ -196,3 +216,83 @@ class UniversityRequest(db.Model):
         if notes:
             self.admin_notes = notes
         db.session.commit()
+
+    def generate_account_creation_token(self, expiry_days: int = 7) -> str:
+        """
+        Generate a secure token for account creation and set expiry.
+
+        This token is sent in the approval email and allows the requester
+        to complete their account setup without email verification (since
+        their email was already verified during the request process).
+
+        Args:
+            expiry_days: Number of days until token expires (default 7)
+
+        Returns:
+            The generated token string
+        """
+        from backend.utils.email import generate_secure_token
+
+        # Generate a cryptographically secure token
+        self.account_creation_token = generate_secure_token(32)
+        self.token_expires_at = datetime.utcnow() + timedelta(days=expiry_days)
+
+        return self.account_creation_token
+
+    @classmethod
+    def find_by_token(cls, token: str):
+        """
+        Find a valid, unexpired request by its account creation token.
+
+        A token is valid if:
+        1. It matches a request with APPROVED status
+        2. The token hasn't expired
+        3. An account hasn't already been created for this request
+
+        Args:
+            token: The account creation token to look up
+
+        Returns:
+            UniversityRequest instance if found and valid, None otherwise
+        """
+        if not token:
+            return None
+
+        now = datetime.utcnow()
+        return cls.query.filter_by(
+            account_creation_token=token,
+            status=RequestStatus.APPROVED
+        ).filter(
+            cls.token_expires_at > now,
+            cls.account_created_user_id.is_(None)
+        ).first()
+
+    def is_token_valid(self) -> bool:
+        """
+        Check if this request's account creation token is still valid.
+
+        Returns:
+            True if token exists, hasn't expired, and account not created
+        """
+        if not self.account_creation_token or not self.token_expires_at:
+            return False
+
+        if self.account_created_user_id is not None:
+            return False
+
+        return datetime.utcnow() < self.token_expires_at
+
+    def mark_account_created(self, user_id: int):
+        """
+        Mark that an account was created from this request.
+
+        This invalidates the token (one-time use) and links
+        the created user to this request.
+
+        Args:
+            user_id: ID of the user account that was created
+        """
+        self.account_created_user_id = user_id
+        # Clear the token for security (one-time use)
+        self.account_creation_token = None
+        self.token_expires_at = None

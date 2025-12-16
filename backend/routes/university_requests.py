@@ -19,7 +19,12 @@ from flask_login import login_required, current_user
 
 from backend.extensions import db
 from backend.models import User, University, UniversityRequest, RequestStatus
-from backend.utils.email import generate_verification_code, send_verification_email
+from backend.utils.email import (
+    generate_verification_code,
+    send_verification_email,
+    send_university_request_submitted_email,
+    send_university_approved_email
+)
 from backend.utils.validation import validate_edu_email, validate_required_fields
 from backend.constants import ADMIN
 
@@ -171,7 +176,12 @@ def resend_code():
 
 @university_requests_bp.route('/submit', methods=['POST'])
 def submit_request():
-    """Submit university details after email verification."""
+    """
+    Submit university details after email verification.
+
+    After successful submission, sends a confirmation email to the requester
+    explaining the next steps (admin review, approval notification, etc.).
+    """
     pending = session.get(SESSION_PENDING)
     verified_at = session.get(SESSION_VERIFIED)
 
@@ -196,13 +206,15 @@ def submit_request():
     if not valid:
         return jsonify({'error': error}), 400
 
+    university_name = data['universityName'].strip()
+
     # Create the request
     try:
         uni_request = UniversityRequest(
             requester_email=pending['email'],
             requester_first_name=pending['first_name'],
             requester_last_name=pending['last_name'],
-            university_name=data['universityName'].strip(),
+            university_name=university_name,
             university_location=data['universityLocation'].strip(),
             email_domain=pending['email_domain'],
             club_name=data['clubName'].strip(),
@@ -213,6 +225,13 @@ def submit_request():
         db.session.add(uni_request)
         db.session.commit()
 
+        # Send confirmation email to the requester
+        email_sent = send_university_request_submitted_email(
+            email=pending['email'],
+            first_name=pending['first_name'],
+            university_name=university_name
+        )
+
         # Clear session
         session.pop(SESSION_PENDING, None)
         session.pop(SESSION_VERIFIED, None)
@@ -220,11 +239,13 @@ def submit_request():
         return jsonify({
             'success': True,
             'message': 'Request submitted! An admin will review it shortly.',
-            'requestId': uni_request.id
+            'requestId': uni_request.id,
+            'emailSent': email_sent
         }), 201
 
     except Exception as e:
         db.session.rollback()
+        current_app.logger.exception('Failed to submit university request: %s', e)
         return jsonify({'error': f'Failed to submit request: {str(e)}'}), 500
 
 
@@ -249,7 +270,17 @@ def get_pending():
 @university_requests_bp.route('/admin/<int:request_id>/approve', methods=['POST'])
 @login_required
 def approve(request_id: int):
-    """Approve request and create university (admin only)."""
+    """
+    Approve request, create university, and send account creation email.
+
+    This endpoint:
+    1. Creates the University record
+    2. Generates a secure account creation token
+    3. Sends an email to the requester with a link to complete their account
+
+    The requester can then create their account using just a password,
+    since their email was already verified during the request process.
+    """
     if current_user.permission_level < ADMIN:
         return jsonify({'error': 'Admin permission required'}), 403
 
@@ -274,20 +305,38 @@ def approve(request_id: int):
         )
         db.session.add(university)
 
-        # Approve request
+        # Generate secure account creation token (valid for 7 days)
+        token = uni_request.generate_account_creation_token(expiry_days=7)
+
+        # Approve request (updates status and review info)
         data = request.get_json() or {}
         uni_request.approve(current_user.id, data.get('notes'))
 
         db.session.commit()
 
+        # Build the account creation URL
+        # Use the request's host to generate the correct URL
+        base_url = request.host_url.rstrip('/')
+        account_creation_url = f"{base_url}/app/complete-account?token={token}"
+
+        # Send approval email with account creation link
+        email_sent = send_university_approved_email(
+            email=uni_request.requester_email,
+            first_name=uni_request.requester_first_name,
+            university_name=uni_request.university_name,
+            account_creation_url=account_creation_url
+        )
+
         return jsonify({
             'success': True,
-            'message': f'University "{university.name}" created. Requester can now register.',
-            'universityId': university.id
+            'message': f'University "{university.name}" created. Account creation email sent to requester.',
+            'universityId': university.id,
+            'emailSent': email_sent
         }), 200
 
     except Exception as e:
         db.session.rollback()
+        current_app.logger.exception('Failed to approve university request: %s', e)
         return jsonify({'error': str(e)}), 500
 
 

@@ -139,3 +139,46 @@ export async function checkAuth() {
     return false;
   }
 }
+
+
+// =============================================================================
+// Account Creation from Approved University Request
+// =============================================================================
+
+/**
+ * Validate an account creation token from a university approval email
+ *
+ * This endpoint checks if a token is valid and returns the associated
+ * request data (name, email, university) so the frontend can display
+ * the "complete account" form pre-filled with this information.
+ *
+ * @param {string} token - The account creation token from the approval email
+ * @returns {Promise<object>} Token validation result with user/university data
+ * @throws {ApiError} If token is invalid, expired, or already used
+ *
+ * @example
+ * const data = await validateAccountToken('abc123...');
+ * console.log(data.firstName, data.email, data.universityName);
+ */
+export async function validateAccountToken(token) {
+  return api.get(`/auth/validate-token?token=${encodeURIComponent(token)}`);
+}
+
+/**
+ * Complete account creation using a token from university approval email
+ *
+ * This endpoint creates a user account without requiring email verification,
+ * since the email was already verified during the university request process.
+ *
+ * @param {string} token - The account creation token from the approval email
+ * @param {string} password - The user's chosen password
+ * @returns {Promise<object>} Response with success status and user data
+ * @throws {ApiError} If token is invalid or password is too short
+ *
+ * @example
+ * const response = await completeAccount('abc123...', 'securePassword');
+ * console.log(response.user); // User object
+ */
+export async function completeAccount(token, password) {
+  return api.post('/auth/complete-account', { token, password });
+}
