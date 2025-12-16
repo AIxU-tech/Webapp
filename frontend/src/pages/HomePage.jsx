@@ -198,7 +198,7 @@ export default function HomePage() {
             */}
             <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
               Connect with AI clubs worldwide. Share knowledge, collaborate on projects, and
-              build the future of artificial intelligence together.
+              build the future of artificial intelligence together
             </p>
 
             {/*

@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -6,8 +7,29 @@ load_dotenv()
 class Config:
     """Flask application configuration"""
 
+    # Development mode - enables features like bypassing email verification
+    # Set DEV_MODE=true in environment to enable
+    DEV_MODE = os.environ.get('DEV_MODE', '').lower() == 'true'
+
     # Secret key for sessions
     SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key')
+
+    # =========================================================================
+    # Session Cookie Security
+    # =========================================================================
+    # HttpOnly: Prevent JavaScript access to session cookie (XSS protection)
+    SESSION_COOKIE_HTTPONLY = True
+
+    # SameSite: CSRF protection - 'Lax' allows normal navigation but blocks
+    # cross-site POST requests. Use 'Strict' for maximum security.
+    SESSION_COOKIE_SAMESITE = 'Lax'
+
+    # Secure: Only send cookies over HTTPS
+    # Disabled in dev mode since localhost uses HTTP
+    SESSION_COOKIE_SECURE = not DEV_MODE
+
+    # Session lifetime: 31 days for "remember me" functionality
+    PERMANENT_SESSION_LIFETIME = timedelta(days=31)
 
     # Database configuration
     # URL has to be in certain format for render
@@ -42,6 +64,9 @@ class TestConfig(Config):
 
     TESTING = True
     SECRET_KEY = 'test-secret-key'
+
+    # Tests run over HTTP, so disable secure cookie requirement
+    SESSION_COOKIE_SECURE = False
 
     # Use SQLite for testing (in-memory for speed, or file for debugging)
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'

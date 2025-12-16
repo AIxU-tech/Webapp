@@ -54,6 +54,17 @@ def create_app(config_class=Config):
     login_manager.login_view = 'auth.login'  # Redirect here if login required
     login_manager.login_message = 'Please log in to access this page.'
 
+    # Custom unauthorized handler for API routes - return JSON 401 instead of redirect
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        """Return 401 JSON for API requests, redirect for page requests."""
+        from flask import request
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Authentication required'}), 401
+        # For non-API routes, use default redirect behavior
+        from flask import redirect, url_for
+        return redirect(url_for('auth.login'))
+
     # WebSockets: Flask-SocketIO for real-time communication
     # This enables bidirectional communication between server and client
     socketio.init_app(app)
@@ -106,6 +117,26 @@ def create_app(config_class=Config):
     def health_check():
         """Health check endpoint for Render and other orchestrators."""
         return jsonify({"status": "healthy"}), 200
+
+    # =========================================================================
+    # Error Handlers
+    # =========================================================================
+    from werkzeug.exceptions import BadRequest, UnsupportedMediaType
+
+    @app.errorhandler(BadRequest)
+    def handle_bad_request(e):
+        """Handle malformed JSON and other bad requests"""
+        return jsonify({'error': 'Bad request: ' + str(e.description)}), 400
+
+    @app.errorhandler(UnsupportedMediaType)
+    def handle_unsupported_media_type(e):
+        """Handle requests with unsupported content types"""
+        return jsonify({'error': 'Unsupported media type'}), 415
+
+    @app.errorhandler(400)
+    def handle_400_error(e):
+        """Generic 400 error handler"""
+        return jsonify({'error': str(e.description) if hasattr(e, 'description') else 'Bad request'}), 400
 
     # =========================================================================
     # Serve React SPA

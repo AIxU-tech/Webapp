@@ -116,6 +116,7 @@ class TestUserModel:
         """Test that profile picture over 5MB raises ValueError"""
         with app.app_context():
             user = User(email='bigimage@example.edu')
+            user.set_password('testpassword')
             db.session.add(user)
             db.session.commit()
 
@@ -128,6 +129,7 @@ class TestUserModel:
         """Test that valid profile picture is stored"""
         with app.app_context():
             user = User(email='validimage@example.edu')
+            user.set_password('testpassword')
             db.session.add(user)
             db.session.commit()
 
@@ -142,6 +144,7 @@ class TestUserModel:
         """Test deleting profile picture"""
         with app.app_context():
             user = User(email='deleteimage@example.edu')
+            user.set_password('testpassword')
             db.session.add(user)
             db.session.commit()
 

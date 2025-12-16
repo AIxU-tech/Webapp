@@ -109,14 +109,15 @@ def api_notes():
 
     if filter_user_id:
         # Fetch only notes from this user
-        db_notes = Note.query.filter_by(author_id=filter_user_id).order_by(Note.created_at.desc()).all()
+        db_notes = Note.query.filter_by(author_id=filter_user_id).order_by(Note.created_at.desc(), Note.id.desc()).all()
     elif search_query:
         # Search in note title, content, and author name
+        # Note: username column was removed, search by first/last name and email only
         matching_users = User.query.filter(
             db.or_(
                 User.first_name.ilike(f'%{search_query}%'),
                 User.last_name.ilike(f'%{search_query}%'),
-                User.username.ilike(f'%{search_query}%')
+                User.email.ilike(f'%{search_query}%')
             )
         ).all()
         matching_user_ids = [user.id for user in matching_users]
@@ -128,10 +129,10 @@ def api_notes():
                 Note.content.ilike(f'%{search_query}%'),
                 Note.author_id.in_(matching_user_ids) if matching_user_ids else False
             )
-        ).order_by(Note.created_at.desc()).all()
+        ).order_by(Note.created_at.desc(), Note.id.desc()).all()
     else:
         # Fetch all notes from database
-        db_notes = Note.query.order_by(Note.created_at.desc()).all()
+        db_notes = Note.query.order_by(Note.created_at.desc(), Note.id.desc()).all()
 
     # Convert to dictionaries and update isLiked/isBookmarked for current user
     notes = []

@@ -25,6 +25,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { register, getUniversities } from '../api';
 import PlasmaBackground from '../components/PlasmaBackground';
+import FormInput from '../components/FormInput';
+import FormButton from '../components/FormButton';
 
 // =============================================================================
 // TEMPORARY: Whitelisted non-.edu domains for testing
@@ -34,9 +36,7 @@ const WHITELISTED_DOMAINS = ['peekz.com'];
 // =============================================================================
 
 /**
- * Lucide Icon Components
- *
- * Inline SVG icons for UI elements.
+ * Icon Components
  */
 const BrainIcon = () => (
   <svg
@@ -92,10 +92,6 @@ const AlertCircleIcon = () => (
 export default function RegisterPage() {
   /**
    * Form State
-   *
-   * Stores all form field values.
-   * Note: universityId is no longer needed - university is auto-detected
-   * from email domain by the backend.
    */
   const [formData, setFormData] = useState({
     email: '',
@@ -106,14 +102,6 @@ export default function RegisterPage() {
 
   /**
    * UI State
-   *
-   * - universities: List of universities loaded from API (for display only)
-   * - loadingUniversities: Whether universities are being fetched
-   * - detectedUniversity: University detected from email domain (display only)
-   * - error: Error message to display
-   * - loading: Whether form is currently submitting
-   * - showTermsModal: Whether terms modal is visible
-   * - termsAccepted: Whether user has checked the terms checkbox
    */
   const [universities, setUniversities] = useState([]);
   const [loadingUniversities, setLoadingUniversities] = useState(true);
@@ -123,26 +111,14 @@ export default function RegisterPage() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  /**
-   * Hooks
-   */
   const navigate = useNavigate();
 
   /**
    * Set Page Title and Load Universities
-   *
-   * Runs once when component mounts.
    */
   useEffect(() => {
     document.title = 'Sign Up - AIxU';
 
-    /**
-     * Fetch Universities
-     *
-     * Loads list of universities for domain matching display.
-     * This is used to show the user which university they'll be enrolled in
-     * based on their email domain.
-     */
     async function fetchUniversities() {
       try {
         const data = await getUniversities();
@@ -159,13 +135,6 @@ export default function RegisterPage() {
 
   /**
    * Extract Domain from .edu Email
-   *
-   * Extracts the institution identifier from a .edu email address.
-   * For example: "user@uoregon.edu" returns "uoregon"
-   *              "user@cs.stanford.edu" returns "cs.stanford" (also tries "stanford")
-   *
-   * @param {string} email - The .edu email address to parse
-   * @returns {string|null} The domain before .edu, or null if invalid
    */
   const extractEduDomain = useCallback((email) => {
     if (!email || !email.includes('@')) return null;
@@ -176,15 +145,11 @@ export default function RegisterPage() {
     const domain = parts[1].toLowerCase();
     if (!domain.endsWith('.edu')) return null;
 
-    // Remove ".edu" suffix to get institution identifier
     return domain.slice(0, -4);
   }, []);
 
   /**
    * University Domain Lookup Map
-   *
-   * Maps email domains (lowercase) to university objects for O(1) lookup.
-   * Only includes universities with configured emailDomain field.
    */
   const universityDomainMap = useMemo(() => {
     const map = new Map();
@@ -198,22 +163,14 @@ export default function RegisterPage() {
 
   /**
    * Find University by Email
-   *
-   * Attempts to find a matching university for the given email address.
-   * Tries exact subdomain match first, then base domain match.
-   *
-   * @param {string} email - User's email address
-   * @returns {object|null} University object if found, null otherwise
    */
   const findUniversityByEmail = useCallback((email) => {
     const subdomain = extractEduDomain(email);
     if (!subdomain) return null;
 
-    // Try exact match first (e.g., "uoregon" matches "uoregon")
     let uni = universityDomainMap.get(subdomain);
     if (uni) return uni;
 
-    // Try base domain match (e.g., "cs.stanford" -> try "stanford")
     if (subdomain.includes('.')) {
       const baseDomain = subdomain.split('.').pop();
       uni = universityDomainMap.get(baseDomain);
@@ -225,13 +182,6 @@ export default function RegisterPage() {
 
   /**
    * Re-detect University When Data Changes
-   *
-   * This effect ensures university detection runs when:
-   * 1. Universities finish loading (universityDomainMap updates)
-   * 2. User navigates back to page with email already filled
-   *
-   * Without this, navigating away and back would show "University not found"
-   * because the detection only ran in handleChange (on user input).
    */
   useEffect(() => {
     if (formData.email && universityDomainMap.size > 0) {
@@ -242,15 +192,9 @@ export default function RegisterPage() {
 
   /**
    * Form Input Change Handler
-   *
-   * Updates form state when user types in any field.
-   * For email changes, attempts to detect matching university for display.
-   *
-   * @param {Event} e - Input change event
    */
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -259,46 +203,29 @@ export default function RegisterPage() {
 
   /**
    * Check if Email is Valid .edu Email
-   *
-   * @param {string} email - Email to validate
-   * @returns {boolean} True if valid .edu email format
    */
   const isValidEduEmail = useCallback((email) => {
     if (!email || !email.includes('@')) return false;
     const domain = email.split('@')[1]?.toLowerCase();
-    // Allow .edu emails or whitelisted domains
     return domain?.endsWith('.edu') || WHITELISTED_DOMAINS.includes(domain);
   }, []);
 
   /**
-   * Create Account Button Click Handler
+   * Form Submit Handler
    *
-   * Validates all required fields and shows terms modal.
-   * Actual registration happens after user accepts terms.
-   *
-   * @param {Event} e - Click event
+   * Uses native browser validation for required fields.
+   * Only shows custom errors for business logic validation.
    */
-  const handleCreateAccount = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-
-    // Clear any previous errors
     setError('');
 
-    /**
-     * Validate All Required Fields
-     */
-    if (!formData.email.trim()) {
-      setError('Please enter an email address');
-      return;
-    }
-
-    // Validate .edu email
+    // Business logic validation (not handled by native validation)
     if (!isValidEduEmail(formData.email)) {
       setError('Please use your university .edu email address');
       return;
     }
 
-    // Check if a university was detected for this email (skip for whitelisted domains)
     const domain = formData.email.split('@')[1]?.toLowerCase();
     const isWhitelisted = WHITELISTED_DOMAINS.includes(domain);
     if (!detectedUniversity && !isWhitelisted) {
@@ -306,66 +233,35 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!formData.password || formData.password.length < 6) {
+    if (formData.password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
 
-    if (!formData.firstName.trim()) {
-      setError('Please enter your first name');
-      return;
-    }
-
-    if (!formData.lastName.trim()) {
-      setError('Please enter your last name');
-      return;
-    }
-
-    /**
-     * Show Terms Modal
-     *
-     * User must accept terms before we submit registration.
-     */
+    // All validation passed, show terms modal
     setShowTermsModal(true);
-    // Prevent body scroll when modal is open
     document.body.style.overflow = 'hidden';
   };
 
   /**
    * Close Terms Modal
-   *
-   * Hides the modal and resets acceptance checkbox.
    */
   const closeTermsModal = () => {
     setShowTermsModal(false);
     setTermsAccepted(false);
-    // Restore body scroll
     document.body.style.overflow = '';
   };
 
   /**
    * Terms Accepted Handler
-   *
-   * Called when user clicks "Accept and Continue" in terms modal.
-   * Submits registration to backend. The backend will automatically
-   * enroll the user in a university based on their email domain.
    */
   const handleTermsAccepted = async () => {
     if (!termsAccepted) return;
 
-    // Close modal
     closeTermsModal();
-
-    // Set loading state
     setLoading(true);
 
     try {
-      /**
-       * Prepare Registration Data
-       *
-       * Note: No universityId is sent - the backend automatically determines
-       * the university based on the user's email domain.
-       */
       const registrationData = {
         email: formData.email.trim(),
         password: formData.password,
@@ -373,22 +269,8 @@ export default function RegisterPage() {
         lastName: formData.lastName.trim(),
       };
 
-      /**
-       * Call Registration API
-       *
-       * The backend will:
-       * 1. Validate the email is a .edu address
-       * 2. Find the matching university based on email domain
-       * 3. Store registration data and send verification email
-       */
       const response = await register(registrationData);
 
-      /**
-       * Redirect to Email Verification
-       *
-       * After successful registration, user needs to verify their email.
-       * Pass the email and university info to the verification page.
-       */
       navigate('/verify-email', {
         replace: true,
         state: {
@@ -396,17 +278,7 @@ export default function RegisterPage() {
           university: response.university || detectedUniversity
         }
       });
-
     } catch (err) {
-      /**
-       * Handle Registration Errors
-       *
-       * Common errors:
-       * - No university found for email domain
-       * - Email already registered
-       * - Invalid email format
-       * - Network errors
-       */
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
@@ -415,8 +287,6 @@ export default function RegisterPage() {
 
   /**
    * Escape Key Handler
-   *
-   * Allow users to close modal by pressing Escape key.
    */
   useEffect(() => {
     const handleEscape = (e) => {
@@ -431,31 +301,18 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden py-12 no-scrollbar">
-      {/*
-        Plasma Background Component
-
-        Animated gradient background with whitecast effect.
-        Slightly larger cardRadius (0.4) to accommodate taller registration form.
-      */}
+      {/* Plasma Background */}
       <PlasmaBackground
         variant="fullscreen"
         radialWhitecast={true}
         cardRadius={0.4}
       />
 
-      {/*
-        Registration Form Container
-      */}
+      {/* Registration Form Container */}
       <div className="relative z-10 w-full max-w-lg px-6">
-
-        {/*
-          Registration Card
-        */}
+        {/* Registration Card */}
         <div className="bg-card border border-border rounded-xl shadow-card p-8">
-
-          {/*
-            Logo and Header
-          */}
+          {/* Logo and Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center mb-6">
               <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mr-3">
@@ -467,195 +324,161 @@ export default function RegisterPage() {
               Join our community
             </h1>
             <p className="text-muted-foreground text-lg">
-              Create your account and start amplifying your ideas with privacy-first AI.
+              Create your account and start connecting with AI enthusiasts from across the country
             </p>
           </div>
 
-          {/*
-            Error Message Display
-          */}
+          {/* Error Message */}
           {error && (
             <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
               {error}
             </div>
           )}
 
-          {/*
-            Registration Form
-
-            All fields are required: email, password, name.
-            University is automatically detected from .edu email domain.
-          */}
-          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-
-            {/* All Fields Section - All Required */}
-            <div className="space-y-4">
-
-              {/* Name Inputs (Side by Side) */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* First Name - Required */}
-                <input
-                  type="text"
-                  name="firstName"
-                  placeholder="First name *"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  disabled={loading}
-                  required
-                  className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-
-                {/* Last Name - Required */}
-                <input
-                  type="text"
-                  name="lastName"
-                  placeholder="Last name *"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  disabled={loading}
-                  required
-                  className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
-
-              {/* Email Input - Required */}
-              <input
-                type="email"
-                name="email"
-                placeholder="Enter your .edu email *"
-                value={formData.email}
+          {/* Registration Form */}
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            {/* Name Inputs (Side by Side) */}
+            <div className="grid grid-cols-2 gap-4">
+              <FormInput
+                type="text"
+                name="firstName"
+                placeholder="First name *"
+                value={formData.firstName}
                 onChange={handleChange}
                 disabled={loading}
                 required
-                className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               />
-
-              {/*
-                University Detection Display
-
-                Shows which university the user will be enrolled in based on
-                their email domain. This is determined automatically - no
-                manual selection is allowed.
-              */}
-              {formData.email && isValidEduEmail(formData.email) && (() => {
-                const emailDomain = formData.email.split('@')[1]?.toLowerCase();
-                const isWhitelistedDomain = WHITELISTED_DOMAINS.includes(emailDomain);
-
-                if (detectedUniversity) {
-                  return (
-                    <div className="p-3 rounded-lg border bg-green-50 border-green-200">
-                      <div className="flex items-start gap-2">
-                        <CheckCircleIcon />
-                        <div>
-                          <p className="text-sm font-medium text-green-800">
-                            University detected
-                          </p>
-                          <p className="text-sm text-green-700">
-                            You will be enrolled in <strong>{detectedUniversity.name}</strong>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                } else if (isWhitelistedDomain) {
-                  // Whitelisted domain - show success without university
-                  return (
-                    <div className="p-3 rounded-lg border bg-blue-50 border-blue-200">
-                      <div className="flex items-start gap-2">
-                        <CheckCircleIcon />
-                        <div>
-                          <p className="text-sm font-medium text-blue-800">
-                            Whitelisted email detected
-                          </p>
-                          <p className="text-sm text-blue-700">
-                            You can create an account without a university affiliation
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                } else {
-                  return (
-                    <div className="p-3 rounded-lg border bg-amber-50 border-amber-200">
-                      <div className="flex items-start gap-2">
-                        <AlertCircleIcon />
-                        <div>
-                          <p className="text-sm font-medium text-amber-800">
-                            University not found
-                          </p>
-                          <p className="text-sm text-amber-700">
-                            No university matches your email domain.{' '}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                if (!formData.firstName.trim()) {
-                                  setError('Please enter your first name');
-                                  return;
-                                }
-                                if (!formData.lastName.trim()) {
-                                  setError('Please enter your last name');
-                                  return;
-                                }
-                                navigate('/request-university', {
-                                  state: {
-                                    email: formData.email,
-                                    firstName: formData.firstName,
-                                    lastName: formData.lastName
-                                  }
-                                });
-                              }}
-                              className="text-amber-800 font-medium underline hover:text-amber-900"
-                            >
-                              Request to add your university
-                            </button>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-              })()}
-
-              {/* Password Input - Required */}
-              <input
-                type="password"
-                name="password"
-                placeholder="Create a password (min 6 characters) *"
-                value={formData.password}
+              <FormInput
+                type="text"
+                name="lastName"
+                placeholder="Last name *"
+                value={formData.lastName}
                 onChange={handleChange}
                 disabled={loading}
                 required
-                minLength={6}
-                className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
-            {/*
-              Create Account Button
+            {/* Email Input */}
+            <FormInput
+              type="email"
+              name="email"
+              placeholder="Enter your .edu email *"
+              value={formData.email}
+              onChange={handleChange}
+              disabled={loading}
+              required
+            />
 
-              Opens terms modal when clicked.
-              Disabled during submission or if no university detected.
-            */}
-            <button
-              type="button"
-              onClick={handleCreateAccount}
+            {/* University Detection Display */}
+            {formData.email && isValidEduEmail(formData.email) && (() => {
+              const emailDomain = formData.email.split('@')[1]?.toLowerCase();
+              const isWhitelistedDomain = WHITELISTED_DOMAINS.includes(emailDomain);
+
+              if (detectedUniversity) {
+                return (
+                  <div className="p-3 rounded-lg border bg-green-50 border-green-200">
+                    <div className="flex items-start gap-2">
+                      <CheckCircleIcon />
+                      <div>
+                        <p className="text-sm font-medium text-green-800">
+                          University detected
+                        </p>
+                        <p className="text-sm text-green-700">
+                          You will be enrolled in <strong>{detectedUniversity.name}</strong>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              } else if (isWhitelistedDomain) {
+                return (
+                  <div className="p-3 rounded-lg border bg-blue-50 border-blue-200">
+                    <div className="flex items-start gap-2">
+                      <CheckCircleIcon />
+                      <div>
+                        <p className="text-sm font-medium text-blue-800">
+                          Whitelisted email detected
+                        </p>
+                        <p className="text-sm text-blue-700">
+                          You can create an account without a university affiliation
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              } else {
+                return (
+                  <div className="p-3 rounded-lg border bg-amber-50 border-amber-200">
+                    <div className="flex items-start gap-2">
+                      <AlertCircleIcon />
+                      <div>
+                        <p className="text-sm font-medium text-amber-800">
+                          University not found
+                        </p>
+                        <p className="text-sm text-amber-700">
+                          No university matches your email domain.{' '}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (!formData.firstName.trim()) {
+                                setError('Please enter your first name');
+                                return;
+                              }
+                              if (!formData.lastName.trim()) {
+                                setError('Please enter your last name');
+                                return;
+                              }
+                              navigate('/request-university', {
+                                state: {
+                                  email: formData.email,
+                                  firstName: formData.firstName,
+                                  lastName: formData.lastName
+                                }
+                              });
+                            }}
+                            className="text-amber-800 font-medium underline hover:text-amber-900"
+                          >
+                            Request to add your university
+                          </button>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+            })()}
+
+            {/* Password Input */}
+            <FormInput
+              type="password"
+              name="password"
+              placeholder="Create a password (min 6 characters) *"
+              value={formData.password}
+              onChange={handleChange}
+              disabled={loading}
+              required
+              minLength={6}
+            />
+
+            {/* Create Account Button */}
+            <FormButton
+              type="submit"
               disabled={loading || loadingUniversities}
-              className="w-full bg-gradient-primary text-white px-6 py-3 rounded-lg font-semibold hover:shadow-hover transition-all duration-200 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
+              loading={loading}
+              loadingText="Creating account..."
+              className="mt-6"
             >
-              {loading ? 'Creating account...' : 'Create account'}
-            </button>
+              Create account
+            </FormButton>
           </form>
 
-          {/*
-            Auto-Enrollment Note
-
-            Informs users that university is determined by email domain.
-          */}
+          {/* Auto-Enrollment Note */}
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-700 text-center">
               <InfoIcon />
-              Your university is automatically determined by your .edu email domain.
+              Your university is automatically determined by your .edu email domain
             </p>
           </div>
 
@@ -666,11 +489,7 @@ export default function RegisterPage() {
             <div className="flex-1 border-t border-border"></div>
           </div>
 
-          {/*
-            Login Link
-
-            For users who already have an account.
-          */}
+          {/* Login Link */}
           <div className="text-center">
             <p className="text-muted-foreground text-sm">
               Already have an account?{' '}
@@ -699,17 +518,11 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/*
-        Terms and Conditions Modal
-
-        Full-screen overlay with scrollable terms content.
-        User must check acceptance box and click "Accept and Continue".
-      */}
+      {/* Terms and Conditions Modal */}
       {showTermsModal && (
         <div
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
           onClick={(e) => {
-            // Close modal if user clicks the backdrop (not the modal content)
             if (e.target === e.currentTarget) {
               closeTermsModal();
             }
@@ -717,7 +530,6 @@ export default function RegisterPage() {
         >
           <div className="flex items-center justify-center min-h-screen p-4">
             <div className="bg-card border border-border rounded-xl shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
-
               {/* Modal Header */}
               <div className="p-6 border-b border-border flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-foreground">
@@ -731,15 +543,9 @@ export default function RegisterPage() {
                 </button>
               </div>
 
-              {/*
-                Modal Content (Scrollable)
-
-                Contains the full terms and conditions text.
-                Scrollable independently of the header and footer.
-              */}
+              {/* Modal Content (Scrollable) */}
               <div className="p-6 overflow-y-auto flex-1">
                 <div className="space-y-4 text-sm text-foreground">
-                  {/* Last Updated Date */}
                   <div className="mb-4">
                     <p className="text-xs text-muted-foreground">
                       Last updated: October 12, 2025
@@ -753,7 +559,6 @@ export default function RegisterPage() {
                     </p>
                   </div>
 
-                  {/* Section 1: Eligibility & Registration */}
                   <h3 className="text-lg font-semibold">1. Eligibility & Registration</h3>
                   <p className="text-muted-foreground">
                     <strong>1.1 Eligibility.</strong>
@@ -777,9 +582,8 @@ export default function RegisterPage() {
                     account. You agree to provide accurate, current, and complete information. You
                     are responsible for maintaining confidentiality of your credentials and all
                     activity under your account.
-                    </p>
+                  </p>
 
-                  {/* Additional sections abbreviated for brevity */}
                   <h3 className="text-lg font-semibold mt-4">2. Content & Posting</h3>
                   <p className="text-muted-foreground">
                     You may submit, post, upload, or otherwise make available content (notes,
@@ -826,13 +630,8 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/*
-                Modal Footer
-
-                Contains acceptance checkbox and action buttons.
-              */}
+              {/* Modal Footer */}
               <div className="p-6 border-t border-border">
-                {/* Acceptance Checkbox */}
                 <div className="flex items-start gap-3 mb-4">
                   <input
                     type="checkbox"
@@ -849,9 +648,7 @@ export default function RegisterPage() {
                   </label>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex gap-3">
-                  {/* Cancel Button */}
                   <button
                     type="button"
                     onClick={closeTermsModal}
@@ -859,21 +656,15 @@ export default function RegisterPage() {
                   >
                     Cancel
                   </button>
-
-                  {/*
-                    Accept Button
-
-                    Disabled until user checks the acceptance checkbox.
-                    Triggers registration when clicked.
-                  */}
-                  <button
+                  <FormButton
                     type="button"
                     onClick={handleTermsAccepted}
                     disabled={!termsAccepted}
-                    className="flex-1 px-4 py-2 bg-gradient-primary text-white rounded-lg font-semibold hover:shadow-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    fullWidth={false}
+                    className="flex-1"
                   >
                     Accept and Continue
-                  </button>
+                  </FormButton>
                 </div>
               </div>
             </div>

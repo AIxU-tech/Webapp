@@ -339,13 +339,24 @@ export default function NavBar() {
             </NavLink>
           </div>
         ) : (
-          // Join button for unauthenticated users
-          <Link
-            to="/register"
-            className="bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white px-6 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-[hsl(220,85%,60%)]/30 transition-all duration-200 transform hover:-translate-y-0.5"
-          >
-            Join AIxU
-          </Link>
+          // Links for unauthenticated users
+          <div className="flex items-center gap-4">
+            {/* Add Your School link */}
+            <Link
+              to="/add-university"
+              className="text-sm font-medium text-gray-700 hover:text-foreground transition-colors duration-150"
+            >
+              Add Your School
+            </Link>
+
+            {/* Join button */}
+            <Link
+              to="/register"
+              className="bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white px-6 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-[hsl(220,85%,60%)]/30 transition-all duration-200 transform hover:-translate-y-0.5"
+            >
+              Join AIxU
+            </Link>
+          </div>
         )}
       </div>
     </nav>

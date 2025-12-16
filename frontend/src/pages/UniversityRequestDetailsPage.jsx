@@ -17,6 +17,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { submitUniversityRequest } from '../api';
 import PlasmaBackground from '../components/PlasmaBackground';
+import CitySearchInput from '../components/CitySearchInput';
 
 export default function UniversityRequestDetailsPage() {
   const navigate = useNavigate();
@@ -31,7 +32,6 @@ export default function UniversityRequestDetailsPage() {
     universityLocation: '',
     clubName: '',
     clubDescription: '',
-    clubTags: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -84,17 +84,12 @@ export default function UniversityRequestDetailsPage() {
     setLoading(true);
 
     try {
-      // Parse tags from comma-separated string
-      const tags = formData.clubTags
-        ? formData.clubTags.split(',').map(t => t.trim()).filter(Boolean)
-        : [];
-
       await submitUniversityRequest({
         universityName: formData.universityName.trim(),
         universityLocation: formData.universityLocation.trim(),
         clubName: formData.clubName.trim(),
         clubDescription: formData.clubDescription.trim(),
-        clubTags: tags
+        clubTags: []
       });
 
       // Navigate to confirmation page
@@ -135,7 +130,7 @@ export default function UniversityRequestDetailsPage() {
               Tell Us About Your University
             </h1>
             <p className="text-muted-foreground">
-              Fill out the details below to request adding your university to AIxU.
+              Fill out the details below to request adding your university to AIxU
               <br />
               <span className="text-sm">
                 Email domain: <strong>@{emailDomain}.edu</strong>
@@ -178,14 +173,12 @@ export default function UniversityRequestDetailsPage() {
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Location <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <CitySearchInput
                   name="universityLocation"
                   value={formData.universityLocation}
-                  onChange={handleChange}
-                  placeholder="e.g., Eugene, Oregon"
+                  onChange={(value) => setFormData(prev => ({ ...prev, universityLocation: value }))}
+                  placeholder="Search for a city..."
                   disabled={loading}
-                  className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground disabled:opacity-50"
                   required
                 />
               </div>
@@ -229,23 +222,6 @@ export default function UniversityRequestDetailsPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Tags <span className="text-muted-foreground font-normal">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  name="clubTags"
-                  value={formData.clubTags}
-                  onChange={handleChange}
-                  placeholder="e.g., machine-learning, deep-learning, nlp (comma-separated)"
-                  disabled={loading}
-                  className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground disabled:opacity-50"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Separate multiple tags with commas
-                </p>
-              </div>
             </div>
 
             {/* Submit Button */}

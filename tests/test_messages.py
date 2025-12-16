@@ -26,7 +26,7 @@ class TestSendMessage:
                 'content': 'Hello, this is a test message!'
             })
 
-            assert response.status_code == 200
+            assert response.status_code == 201  # 201 CREATED for new resources
             data = response.get_json()
             assert data['success'] is True
             assert data['message']['content'] == 'Hello, this is a test message!'
@@ -185,10 +185,10 @@ class TestConversationsList:
         data = response.get_json()
         conv = data['conversations'][0]
 
-        assert 'user' in conv
-        assert 'id' in conv['user']
-        assert 'name' in conv['user']
-        assert 'avatar' in conv['user']
+        assert 'otherUser' in conv
+        assert 'id' in conv['otherUser']
+        assert 'name' in conv['otherUser']
+        assert 'avatar' in conv['otherUser']
 
     def test_conversations_unauthenticated(self, client):
         """Test that unauthenticated user cannot list conversations"""
@@ -288,8 +288,7 @@ class TestConversationDetail:
 
             assert 'id' in msg
             assert 'content' in msg
-            assert 'sender' in msg
-            assert 'recipient' in msg
+            assert 'isSentByCurrentUser' in msg
             assert 'timestamp' in msg
             assert 'isRead' in msg
 
@@ -299,16 +298,16 @@ class TestUserSearch:
 
     def test_search_users_by_name(self, authenticated_client, app, second_user):
         """Test searching users by first or last name"""
-        response = authenticated_client.get('/api/messages/search-users?q=Second')
+        response = authenticated_client.get('/api/users/search?q=Second')
 
         assert response.status_code == 200
         data = response.get_json()
         assert len(data['users']) >= 1
-        assert any(u['first_name'] == 'Second' for u in data['users'])
+        assert any(u['name'] == 'Second User' for u in data['users'])
 
     def test_search_users_by_email(self, authenticated_client, app, second_user):
         """Test searching users by email"""
-        response = authenticated_client.get('/api/messages/search-users?q=second@example')
+        response = authenticated_client.get('/api/users/search?q=second@example')
 
         assert response.status_code == 200
         data = response.get_json()
@@ -316,7 +315,7 @@ class TestUserSearch:
 
     def test_search_users_excludes_self(self, authenticated_client, app, test_user):
         """Test that current user is not in search results"""
-        response = authenticated_client.get('/api/messages/search-users?q=Test')
+        response = authenticated_client.get('/api/users/search?q=Test')
 
         assert response.status_code == 200
         data = response.get_json()
@@ -327,7 +326,7 @@ class TestUserSearch:
 
     def test_search_users_minimum_query_length(self, authenticated_client, app):
         """Test that short queries return empty results"""
-        response = authenticated_client.get('/api/messages/search-users?q=a')
+        response = authenticated_client.get('/api/users/search?q=a')
 
         assert response.status_code == 200
         data = response.get_json()
@@ -336,7 +335,7 @@ class TestUserSearch:
     def test_search_users_no_results(self, authenticated_client, app):
         """Test search with no matching users"""
         response = authenticated_client.get(
-            '/api/messages/search-users?q=nonexistentusername12345'
+            '/api/users/search?q=nonexistentusername12345'
         )
 
         assert response.status_code == 200
@@ -345,21 +344,20 @@ class TestUserSearch:
 
     def test_search_users_includes_user_info(self, authenticated_client, app, second_user):
         """Test that search results include user info"""
-        response = authenticated_client.get('/api/messages/search-users?q=Second')
+        response = authenticated_client.get('/api/users/search?q=Second')
 
         assert response.status_code == 200
         data = response.get_json()
         user = data['users'][0]
 
         assert 'id' in user
-        assert 'first_name' in user
-        assert 'last_name' in user
-        assert 'email' in user
-        assert 'avatar' in user or 'profile_picture_url' in user
+        assert 'name' in user
+        assert 'university' in user
+        assert 'avatar' in user
 
     def test_search_users_unauthenticated(self, client):
         """Test that unauthenticated user cannot search"""
-        response = client.get('/api/messages/search-users?q=Test')
+        response = client.get('/api/users/search?q=Test')
 
         assert response.status_code == 401
 

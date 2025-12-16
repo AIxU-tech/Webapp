@@ -56,7 +56,7 @@ class TestSQLInjection:
         malicious_query = "' OR '1'='1"
 
         response = authenticated_client.get(
-            f'/api/messages/search-users?q={malicious_query}'
+            f'/api/users/search?q={malicious_query}'
         )
 
         # Should return 200 and empty or valid results

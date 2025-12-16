@@ -14,7 +14,7 @@ based on their .edu email domain. For example, a user registering with
 of Oregon if it exists in the database with email_domain="uoregon".
 """
 
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, current_app
 from flask_login import login_user, logout_user, login_required
 import time
 from backend.extensions import db
@@ -232,7 +232,10 @@ def api_verify_email():
             return jsonify({'error': 'Verification code has expired. Please register again.'}), 401
 
         # Verify the code
-        if entered_code == session.get('verification_code'):
+        # In development mode (DEV_MODE=true), accept any 6-digit code for easier testing
+        is_dev_mode = current_app.config.get('DEV_MODE', False)
+        is_valid_dev_code = is_dev_mode and len(entered_code) == 6 and entered_code.isdigit()
+        if entered_code == session.get('verification_code') or is_valid_dev_code:
             reg_data = session['pending_registration']
 
             # Check if user already exists (shouldn't happen, but be safe)

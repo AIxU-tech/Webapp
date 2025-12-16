@@ -74,17 +74,17 @@ def remove_member(university_id: int, user_id: int):
     uni = University.query.get(university_id)
     if not uni:
         flash('University not found', 'error')
-        return redirect(url_for('universities.universities'))
+        return redirect(url_for('universities.api_universities_list'))
 
     # Authorization check: site admin, president, or executive can remove members
     if not can_manage_university_members(current_user, university_id):
         flash('You are not authorized to remove members.', 'error')
-        return redirect(url_for('universities.university_detail', university_id=uni.id))
+        return redirect(url_for('universities.api_university_detail', university_id=uni.id))
 
     # Prevent removing the president (must transfer presidency first)
     if uni.is_member_president(user_id):
         flash('Cannot remove the club president. Transfer presidency first.', 'error')
-        return redirect(url_for('universities.university_detail', university_id=uni.id))
+        return redirect(url_for('universities.api_university_detail', university_id=uni.id))
 
     member_ids = uni.get_members_list()
     if user_id in member_ids:
@@ -105,7 +105,7 @@ def remove_member(university_id: int, user_id: int):
     else:
         flash('Member not found in this university.', 'error')
 
-    return redirect(url_for('universities.university_detail', university_id=uni.id))
+    return redirect(url_for('universities.api_university_detail', university_id=uni.id))
 
 
 @universities_bp.route('/universities/<int:university_id>/delete', methods=['POST'])
@@ -123,12 +123,12 @@ def delete_university(university_id: int):
     uni = University.query.get(university_id)
     if not uni:
         flash('University not found', 'error')
-        return redirect(url_for('universities.universities'))
+        return redirect(url_for('universities.api_universities_list'))
 
     # Only site admin can delete universities
     if not current_user.is_site_admin():
         flash('You are not authorized to delete this university.', 'error')
-        return redirect(url_for('universities.university_detail', university_id=uni.id))
+        return redirect(url_for('universities.api_university_detail', university_id=uni.id))
 
     # Delete all roles associated with this university
     UniversityRole.query.filter_by(university_id=university_id).delete()
@@ -136,7 +136,7 @@ def delete_university(university_id: int):
     db.session.delete(uni)
     db.session.commit()
     flash('University deleted successfully', 'success')
-    return redirect(url_for('universities.universities'))
+    return redirect(url_for('universities.api_universities_list'))
 
 
 # API endpoints

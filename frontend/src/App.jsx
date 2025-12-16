@@ -15,6 +15,7 @@ import { Routes, Route } from 'react-router-dom';
 import AppLayout from './components/AppLayout';
 import HomePage from './pages/HomePage';
 import AddUniversityPage from './pages/AddUniversityPage';
+import AddUniversityEntryPage from './pages/AddUniversityEntryPage';
 import UniversitiesPage from './pages/UniversitiesPage';
 import UniversityDetailPage from './pages/UniversityDetailPage';
 import CommunityPage from './pages/CommunityPage';
@@ -46,10 +47,12 @@ function App() {
         University Request Routes
 
         Multi-step flow for requesting to add a new university:
-        1. /request-university - Verify email (code sent from RegisterPage data)
-        2. /request-university/details - Enter university and club details
-        3. /request-university/submitted - Confirmation page
+        1. /add-university - Entry page (collect name/email)
+        2. /request-university - Verify email (code sent)
+        3. /request-university/details - Enter university and club details
+        4. /request-university/submitted - Confirmation page
       */}
+      <Route path="/add-university" element={<AddUniversityEntryPage />} />
       <Route path="/request-university" element={<RequestUniversityVerifyPage />} />
       <Route path="/request-university/details" element={<UniversityRequestDetailsPage />} />
       <Route path="/request-university/submitted" element={<UniversityRequestSubmittedPage />} />

@@ -14,7 +14,7 @@ Admin endpoints use existing permission system.
 
 import time
 import json
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, current_app
 from flask_login import login_required, current_user
 
 from backend.extensions import db
@@ -127,7 +127,10 @@ def verify_request():
         session.pop(SESSION_CODE_TIME, None)
         return jsonify({'error': 'Verification code has expired. Please request a new one.'}), 401
 
-    if entered_code != stored_code:
+    # In development mode (DEV_MODE=true), accept any 6-digit code for easier testing
+    is_dev_mode = current_app.config.get('DEV_MODE', False)
+    is_valid_dev_code = is_dev_mode and len(entered_code) == 6 and entered_code.isdigit()
+    if entered_code != stored_code and not is_valid_dev_code:
         return jsonify({'error': 'Invalid verification code. Please try again.'}), 401
 
     # Mark verified

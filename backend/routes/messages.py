@@ -280,3 +280,29 @@ def get_conversation(user_id):
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+#Route for getting unread message count
+@messages_bp.route('/api/messages/unread-count')
+@login_required
+def get_unread_count():
+    """
+    Get the count of unread messages for the current user.
+
+    Returns:
+        200: JSON with unread count
+        500: Server error
+    """
+    try:
+        count = Message.query.filter_by(
+            recipient_id=current_user.id,
+            is_read=False
+        ).count()
+
+        return jsonify({
+            'success': True,
+            'count': count
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
