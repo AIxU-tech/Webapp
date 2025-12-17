@@ -65,6 +65,10 @@ class TestConfig(Config):
     TESTING = True
     SECRET_KEY = 'test-secret-key'
 
+    # Explicitly disable DEV_MODE in tests to ensure deterministic behavior
+    # Tests should verify actual validation logic, not dev bypass
+    DEV_MODE = False
+
     # Tests run over HTTP, so disable secure cookie requirement
     SESSION_COOKIE_SECURE = False
 

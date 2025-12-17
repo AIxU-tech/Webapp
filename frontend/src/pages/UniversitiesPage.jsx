@@ -20,52 +20,14 @@
  * @component
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useUniversities } from '../hooks';
+import { useUniversities, usePageTitle } from '../hooks';
+import { SearchIcon, AcademicCapIcon } from '../components/icons';
 
-/**
- * SearchIcon Component
- *
- * SVG icon for the search input field.
- */
-const SearchIcon = () => (
-  <svg
-    className="h-4 w-4 text-muted-foreground"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-    />
-  </svg>
-);
-
-/**
- * GraduationCapIcon Component
- *
- * SVG icon displayed on each university card.
- */
-const GraduationCapIcon = () => (
-  <svg
-    className="h-6 w-6 text-white"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 14l9-5-9-5-9 5 9 5z M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z M12 14v6.5"
-    />
-  </svg>
-);
+// Alias for clarity in university context
+const GraduationCapIcon = () => <AcademicCapIcon className="h-6 w-6 text-white" />;
 
 /**
  * UniversityCard Component
@@ -209,14 +171,8 @@ export default function UniversitiesPage() {
    */
   const [searchTerm, setSearchTerm] = useState('');
 
-  /**
-   * Set Page Title
-   *
-   * Updates browser tab title when component mounts.
-   */
-  useEffect(() => {
-    document.title = 'Universities - AIxU';
-  }, []);
+  // Set page title
+  usePageTitle('Universities');
 
   /**
    * Filter Universities by Search Term

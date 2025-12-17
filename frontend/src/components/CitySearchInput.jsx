@@ -24,26 +24,8 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import US_CITIES from '../data/usCities';
-
-/**
- * Debounce hook - short delay for instant feel while preventing excessive re-renders
- * @param {any} value - Value to debounce
- * @param {number} delay - Debounce delay in ms
- * @returns {any} Debounced value
- */
-function useDebounce(value, delay) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-
-  return debouncedValue;
-}
+import { useDebounce, useClickOutside } from '../hooks';
+import { SearchIcon } from './icons';
 
 /**
  * Search cities with smart matching
@@ -79,25 +61,6 @@ function searchCities(query, limit = 8) {
 
   return results.slice(0, limit);
 }
-
-/**
- * Search icon for the input
- */
-const SearchIcon = () => (
-  <svg
-    className="h-5 w-5 text-muted-foreground"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-    />
-  </svg>
-);
 
 /**
  * CitySearchInput Component
@@ -244,20 +207,11 @@ export default function CitySearchInput({
     }, 150);
   };
 
-  /**
-   * Handle click outside to close dropdown
-   */
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  // Handle click outside to close dropdown
+  useClickOutside(containerRef, () => {
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  });
 
   /**
    * Handle focus to show existing suggestions

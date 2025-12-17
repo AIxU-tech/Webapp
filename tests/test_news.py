@@ -197,6 +197,27 @@ class TestAdminOperations:
 
         assert response.status_code == 403
 
+    def test_get_scheduler_status_as_admin(self, authenticated_admin_client, admin_user, app):
+        """Test that admin can get scheduler status"""
+        response = authenticated_admin_client.get('/api/news/scheduler')
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        assert 'scheduler' in data
+
+    def test_get_scheduler_status_as_user_fails(self, authenticated_client, app):
+        """Test that regular user cannot get scheduler status"""
+        response = authenticated_client.get('/api/news/scheduler')
+
+        assert response.status_code == 403
+
+    def test_get_scheduler_status_unauthenticated(self, client, app):
+        """Test that unauthenticated user cannot get scheduler status"""
+        response = client.get('/api/news/scheduler')
+
+        assert response.status_code == 401
+
 
 class TestChatEndpoints:
     """Tests for chat about news/papers endpoints"""

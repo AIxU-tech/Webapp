@@ -65,6 +65,25 @@ def create_app(config_class=Config):
         from flask import redirect, url_for
         return redirect(url_for('auth.login'))
 
+    # Clear Flask-Login's cached user after each request for proper session isolation
+    @app.after_request
+    def clear_login_user_cache(response):
+        """
+        Clear Flask-Login's cached user after each request.
+
+        Flask-Login caches the authenticated user in g._login_user. In Flask 2.x,
+        the 'g' object is scoped to the application context. When multiple requests
+        share an app context (e.g., in tests), this cache can leak between requests,
+        causing authentication state to persist incorrectly.
+
+        This handler ensures each request starts with a fresh authentication check.
+        The session cookie properly re-authenticates users via user_loader.
+        """
+        from flask import g
+        if hasattr(g, '_login_user'):
+            delattr(g, '_login_user')
+        return response
+
     # WebSockets: Flask-SocketIO for real-time communication
     # This enables bidirectional communication between server and client
     socketio.init_app(app)

@@ -13,34 +13,16 @@
  * @component
  */
 
-import { useEffect } from 'react';
 import FormButton from './FormButton';
-
-const XIcon = () => (
-  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-  </svg>
-);
+import { XIcon } from './icons';
+import { useEscapeKey, useScrollLock } from '../hooks';
 
 export default function TermsModal({ isOpen, onClose }) {
   // Handle ESC key to close modal
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
+  useEscapeKey(isOpen, onClose);
 
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = '';
-    };
-  }, [isOpen, onClose]);
+  // Prevent body scroll when modal is open
+  useScrollLock(isOpen);
 
   if (!isOpen) return null;
 

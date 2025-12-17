@@ -12,7 +12,8 @@
  * @component
  */
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
+import { useEscapeKey, useClickOutside } from '../hooks';
 
 // Role constants matching backend
 const ROLES = {
@@ -45,33 +46,10 @@ export default function MemberActionsPopover({
   const popoverRef = useRef(null);
 
   // Close on click outside
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleClickOutside = (e) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target)) {
-        onClose();
-      }
-    };
-
-    // Use mousedown to catch clicks before they propagate
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, onClose]);
+  useClickOutside(popoverRef, onClose, isOpen);
 
   // Close on escape key
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose]);
+  useEscapeKey(isOpen, onClose);
 
   if (!isOpen || !member) return null;
 

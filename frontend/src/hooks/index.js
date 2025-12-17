@@ -130,3 +130,16 @@ export {
   useRejectRequest,
   universityRequestKeys,
 } from './useUniversityRequests';
+
+// =============================================================================
+// UI Utility Hooks
+// =============================================================================
+export {
+  useEscapeKey,
+  useClickOutside,
+  useScrollLock,
+  usePageTitle,
+  useDebounce,
+  useCountdown,
+  useModal,
+} from './useUI';
