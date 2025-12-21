@@ -14,10 +14,11 @@
  * @component
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { login } from '../api/auth';
+import { usePageTitle } from '../hooks';
 import AuthFormLayout from '../components/AuthFormLayout';
 import FormInput from '../components/FormInput';
 import FormButton from '../components/FormButton';
@@ -39,21 +40,12 @@ export default function LoginPage() {
 
   /**
    * Hooks
-   *
-   * - navigate: React Router function to programmatically navigate
-   * - loginUser: Function from AuthContext to update auth state
    */
   const navigate = useNavigate();
   const { loginUser } = useAuth();
 
-  /**
-   * Set Page Title
-   *
-   * Updates the browser tab title when component mounts.
-   */
-  useEffect(() => {
-    document.title = 'Login - AIxU';
-  }, []);
+  // Set browser tab title
+  usePageTitle('Login');
 
   /**
    * Form Submission Handler
