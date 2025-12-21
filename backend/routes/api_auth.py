@@ -498,3 +498,60 @@ def complete_account():
         db.session.rollback()
         current_app.logger.exception('Failed to complete account creation: %s', e)
         return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+
+# =============================================================================
+# Development Auto-Login
+# =============================================================================
+
+@api_auth_bp.route('/dev-login', methods=['POST'])
+def dev_login():
+    """
+    Development-only auto-login endpoint.
+
+    Automatically logs in as the dev user (dev@test.edu) without requiring
+    credentials. This endpoint is only available when DEV_MODE=true.
+
+    This enables a seamless development experience where developers don't
+    need to manually log in after each server restart.
+
+    Security:
+    - Only available when DEV_MODE=true in environment
+    - Returns 403 Forbidden in production
+    - Uses remember=True for persistent session
+
+    Returns:
+    - 200: { success: true, user: {...} } - Dev user logged in
+    - 403: { error: "..." } - DEV_MODE is not enabled (production)
+    - 404: { error: "..." } - Dev user not found (run seed_data)
+    """
+    # Gate this endpoint behind DEV_MODE for security
+    if not current_app.config.get('DEV_MODE', False):
+        return jsonify({
+            'error': 'Dev login is only available in development mode'
+        }), 403
+
+    try:
+        # Import the dev user email constant from seed_data
+        from backend.seed_data import DEV_USER_EMAIL
+
+        # Find the dev user
+        user = User.query.filter_by(email=DEV_USER_EMAIL).first()
+
+        if not user:
+            return jsonify({
+                'error': 'Dev user not found. Ensure DEV_MODE=true and restart the server.'
+            }), 404
+
+        # Log in the dev user with remember=True for persistent session
+        login_user(user, remember=True)
+
+        return jsonify({
+            'success': True,
+            'message': 'Dev auto-login successful',
+            'user': user.to_dict()
+        }), 200
+
+    except Exception as e:
+        current_app.logger.exception('Dev login failed: %s', e)
+        return jsonify({'error': f'Server error: {str(e)}'}), 500

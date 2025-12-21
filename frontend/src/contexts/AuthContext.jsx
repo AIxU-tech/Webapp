@@ -16,7 +16,7 @@
  */
 
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { getCurrentUser } from '../api/auth';
+import { getCurrentUser, devLogin } from '../api/auth';
 
 /**
  * Authentication context
@@ -55,6 +55,7 @@ export function AuthProvider({ children }) {
    * Check current authentication status
    *
    * Called on app load and can be called manually to refresh user data.
+   * In development mode, automatically logs in as dev user if not authenticated.
    */
   async function checkAuthStatus() {
     try {
@@ -64,9 +65,17 @@ export function AuthProvider({ children }) {
       // User is logged in - save their data
       setUser(userData);
     } catch (error) {
-      // Not logged in or session expired
-      // This is expected behavior - not an error to show user
-      setUser(null);
+      // Not logged in or session expired - try dev auto-login
+      // This only succeeds when backend DEV_MODE=true
+      try {
+        const response = await devLogin();
+        // Dev login succeeded - save user data
+        setUser(response.user);
+      } catch (devError) {
+        // Dev login failed (production mode or dev user missing)
+        // This is expected in production - silently continue
+        setUser(null);
+      }
     } finally {
       // Done checking - hide loading spinner
       setLoading(false);

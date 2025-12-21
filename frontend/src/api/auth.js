@@ -182,3 +182,31 @@ export async function validateAccountToken(token) {
 export async function completeAccount(token, password) {
   return api.post('/auth/complete-account', { token, password });
 }
+
+
+// =============================================================================
+// Development Auto-Login
+// =============================================================================
+
+/**
+ * Auto-login as dev user (development only)
+ *
+ * Calls the dev-login endpoint which logs in as dev@test.edu without
+ * requiring credentials. Only works when backend DEV_MODE=true.
+ *
+ * This enables seamless development without manual login after server restarts.
+ *
+ * @returns {Promise<object>} Response with success status and user data
+ * @throws {ApiError} If dev mode is disabled (403) or dev user not found (404)
+ *
+ * @example
+ * try {
+ *   const response = await devLogin();
+ *   console.log(response.user); // Dev user object
+ * } catch (error) {
+ *   // Not in dev mode or dev user missing - expected in production
+ * }
+ */
+export async function devLogin() {
+  return api.post('/auth/dev-login');
+}

@@ -45,6 +45,83 @@ from backend.models.university_role import UniversityRole
 from backend.constants import UniversityRoles, ADMIN
 
 
+# =============================================================================
+# Development Constants
+# =============================================================================
+# Dev user for auto-login (created on startup when DEV_MODE=true)
+DEV_USER_EMAIL = 'dev@test.edu'
+DEV_USER_PASSWORD = 'dev'
+DEV_UNIVERSITY_DOMAIN = 'test'
+
+# Shared password for all seeded test users (used by seed_all)
+SEED_USER_PASSWORD = 'password123'
+
+
+def ensure_dev_user():
+    """
+    Ensure the dev user exists for auto-login in development.
+
+    Creates a simple test user (dev@test.edu / dev) with admin privileges
+    if not already present. Also creates a Test University if needed.
+
+    This function is idempotent - safe to call on every app startup.
+    It only creates records if they don't already exist.
+
+    Returns:
+        User: The dev user object, or None if creation failed
+    """
+    # Check if dev user already exists
+    existing_user = User.query.filter_by(email=DEV_USER_EMAIL).first()
+    if existing_user:
+        print(f"Dev user already exists: {DEV_USER_EMAIL}")
+        return existing_user
+
+    # Ensure Test University exists for the dev user
+    test_university = University.query.filter_by(email_domain=DEV_UNIVERSITY_DOMAIN).first()
+    if not test_university:
+        test_university = University(
+            name='Test University',
+            clubName='Test AI Club',
+            location='Development',
+            email_domain=DEV_UNIVERSITY_DOMAIN,
+            description='Development and testing university for local dev environment.',
+            member_count=0,
+            recent_posts=0,
+            upcoming_events=0
+        )
+        db.session.add(test_university)
+        db.session.commit()
+        print("Created Test University for dev user.")
+
+    # Create the dev user with admin privileges
+    dev_user = User(
+        email=DEV_USER_EMAIL,
+        first_name='Dev',
+        last_name='User',
+        about_section='Development user for local testing. Auto-created by DEV_MODE.',
+        location='Local Development',
+        permission_level=ADMIN,
+        university=test_university.name,
+        post_count=0,
+        follower_count=0,
+        following_count=0
+    )
+    dev_user.set_password(DEV_USER_PASSWORD)
+    dev_user.set_skills_list(['Development', 'Testing'])
+    dev_user.set_interests_list(['Debugging', 'Local Dev'])
+
+    db.session.add(dev_user)
+    db.session.commit()
+
+    # Add dev user as member and president of Test University
+    test_university.add_member(dev_user.id)
+    UniversityRole.set_role(dev_user.id, test_university.id, UniversityRoles.PRESIDENT)
+    db.session.commit()
+
+    print(f"Created dev user: {DEV_USER_EMAIL} / {DEV_USER_PASSWORD}")
+    return dev_user
+
+
 def clear_existing_data():
     """Clear existing seed data (preserving any real data you want to keep)."""
     print("Clearing existing data...")
@@ -136,18 +213,17 @@ def seed_users(universities):
     domain_to_uni = {uni.email_domain: uni for uni in universities}
 
     users_data = [
-        # Oliver at UO (president of AISA)
+        # UO students (first user becomes president automatically)
         {
             "email": "osto@uoregon.edu",
             "first_name": "Oliver",
             "last_name": "Stoner-German",
-            "about_section": "AI enthusiast and president of AISA. Passionate about machine learning and its applications.",
+            "about_section": "AI enthusiast passionate about machine learning and its applications.",
             "location": "Eugene, OR",
             "skills": ["Python", "PyTorch", "Machine Learning", "React"],
             "interests": ["Deep Learning", "NLP", "Computer Vision"],
             "permission_level": ADMIN
         },
-        # More UO students
         {
             "email": "jsmith@uoregon.edu",
             "first_name": "Jordan",
@@ -340,11 +416,8 @@ def seed_users(universities):
             follower_count=0,
             following_count=0
         )
-        # Oliver gets a custom password, others use default
-        if data["email"] == "osto@uoregon.edu":
-            user.set_password("Improve Self3!")
-        else:
-            user.set_password("password123")
+        # All seeded users share the same password for easy testing
+        user.set_password(SEED_USER_PASSWORD)
         user.set_skills_list(data.get("skills", []))
         user.set_interests_list(data.get("interests", []))
 
@@ -373,15 +446,14 @@ def seed_university_memberships(users, universities):
             uni = domain_to_uni[domain]
             uni.add_member(user.id)
 
-            # Oliver is president of AISA
-            if user.email == "osto@uoregon.edu":
-                UniversityRole.set_role(user.id, uni.id, UniversityRoles.PRESIDENT)
-            # First user at each other university becomes president
-            elif uni.member_count == 1:
+            # Assign roles based on join order:
+            # First user at each university becomes president
+            if uni.member_count == 1:
                 UniversityRole.set_role(user.id, uni.id, UniversityRoles.PRESIDENT)
             # Second user becomes executive
             elif uni.member_count == 2:
                 UniversityRole.set_role(user.id, uni.id, UniversityRoles.EXECUTIVE)
+            # Everyone else is a member
             else:
                 UniversityRole.set_role(user.id, uni.id, UniversityRoles.MEMBER)
 
@@ -560,8 +632,8 @@ def seed_all():
     print("\n" + "="*50)
     print("Seeding complete!")
     print("="*50)
-    print("\nYou can log in with any user using password: password123")
-    print("Oliver's account: osto@uoregon.edu / Improve Self3!")
+    print(f"\nAll seeded users share password: {SEED_USER_PASSWORD}")
+    print("First user at each university is president, second is executive.")
     print("="*50 + "\n")
 
 

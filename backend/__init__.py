@@ -96,6 +96,12 @@ def create_app(config_class=Config):
         db.create_all()  # default bind
         print("All tables ensured.")
 
+        # In development mode, ensure dev user exists for auto-login.
+        # This creates dev@test.edu if not present, enabling seamless dev experience.
+        if app.config.get('DEV_MODE', False):
+            from backend.seed_data import ensure_dev_user
+            ensure_dev_user()
+
     # Register blueprints
     from backend.routes import (
         public_bp,
