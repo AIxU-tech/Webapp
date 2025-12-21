@@ -154,9 +154,10 @@ export default function NewsPage() {
   const papers = data?.papers || [];
   const hasContent = stories.length > 0 || papers.length > 0;
 
-  // Auto-fetch content when database is empty
+  // Auto-fetch content when database is empty (disabled in dev mode to save API costs)
   useEffect(() => {
     if (
+      !__DEV_MODE__ &&
       !isLoading &&
       !hasContent &&
       !hasTriggeredAutoFetch &&
