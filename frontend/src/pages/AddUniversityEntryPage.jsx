@@ -13,14 +13,16 @@
  * @component
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { usePageTitle } from '../hooks';
+import { Alert, Divider } from '../components/ui';
 import AuthFormLayout from '../components/AuthFormLayout';
 import FormInput from '../components/FormInput';
 import FormButton from '../components/FormButton';
 
 /**
- * Validate email is a .edu email
+ * Validate that an email address is a .edu email
  * @param {string} email - Email to validate
  * @returns {boolean} True if valid .edu email
  */
@@ -33,6 +35,9 @@ const isValidEduEmail = (email) => {
 export default function AddUniversityEntryPage() {
   const navigate = useNavigate();
 
+  // Set page title
+  usePageTitle('Add Your University');
+
   // Form state
   const [formData, setFormData] = useState({
     firstName: '',
@@ -41,11 +46,6 @@ export default function AddUniversityEntryPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // Set page title
-  useEffect(() => {
-    document.title = 'Add Your University - AIxU';
-  }, []);
 
   /**
    * Handle form input changes
@@ -66,19 +66,17 @@ export default function AddUniversityEntryPage() {
     e.preventDefault();
     setError('');
 
-    // Validate first name
+    // Validate required fields
     if (!formData.firstName.trim()) {
       setError('Please enter your first name');
       return;
     }
 
-    // Validate last name
     if (!formData.lastName.trim()) {
       setError('Please enter your last name');
       return;
     }
 
-    // Validate email
     if (!formData.email.trim()) {
       setError('Please enter your email address');
       return;
@@ -106,12 +104,7 @@ export default function AddUniversityEntryPage() {
   // Footer with navigation links
   const footer = (
     <>
-      {/* Divider */}
-      <div className="flex items-center my-6">
-        <div className="flex-1 border-t border-border"></div>
-        <span className="px-3 text-sm text-muted-foreground">or</span>
-        <div className="flex-1 border-t border-border"></div>
-      </div>
+      <Divider>or</Divider>
 
       {/* Registration link */}
       <div className="text-center">
@@ -144,12 +137,10 @@ export default function AddUniversityEntryPage() {
       cardRadius={0.38}
       maxWidth="max-w-lg"
     >
-      {/* President Notice */}
-      <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-        <p className="text-sm text-amber-800 text-center font-medium">
-          You must be the president of your AI club to create a university page
-        </p>
-      </div>
+      {/* President requirement notice */}
+      <Alert variant="warning" className="mb-6 text-center">
+        You must be the president of your AI club to create a university page
+      </Alert>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         {/* Name inputs (side by side) */}
@@ -185,12 +176,10 @@ export default function AddUniversityEntryPage() {
           required
         />
 
-        {/* Info box */}
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-700 text-center">
-            We'll verify your email to confirm your university affiliation
-          </p>
-        </div>
+        {/* Email verification info */}
+        <Alert variant="info" className="text-center">
+          We'll verify your email to confirm your university affiliation
+        </Alert>
 
         {/* Submit button */}
         <FormButton
