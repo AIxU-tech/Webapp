@@ -19,6 +19,10 @@ export { default as Alert } from './Alert';
 export { default as GradientButton } from './GradientButton';
 export { default as SecondaryButton } from './SecondaryButton';
 
+// Layout Components
+export { default as SectionHeader } from './SectionHeader';
+export { default as CardSkeleton } from './CardSkeleton';
+
 // Generic UI Components
 export { default as Badge } from './Badge';
 export { default as Divider } from './Divider';

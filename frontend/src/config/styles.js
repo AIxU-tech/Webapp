@@ -29,11 +29,23 @@ export const GRADIENT_PRIMARY_FROM = 'hsl(220,85%,60%)';
 export const GRADIENT_PRIMARY_TO = 'hsl(185,85%,55%)';
 
 /**
+ * Secondary gradient for alternative accent elements.
+ * Used for research papers, secondary features, etc.
+ */
+export const GRADIENT_SECONDARY = 'bg-gradient-to-br from-[hsl(280,85%,60%)] to-[hsl(320,85%,55%)]';
+
+/**
+ * Secondary gradient colors as individual values.
+ */
+export const GRADIENT_SECONDARY_FROM = 'hsl(280,85%,60%)';
+export const GRADIENT_SECONDARY_TO = 'hsl(320,85%,55%)';
+
+/**
  * Gradient preset object for easy reference.
  */
 export const GRADIENTS = {
   primary: GRADIENT_PRIMARY,
-  // Add more gradients here as needed
+  secondary: GRADIENT_SECONDARY,
 };
 
 // =============================================================================
@@ -47,10 +59,17 @@ export const GRADIENTS = {
 export const SHADOW_PRIMARY_HOVER = 'hover:shadow-lg hover:shadow-[hsl(220,85%,60%)]/30';
 
 /**
+ * Hover shadow for secondary gradient buttons.
+ * Creates a glow effect using the secondary color.
+ */
+export const SHADOW_SECONDARY_HOVER = 'hover:shadow-lg hover:shadow-[hsl(280,85%,60%)]/30';
+
+/**
  * Shadow presets object for easy reference.
  */
 export const SHADOWS = {
   primaryHover: SHADOW_PRIMARY_HOVER,
+  secondaryHover: SHADOW_SECONDARY_HOVER,
 };
 
 // =============================================================================

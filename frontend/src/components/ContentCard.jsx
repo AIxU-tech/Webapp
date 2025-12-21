@@ -103,6 +103,7 @@ function LoadingDots() {
 
 /**
  * Chat interface component
+ * Fixed height layout with scrollable messages and input pinned at bottom
  */
 function ChatInterface({ messages, isLoading, onSendMessage }) {
   const [inputValue, setInputValue] = useState('');
@@ -110,7 +111,7 @@ function ChatInterface({ messages, isLoading, onSendMessage }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (inputValue.trim() && !isLoading) {
+    if (inputValue.trim()) {
       onSendMessage(inputValue.trim());
       setInputValue('');
     }
@@ -124,15 +125,17 @@ function ChatInterface({ messages, isLoading, onSendMessage }) {
   };
 
   return (
-    <div className="flex flex-col">
-      <div className="flex-1 overflow-y-auto max-h-[300px] mb-3 py-2">
+    <div className="flex flex-col h-[300px]">
+      {/* Scrollable messages area */}
+      <div className="flex-1 overflow-y-auto py-2 min-h-0">
         {messages.map((msg, idx) => (
           <ChatMessage key={idx} role={msg.role} content={msg.content} />
         ))}
         {isLoading && <LoadingDots />}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2">
+      {/* Input pinned at bottom */}
+      <form onSubmit={handleSubmit} className="flex gap-2 pt-3 border-t border-border mt-auto">
         <div className="flex-1 flex gap-2 items-end">
           <textarea
             ref={inputRef}
@@ -140,14 +143,13 @@ function ChatInterface({ messages, isLoading, onSendMessage }) {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask a question..."
-            disabled={isLoading}
             rows={1}
-            className="flex-1 resize-none rounded-xl border border-border bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 resize-none rounded-xl border border-border bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
             style={{ maxHeight: '120px' }}
           />
           <button
             type="submit"
-            disabled={!inputValue.trim() || isLoading}
+            disabled={!inputValue.trim()}
             className="flex-shrink-0 p-2.5 rounded-xl bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white hover:shadow-lg hover:shadow-[hsl(220,85%,60%)]/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
             aria-label="Send message"
           >

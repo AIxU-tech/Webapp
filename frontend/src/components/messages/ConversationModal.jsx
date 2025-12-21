@@ -208,16 +208,16 @@ export default function ConversationModal({ userId, isOpen, onClose }) {
         ref={containerRef}
         className="
           bg-card border border-border rounded-lg shadow-lg
-          w-full max-w-3xl mx-4 max-h-[90vh]
-          flex flex-col
+          w-full max-w-3xl mx-4 h-[80vh]
+          flex flex-col overflow-hidden
           animate-in fade-in zoom-in-95 duration-200
         "
       >
         {/* Header */}
         <ConversationHeader user={user} onClose={onClose} />
 
-        {/* Messages Thread */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px]">
+        {/* Messages Thread - flex-1 fills remaining space, overflow-y-auto enables scrolling */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-muted-foreground">Loading messages...</div>
