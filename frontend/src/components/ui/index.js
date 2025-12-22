@@ -23,8 +23,15 @@ export { default as SecondaryButton } from './SecondaryButton';
 export { default as SectionHeader } from './SectionHeader';
 export { default as CardSkeleton } from './CardSkeleton';
 
+// Card Components
+export { default as Card } from './Card';
+export { default as StatCard } from './StatCard';
+export { default as StatItem } from './StatItem';
+export { default as UniversityCardSkeleton } from './UniversityCardSkeleton';
+
 // Generic UI Components
 export { default as Badge } from './Badge';
 export { default as Divider } from './Divider';
 export { default as TagSelector } from './TagSelector';
+export { default as Tooltip } from './Tooltip';
 export { default as UserListItem } from './UserListItem';
