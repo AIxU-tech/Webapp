@@ -22,10 +22,11 @@ from backend.extensions import db
 from backend.models import Message, User
 from backend.sockets.events import emit_new_message, emit_messages_read
 
+
 messages_bp = Blueprint('messages', __name__)
 
 
-#Route for searching users
+# Route for searching users
 @messages_bp.route('/api/users/search')
 @login_required
 def search_users():
@@ -54,7 +55,7 @@ def search_users():
     })
 
 
-#Route for getting all conversations (list of users the current user has messaged)
+# Route for getting all conversations (list of users the current user has messaged)
 @messages_bp.route('/api/messages/conversations')
 @login_required
 def get_conversations():
@@ -111,6 +112,7 @@ def get_conversations():
                     }
 
         # Convert to list (already sorted by most recent due to query order)
+
         conversations = list(conversations_dict.values())
 
         return jsonify({
@@ -122,7 +124,7 @@ def get_conversations():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-#Route for sending a message
+# Route for sending a message
 @messages_bp.route('/api/messages/send', methods=['POST'])
 @login_required
 def send_message():
@@ -203,7 +205,7 @@ def send_message():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-#Route for getting a conversation with a specific user
+# Route for getting a conversation with a specific user
 @messages_bp.route('/api/messages/conversation/<int:user_id>')
 @login_required
 def get_conversation(user_id):
@@ -232,8 +234,10 @@ def get_conversation(user_id):
         # Get all messages between current user and other user
         messages = Message.query.filter(
             db.or_(
-                db.and_(Message.sender_id == current_user.id, Message.recipient_id == user_id),
-                db.and_(Message.sender_id == user_id, Message.recipient_id == current_user.id)
+                db.and_(Message.sender_id == current_user.id,
+                        Message.recipient_id == user_id),
+                db.and_(Message.sender_id == user_id,
+                        Message.recipient_id == current_user.id)
             )
         ).order_by(Message.created_at.asc()).all()
 
@@ -282,7 +286,7 @@ def get_conversation(user_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-#Route for getting unread message count
+# Route for getting unread message count
 @messages_bp.route('/api/messages/unread-count')
 @login_required
 def get_unread_count():

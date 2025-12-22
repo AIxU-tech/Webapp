@@ -160,11 +160,13 @@ def get_ai_content():
     stories_limit = max(1, min(stories_limit, 10))
     papers_limit = max(1, min(papers_limit, 10))
 
-    content = get_latest_content(stories_limit=stories_limit, papers_limit=papers_limit)
+    content = get_latest_content(
+        stories_limit=stories_limit, papers_limit=papers_limit)
     stories = content['stories']
     papers = content['papers']
 
-    batch_id = stories[0]['batchId'] if stories else (papers[0]['batchId'] if papers else None)
+    batch_id = stories[0]['batchId'] if stories else (
+        papers[0]['batchId'] if papers else None)
 
     return jsonify({
         'success': True,
@@ -211,7 +213,8 @@ def refresh_news():
     """
     # Check if content already exists
     content = get_latest_content(stories_limit=1, papers_limit=1)
-    has_existing_content = len(content['stories']) > 0 or len(content['papers']) > 0
+    has_existing_content = len(
+        content['stories']) > 0 or len(content['papers']) > 0
 
     # If content exists, require admin privileges
     if has_existing_content:
@@ -221,7 +224,8 @@ def refresh_news():
             return jsonify({'success': False, 'error': 'Admin privileges required'}), 403
 
     user_id = current_user.id if current_user.is_authenticated else 'anonymous'
-    print(f"[AI News] Refresh triggered by user {user_id} (has_existing_content={has_existing_content})")
+    print(
+        f"[AI News] Refresh triggered by user {user_id} (has_existing_content={has_existing_content})")
 
     result = fetch_top_ai_stories()
 
@@ -367,7 +371,8 @@ def chat_about_story(story_id: int):
             'assistantMessage': result['assistantMessage']
         })
     else:
-        status_code = 404 if 'not found' in result.get('error', '').lower() else 500
+        status_code = 404 if 'not found' in result.get(
+            'error', '').lower() else 500
         return jsonify({
             'success': False,
             'error': result.get('error', 'Unknown error')
@@ -422,7 +427,8 @@ def chat_about_paper(paper_id: int):
             'assistantMessage': result['assistantMessage']
         })
     else:
-        status_code = 404 if 'not found' in result.get('error', '').lower() else 500
+        status_code = 404 if 'not found' in result.get(
+            'error', '').lower() else 500
         return jsonify({
             'success': False,
             'error': result.get('error', 'Unknown error')
