@@ -1,11 +1,8 @@
-from flask import Blueprint, request, jsonify, session, current_app
-from flask_login import login_user, logout_user, login_required
+from flask import session
 import time
+import hashlib
 from backend.extensions import db
-from backend.models import User, University, UniversityRequest
-from backend.utils.email import generate_verification_code, send_verification_email
-from backend.utils.validation import is_whitelisted_domain
-from backend.routes_v2.api_auth.helpers import setup_registration_session, validate_registration_data
+from backend.models import User, University
 
 
 def validate_registration_data(data):
@@ -32,9 +29,21 @@ def validate_registration_data(data):
     }, None
 
 
-def setup_registration_session(email, password, first_name, last_name, university, verification_code):
-    """Store registration data and verification code in session."""
+def hash_verification_code(code):
+    """Hash a verification code using SHA-256.
+    
+    This prevents the plain code from being exposed in the session cookie,
+    which is readable (though not modifiable) by the client.
+    """
+    return hashlib.sha256(code.encode()).hexdigest()
 
+
+def setup_registration_session(email, password, first_name, last_name, university, verification_code):
+    """Store registration data and hashed verification code in session.
+    
+    Note: The verification code is hashed before storage to prevent
+    users from reading it by decoding the session cookie.
+    """
     session['pending_registration'] = {
         'email': email,
         'password': password,
@@ -43,11 +52,17 @@ def setup_registration_session(email, password, first_name, last_name, universit
         'university_id': str(university.id) if university else None,
         'timestamp': time.time()
     }
-    session['verification_code'] = verification_code
+    # Store hashed code - the plain code is only sent via email
+    session['verification_code_hash'] = hash_verification_code(verification_code)
     session['verification_timestamp'] = time.time()
 
 
 def create_db_user(reg_data):
+    """Create a new user from registration data and enroll in university.
+    
+    Returns:
+        User: The newly created user object
+    """
     # Get the university for auto-enrollment
     # University ID was determined during registration based on email domain
     university_id = reg_data.get('university_id')
@@ -69,3 +84,5 @@ def create_db_user(reg_data):
     if university:
         university.add_member(user.id)
         db.session.commit()
+
+    return user
