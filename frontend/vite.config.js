@@ -1,16 +1,10 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
-export default defineConfig(({ mode }) => {
-  // Load .env from parent directory (where backend .env lives)
-  const env = loadEnv(mode, resolve(__dirname, '..'), '');
+export default defineConfig({
+  plugins: [react()],
 
-  return {
-    plugins: [react()],
-    define: {
-      __DEV_MODE__: JSON.stringify(env.DEV_MODE === 'true'),
-    },
   // This is where the SPA will be hosted in prod
   base: '/app/',
 
@@ -55,5 +49,4 @@ export default defineConfig(({ mode }) => {
   preview: {
     port: 5173,
   },
-  };
 });

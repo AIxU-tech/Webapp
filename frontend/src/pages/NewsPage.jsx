@@ -212,10 +212,9 @@ export default function NewsPage() {
   // Set page title
   usePageTitle('AI News & Research');
 
-  // Auto-fetch content when database is empty (disabled in dev mode to save API costs)
+  // Auto-fetch content when database is empty
   useEffect(() => {
     const shouldAutoFetch =
-      !__DEV_MODE__ &&
       !isLoading &&
       !hasContent &&
       !hasTriggeredAutoFetch &&
