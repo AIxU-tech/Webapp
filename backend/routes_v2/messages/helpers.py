@@ -38,3 +38,15 @@ def create_conversations_dict(all_messages):
                     'hasUnread': has_unread
                 }
     return conversations_dict
+
+
+def get_messages_between_users(current_user, user_id):
+    messages = Message.query.filter(
+        db.or_(
+            db.and_(Message.sender_id == current_user.id,
+                    Message.recipient_id == user_id),
+            db.and_(Message.sender_id == user_id,
+                    Message.recipient_id == current_user.id)
+        )
+    ).order_by(Message.created_at.asc()).all()
+    return messages

@@ -202,14 +202,7 @@ def get_conversation(user_id):
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
         # Get all messages between current user and other user
-        messages = Message.query.filter(
-            db.or_(
-                db.and_(Message.sender_id == current_user.id,
-                        Message.recipient_id == user_id),
-                db.and_(Message.sender_id == user_id,
-                        Message.recipient_id == current_user.id)
-            )
-        ).order_by(Message.created_at.asc()).all()
+        messages = get_messages_between_users(current_user, user_id)
 
         # Mark messages from other user as read
         unread_messages = Message.query.filter_by(

@@ -49,6 +49,10 @@ class User(UserMixin, db.Model):
     profile_picture_filename = db.Column(db.String(100), nullable=True)  # Original filename
     profile_picture_mimetype = db.Column(db.String(50), nullable=True)  # MIME type (image/jpeg, image/png, etc.)
 
+    def get_university(self):
+        from backend.models.university import University
+        return University.query.filter_by(name=self.university).first()
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
 

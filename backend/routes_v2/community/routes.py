@@ -27,8 +27,7 @@ def create_note():
 
         # Update university post count if user belongs to a university
         if current_user.university:
-            university = University.query.filter_by(
-                name=current_user.university).first()
+            university = current_user.get_university()
             if university:
                 university.update_post_count()
 
@@ -67,8 +66,7 @@ def delete_note(note_id):
 
         # Update university post count if user belongs to a university
         if current_user.university:
-            university = University.query.filter_by(
-                name=current_user.university).first()
+            university = current_user.get_university()
             if university:
                 university.update_post_count()
 
