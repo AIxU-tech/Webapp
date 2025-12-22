@@ -25,6 +25,8 @@ from backend.routes_v2.api_auth.helpers import setup_registration_session, valid
 
 api_auth_bp = Blueprint('api_auth', __name__, url_prefix='/api/auth')
 
+REQUIRED_PASSWORD_LENGTH = 6
+
 
 # API endpoint for login (used by React frontend)
 @api_auth_bp.route('/login', methods=['POST'])
@@ -397,7 +399,7 @@ def complete_account():
         if not password:
             return jsonify({'error': 'Password is required'}), 400
 
-        if len(password) < 6:
+        if len(password) < REQUIRED_PASSWORD_LENGTH:
             return jsonify({'error': 'Password must be at least 6 characters'}), 400
 
         # Find and validate the request by token
