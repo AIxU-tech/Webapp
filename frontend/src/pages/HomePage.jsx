@@ -9,7 +9,8 @@ import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePageTitle } from '../hooks';
 import NavBar from '../components/NavBar';
-import { GradientButton } from '../components/ui';
+import FeatureCard from '../components/FeatureCard';
+import { GradientButton, StatItem } from '../components/ui';
 import { GRADIENT_PRIMARY } from '../config/styles';
 import {
   BrainCircuitIcon,
@@ -62,45 +63,6 @@ const FEATURES = [
       'Connect with like-minded students through our secure messaging system.',
   },
 ];
-
-// =============================================================================
-// SUB-COMPONENTS
-// =============================================================================
-
-/**
- * StatItem - Displays a single statistic with value and label
- */
-function StatItem({ value, label }) {
-  return (
-    <div className="text-center">
-      <div className="text-3xl md:text-4xl font-bold text-foreground">
-        {value}
-      </div>
-      <div className="text-sm text-muted-foreground mt-1">{label}</div>
-    </div>
-  );
-}
-
-/**
- * FeatureCard - Displays a feature with icon, title, and description
- * Includes hover effects for visual feedback
- */
-function FeatureCard({ icon: Icon, title, description }) {
-  return (
-    <div className="bg-card p-8 rounded-xl shadow-card border border-border hover:shadow-hover transition-all duration-300 group">
-      {/* Icon container with hover color transition */}
-      <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center mb-6 group-hover:bg-academic-blue/10 transition-all duration-300">
-        <Icon className="h-6 w-6 text-foreground group-hover:text-academic-blue transition-all duration-300" />
-      </div>
-
-      <h3 className="text-xl font-bold text-foreground mb-4 group-hover:text-academic-blue transition-all duration-300">
-        {title}
-      </h3>
-
-      <p className="text-muted-foreground">{description}</p>
-    </div>
-  );
-}
 
 // =============================================================================
 // MAIN COMPONENT
@@ -160,7 +122,7 @@ export default function HomePage() {
             {/* Platform statistics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-2xl mx-auto mt-16">
               {STATS.map((stat) => (
-                <StatItem key={stat.label} value={stat.value} label={stat.label} />
+                <StatItem key={stat.label} value={stat.value} label={stat.label} size="lg" />
               ))}
             </div>
           </div>
