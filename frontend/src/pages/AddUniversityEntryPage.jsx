@@ -13,93 +13,39 @@
  * @component
  */
 
-import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { usePageTitle } from '../hooks';
+import { usePageTitle, useForm } from '../hooks';
 import { Alert, Divider } from '../components/ui';
 import AuthFormLayout from '../components/AuthFormLayout';
 import FormInput from '../components/FormInput';
 import FormButton from '../components/FormButton';
-
-/**
- * Validate that an email address is a .edu email
- * @param {string} email - Email to validate
- * @returns {boolean} True if valid .edu email
- */
-const isValidEduEmail = (email) => {
-  if (!email || !email.includes('@')) return false;
-  const domain = email.split('@')[1]?.toLowerCase();
-  return domain?.endsWith('.edu');
-};
+import NameInputPair from '../components/NameInputPair';
+import { isEduEmail } from '../utils/email';
 
 export default function AddUniversityEntryPage() {
   const navigate = useNavigate();
-
-  // Set page title
   usePageTitle('Add Your University');
 
-  // Form state
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
+  const { formData, error, loading, handleChange, handleSubmit } = useForm({
+    initialValues: { firstName: '', lastName: '', email: '' },
+
+    validate: (data) => {
+      if (!isEduEmail(data.email)) {
+        return 'Please use your university .edu email address';
+      }
+      return null;
+    },
+
+    onSubmit: async (data) => {
+      navigate('/request-university', {
+        state: {
+          email: data.email.trim().toLowerCase(),
+          firstName: data.firstName.trim(),
+          lastName: data.lastName.trim(),
+        },
+      });
+    },
   });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  /**
-   * Handle form input changes
-   */
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  /**
-   * Handle form submission
-   * Validates input and navigates to verification page
-   */
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setError('');
-
-    // Validate required fields
-    if (!formData.firstName.trim()) {
-      setError('Please enter your first name');
-      return;
-    }
-
-    if (!formData.lastName.trim()) {
-      setError('Please enter your last name');
-      return;
-    }
-
-    if (!formData.email.trim()) {
-      setError('Please enter your email address');
-      return;
-    }
-
-    // Validate .edu email
-    if (!isValidEduEmail(formData.email)) {
-      setError('Please use your university .edu email address');
-      return;
-    }
-
-    // Set loading briefly for UI feedback
-    setLoading(true);
-
-    // Navigate to verification page with form data
-    navigate('/request-university', {
-      state: {
-        email: formData.email.trim().toLowerCase(),
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-      },
-    });
-  };
 
   // Footer with navigation links
   const footer = (
@@ -115,23 +61,13 @@ export default function AddUniversityEntryPage() {
           </Link>
         </p>
       </div>
-
-      {/* Login link */}
-      <div className="text-center mt-4">
-        <p className="text-muted-foreground text-sm">
-          Already have an account?{' '}
-          <Link to="/login" className="text-primary hover:underline font-medium">
-            Log in
-          </Link>
-        </p>
-      </div>
     </>
   );
 
   return (
     <AuthFormLayout
       title="Add Your University"
-      subtitle="Help us grow the AIxU community by requesting your school"
+      subtitle="Help us grow the AIxU community by adding your school"
       error={error}
       footer={footer}
       cardRadius={0.38}
@@ -144,26 +80,12 @@ export default function AddUniversityEntryPage() {
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         {/* Name inputs (side by side) */}
-        <div className="grid grid-cols-2 gap-4">
-          <FormInput
-            type="text"
-            name="firstName"
-            placeholder="First name *"
-            value={formData.firstName}
-            onChange={handleChange}
-            disabled={loading}
-            required
-          />
-          <FormInput
-            type="text"
-            name="lastName"
-            placeholder="Last name *"
-            value={formData.lastName}
-            onChange={handleChange}
-            disabled={loading}
-            required
-          />
-        </div>
+        <NameInputPair
+          firstName={formData.firstName}
+          lastName={formData.lastName}
+          onChange={handleChange}
+          disabled={loading}
+        />
 
         {/* Email input */}
         <FormInput
