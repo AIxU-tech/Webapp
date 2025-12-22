@@ -87,3 +87,34 @@ def notes_to_dict(db_notes, current_user):
         notes.append(note_dict)
 
     return notes
+
+
+def toggle_like(current_user, note):
+    note_id = note.id
+    liked_notes = current_user.liked_notes
+    if liked_notes:
+        try:
+            liked_list = json.loads(liked_notes)
+        except:
+            liked_list = []
+    else:
+        liked_list = []
+
+    # Toggle like
+    if note_id in liked_list:
+        # Unlike
+        liked_list.remove(note_id)
+        note.likes = max(0, note.likes - 1)
+        is_liked = False
+    else:
+        # Like
+        liked_list.append(note_id)
+        note.likes += 1
+        is_liked = True
+
+    # Save updated list
+    current_user.liked_notes = json.dumps(liked_list)
+
+    db.session.commit()
+
+    return is_liked

@@ -95,7 +95,8 @@ def get_conversations():
 
 
 # Route for sending a message
-@messages_bp.route('/api/messages/send', methods=['POST'])
+# RESTful: POST to collection creates a new resource
+@messages_bp.route('/api/messages', methods=['POST'])
 @login_required
 def send_message():
     """

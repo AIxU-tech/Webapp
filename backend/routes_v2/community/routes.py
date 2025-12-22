@@ -9,7 +9,8 @@ community_bp = Blueprint('community', __name__)
 
 
 # Route for creating a new note
-@community_bp.route('/api/notes/create', methods=['POST'])
+# RESTful: POST to collection creates a new resource
+@community_bp.route('/api/notes', methods=['POST'])
 @login_required
 def create_note():
     try:
@@ -42,7 +43,8 @@ def create_note():
 
 
 # Route for deleting a note
-@community_bp.route('/api/notes/<int:note_id>/delete', methods=['DELETE'])
+# RESTful: DELETE to resource deletes it
+@community_bp.route('/api/notes/<int:note_id>', methods=['DELETE'])
 @login_required
 def delete_note(note_id):
     try:
@@ -116,31 +118,10 @@ def toggle_like(note_id):
         if not note:
             return jsonify({'success': False, 'error': 'Note not found'}), 404
 
-        # Get user's liked notes list
-        liked_notes = current_user.liked_notes
-        if liked_notes:
-            try:
-                liked_list = json.loads(liked_notes)
-            except:
-                liked_list = []
-        else:
-            liked_list = []
 
-        # Toggle like
-        if note_id in liked_list:
-            # Unlike
-            liked_list.remove(note_id)
-            note.likes = max(0, note.likes - 1)
-            is_liked = False
-        else:
-            # Like
-            liked_list.append(note_id)
-            note.likes += 1
-            is_liked = True
+        # Will like or unlike the note, and perform necessary database updates
+        is_liked = toggle_like(current_user, note)
 
-        # Save updated list
-        current_user.liked_notes = json.dumps(liked_list)
-        db.session.commit()
 
         return jsonify({
             'success': True,
