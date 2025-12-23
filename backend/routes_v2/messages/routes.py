@@ -22,6 +22,7 @@ from backend.extensions import db
 from backend.models import Message, User
 from backend.sockets.events import emit_new_message, emit_messages_read
 from backend.routes_v2.messages.helpers import create_conversations_dict
+from backend.routes_v2.messages.helpers import get_messages_between_users
 
 messages_bp = Blueprint('messages', __name__)
 

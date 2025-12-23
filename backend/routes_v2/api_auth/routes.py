@@ -117,7 +117,7 @@ def api_register():
 
         if error:
             message, code = error
-            return jsonify('error', message), code
+            return jsonify({'error': message}), code
 
         email = user_object.get('email')
         password = user_object.get('password')

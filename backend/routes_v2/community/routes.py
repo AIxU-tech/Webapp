@@ -4,6 +4,7 @@ import json
 from backend.extensions import db
 from backend.models import Note, User, University
 from backend.routes_v2.community.helpers import create_db_note, get_db_notes, notes_to_dict
+from backend.routes_v2.community.helpers import toggle_like_status
 
 community_bp = Blueprint('community', __name__)
 
@@ -120,7 +121,7 @@ def toggle_like(note_id):
 
 
         # Will like or unlike the note, and perform necessary database updates
-        is_liked = toggle_like(current_user, note)
+        is_liked = toggle_like_status(current_user, note)
 
 
         return jsonify({

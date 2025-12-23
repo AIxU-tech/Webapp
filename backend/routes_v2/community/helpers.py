@@ -89,7 +89,7 @@ def notes_to_dict(db_notes, current_user):
     return notes
 
 
-def toggle_like(current_user, note):
+def toggle_like_status(current_user, note):
     note_id = note.id
     liked_notes = current_user.liked_notes
     if liked_notes:
