@@ -7,7 +7,8 @@ def validate_request_data(data):
     if not data:
         return "Request body required", 400
 
-    elif 'message' not in data:
+    message = data.get('message', '').strip()
+    if not message:
         return "Message is required", 400
 
     else:

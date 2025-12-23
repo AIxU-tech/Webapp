@@ -20,7 +20,7 @@ class TestNoteCreation:
 
     def test_create_note_success(self, authenticated_client, app, test_user):
         """Test creating a note with title and content"""
-        response = authenticated_client.post('/api/notes/create', json={
+        response = authenticated_client.post('/api/notes', json={
             'title': 'My First Note',
             'content': 'This is the content of my note.'
         })
@@ -33,7 +33,7 @@ class TestNoteCreation:
 
     def test_create_note_with_tags(self, authenticated_client, app):
         """Test creating a note with tags"""
-        response = authenticated_client.post('/api/notes/create', json={
+        response = authenticated_client.post('/api/notes', json={
             'title': 'Tagged Note',
             'content': 'Note content here.',
             'tags': ['python', 'machine-learning', 'ai']
@@ -46,7 +46,7 @@ class TestNoteCreation:
 
     def test_create_note_missing_title_fails(self, authenticated_client, app):
         """Test that creating note without title fails"""
-        response = authenticated_client.post('/api/notes/create', json={
+        response = authenticated_client.post('/api/notes', json={
             'content': 'Content without title'
         })
 
@@ -56,7 +56,7 @@ class TestNoteCreation:
 
     def test_create_note_missing_content_fails(self, authenticated_client, app):
         """Test that creating note without content fails"""
-        response = authenticated_client.post('/api/notes/create', json={
+        response = authenticated_client.post('/api/notes', json={
             'title': 'Title without content'
         })
 
@@ -67,14 +67,14 @@ class TestNoteCreation:
     def test_create_note_empty_fields_fails(self, authenticated_client, app):
         """Test that empty title or content fails"""
         # Empty title
-        response = authenticated_client.post('/api/notes/create', json={
+        response = authenticated_client.post('/api/notes', json={
             'title': '',
             'content': 'Some content'
         })
         assert response.status_code == 400
 
         # Empty content
-        response = authenticated_client.post('/api/notes/create', json={
+        response = authenticated_client.post('/api/notes', json={
             'title': 'Some title',
             'content': ''
         })
@@ -86,7 +86,7 @@ class TestNoteCreation:
             user = db.session.get(User, test_user.id)
             initial_count = user.post_count or 0
 
-            authenticated_client.post('/api/notes/create', json={
+            authenticated_client.post('/api/notes', json={
                 'title': 'Count Test',
                 'content': 'Testing post count'
             })
@@ -121,7 +121,7 @@ class TestNoteCreation:
                 'password': 'password123'
             })
 
-            client.post('/api/notes/create', json={
+            client.post('/api/notes', json={
                 'title': 'University Post',
                 'content': 'Content for university'
             })
@@ -134,7 +134,7 @@ class TestNoteCreation:
 
     def test_create_note_unauthenticated_fails(self, client):
         """Test that unauthenticated user cannot create notes"""
-        response = client.post('/api/notes/create', json={
+        response = client.post('/api/notes', json={
             'title': 'Unauthorized Note',
             'content': 'Should not work'
         })
@@ -150,7 +150,7 @@ class TestNoteDeletion:
         with app.app_context():
             note = db.session.get(Note, test_note.id)
 
-            response = authenticated_client.delete(f'/api/notes/{note.id}/delete')
+            response = authenticated_client.delete(f'/api/notes/{note.id}')
 
             assert response.status_code == 200
             data = response.get_json()
@@ -183,7 +183,7 @@ class TestNoteDeletion:
             })
 
             # Try to delete
-            response = client.delete(f'/api/notes/{note_id}/delete')
+            response = client.delete(f'/api/notes/{note_id}')
 
             assert response.status_code == 403
             data = response.get_json()
@@ -191,7 +191,7 @@ class TestNoteDeletion:
 
     def test_delete_note_not_found(self, authenticated_client, app):
         """Test deleting non-existent note"""
-        response = authenticated_client.delete('/api/notes/99999/delete')
+        response = authenticated_client.delete('/api/notes/99999')
 
         assert response.status_code == 404
 
@@ -201,7 +201,7 @@ class TestNoteDeletion:
             user = db.session.get(User, test_user.id)
 
             # Create a note first
-            authenticated_client.post('/api/notes/create', json={
+            authenticated_client.post('/api/notes', json={
                 'title': 'To Delete',
                 'content': 'Will be deleted'
             })
@@ -213,7 +213,7 @@ class TestNoteDeletion:
             note = Note.query.filter_by(author_id=user.id).first()
 
             # Delete the note
-            authenticated_client.delete(f'/api/notes/{note.id}/delete')
+            authenticated_client.delete(f'/api/notes/{note.id}')
 
             db.session.refresh(user)
             assert user.post_count == count_after_create - 1
