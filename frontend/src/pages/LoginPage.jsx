@@ -14,77 +14,29 @@
  * @component
  */
 
-import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { login } from '../api/auth';
+import { usePageTitle, useForm } from '../hooks';
 import AuthFormLayout from '../components/AuthFormLayout';
 import FormInput from '../components/FormInput';
 import FormButton from '../components/FormButton';
 import TermsLink from '../components/TermsLink';
 
 export default function LoginPage() {
-  /**
-   * Component State
-   *
-   * - email: Input field value for email
-   * - password: Input field value for password
-   * - error: Error message to display (if any)
-   * - loading: Whether form is currently submitting
-   */
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  /**
-   * Hooks
-   *
-   * - navigate: React Router function to programmatically navigate
-   * - loginUser: Function from AuthContext to update auth state
-   */
   const navigate = useNavigate();
   const { loginUser } = useAuth();
+  usePageTitle('Login');
 
-  /**
-   * Set Page Title
-   *
-   * Updates the browser tab title when component mounts.
-   */
-  useEffect(() => {
-    document.title = 'Login - AIxU';
-  }, []);
+  const { formData, error, loading, handleChange, handleSubmit } = useForm({
+    initialValues: { email: '', password: '' },
 
-  /**
-   * Form Submission Handler
-   *
-   * Validates input, calls login API, updates auth context,
-   * and redirects on success.
-   *
-   * @param {Event} e - Form submit event
-   */
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    // Validate inputs
-    if (!email.trim() || !password.trim()) {
-      setError('Please enter both email and password');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const response = await login(email.trim(), password.trim());
+    onSubmit: async (data) => {
+      const response = await login(data.email.trim(), data.password.trim());
       loginUser(response.user);
       navigate('/', { replace: true });
-    } catch (err) {
-      setError(err.message || 'Invalid email or password');
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+  });
 
   // Footer content with navigation links and legal text
   const footer = (
@@ -122,8 +74,8 @@ export default function LoginPage() {
           type="email"
           name="email"
           placeholder="Enter your email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={formData.email}
+          onChange={handleChange}
           disabled={loading}
           required
         />
@@ -133,8 +85,8 @@ export default function LoginPage() {
           type="password"
           name="password"
           placeholder="Enter your password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          value={formData.password}
+          onChange={handleChange}
           disabled={loading}
           required
         />

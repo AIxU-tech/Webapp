@@ -14,7 +14,6 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import AppLayout from './components/AppLayout';
 import HomePage from './pages/HomePage';
-import AddUniversityPage from './pages/AddUniversityPage';
 import AddUniversityEntryPage from './pages/AddUniversityEntryPage';
 import UniversitiesPage from './pages/UniversitiesPage';
 import UniversityDetailPage from './pages/UniversityDetailPage';
@@ -77,7 +76,6 @@ function App() {
       <Route element={<AppLayout />}>
         <Route path="/community" element={<CommunityPage />} />
         <Route path="/universities" element={<UniversitiesPage />} />
-        <Route path="/universities/new" element={<AddUniversityPage />} />
         <Route path="/universities/:id" element={<UniversityDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/users/:userId" element={<ProfilePage />} />

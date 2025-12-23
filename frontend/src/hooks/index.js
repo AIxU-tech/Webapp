@@ -10,6 +10,7 @@
  * - useUniversities() - Get all universities
  * - useUniversity(id) - Get single university
  * - useRemoveMember() - Remove member mutation (admin only)
+ * - useUpdateMemberRole() - Update member role mutation (admin only)
  * - prefetchUniversities() - Prefetch universities list
  *
  * Notes/Community:
@@ -51,6 +52,12 @@
  * - useApproveRequest() - Approve a request mutation
  * - useRejectRequest() - Reject a request mutation
  *
+ * Email Verification:
+ * - useEmailVerification(config) - Common logic for email verification pages
+ *
+ * Form Management:
+ * - useForm(config) - Form state, validation, and submission handling
+ *
  * Usage:
  *   import { useUniversities, useNotes, useAIContent } from '../hooks';
  */
@@ -62,6 +69,7 @@ export {
   useUniversities,
   useUniversity,
   useRemoveMember,
+  useUpdateMemberRole,
   universityKeys,
   prefetchUniversities,
 } from './useUniversities';
@@ -143,3 +151,13 @@ export {
   useCountdown,
   useModal,
 } from './useUI';
+
+// =============================================================================
+// Email Verification Hook
+// =============================================================================
+export { useEmailVerification } from './useEmailVerification.jsx';
+
+// =============================================================================
+// Form Hooks
+// =============================================================================
+export { useForm } from './useForm';

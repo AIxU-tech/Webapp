@@ -38,10 +38,10 @@ from backend.models.ai_news import (
 # =============================================================================
 
 # Model used for web search (news fetching)
-CLAUDE_MODEL = "claude-sonnet-4-5-20250929"
+CHAT_MODEL = "claude-sonnet-4-5-20250929"
 
 # Model used for chat interactions (faster, cheaper)
-CHAT_MODEL = "claude-haiku-4-5-20251001"
+SEARCH_MODEL = "claude-haiku-4-5-20251001"
 
 # Token limits
 MAX_TOKENS = 16000
@@ -238,7 +238,7 @@ def _call_claude_with_web_search(client: anthropic.Anthropic, prompt: str) -> li
         print(f"[AI News] API call {iteration + 1}")
 
         with client.messages.stream(
-            model=CLAUDE_MODEL,
+            model=SEARCH_MODEL,
             max_tokens=MAX_TOKENS,
             tools=[web_search_tool],
             messages=messages
