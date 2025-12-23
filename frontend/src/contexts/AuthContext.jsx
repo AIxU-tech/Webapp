@@ -43,7 +43,7 @@ export function AuthProvider({ children }) {
   /**
    * Check authentication status on mount
    *
-   * Calls /api/user/profile to:
+   * Calls /api/profile to:
    * - Get current user data if logged in (via Flask-Login session cookie)
    * - Receive 401 error if not logged in
    */

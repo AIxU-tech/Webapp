@@ -38,7 +38,7 @@ export async function getUser(id) {
  * @throws {ApiError} If not authenticated
  */
 export async function getUserStats() {
-  return api.get('/user/stats');
+  return api.get('/profile/stats');
 }
 
 /**
@@ -63,7 +63,7 @@ export async function getUserStats() {
  * });
  */
 export async function updateProfile(updates) {
-  return api.post('/api/update_profile', updates);
+  return api.patch('/profile', updates);
 }
 
 /**
@@ -86,8 +86,8 @@ export async function uploadProfilePicture(file) {
   const formData = new FormData();
   formData.append('profile_picture', file);
 
-  const response = await fetch('/api/upload_profile_picture', {
-    method: 'POST',
+  const response = await fetch('/api/profile/picture', {
+    method: 'PUT',
     credentials: 'include',
     body: formData,
     // Don't set Content-Type - browser will set it with boundary for multipart/form-data
@@ -110,7 +110,7 @@ export async function uploadProfilePicture(file) {
  * @throws {ApiError} If not authenticated
  */
 export async function deleteProfilePicture() {
-  return api.post('/api/delete_profile_picture');
+  return api.delete('/profile/picture');
 }
 
 /**
@@ -130,7 +130,7 @@ export async function deleteProfilePicture() {
  * await deleteAccount();
  */
 export async function deleteAccount() {
-  return api.post('/api/delete_account');
+  return api.delete('/account');
 }
 
 /**

@@ -23,7 +23,7 @@ import { api } from './client';
  * Returns list of all universities with basic info.
  * Each university includes emailDomain for display purposes.
  *
- * Note: Flask endpoint is /api/universities/list
+ * Note: Flask endpoint is /api/universities
  * The api client adds /api prefix automatically.
  *
  * @returns {Promise<Array>} Array of university objects
@@ -33,7 +33,7 @@ import { api } from './client';
  * universities.forEach(uni => console.log(uni.name, uni.emailDomain));
  */
 export async function getUniversities() {
-  const data = await api.get('/universities/list');
+  const data = await api.get('/universities');
   // Return just the universities array for easier use
   return data.universities || [];
 }
@@ -122,7 +122,7 @@ export async function updateUniversity(id, updates) {
  * await deleteUniversity(1);
  */
 export async function deleteUniversity(id) {
-  return api.post(`/universities/${id}/delete`);
+  return api.delete(`/universities/${id}`);
 }
 
 /**
@@ -138,7 +138,7 @@ export async function deleteUniversity(id) {
  * @throws {ApiError} If not admin or not authenticated (403)
  */
 export async function removeMember(universityId, userId) {
-  return api.post(`/universities/${universityId}/remove_member/${userId}`);
+  return api.delete(`/universities/${universityId}/members/${userId}`);
 }
 
 // =============================================================================

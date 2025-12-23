@@ -49,8 +49,8 @@ async function fetchUser(userId) {
  */
 async function updateProfile(updates) {
   // Use FormData for profile updates that might include files
-  const response = await fetch('/api/update_profile', {
-    method: 'POST',
+  const response = await fetch('/api/profile', {
+    method: 'PATCH',
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
@@ -164,8 +164,8 @@ export function useUploadProfilePicture() {
       const formData = new FormData();
       formData.append('profile_picture', file);
 
-      const response = await fetch('/api/upload_profile_picture', {
-        method: 'POST',
+      const response = await fetch('/api/profile/picture', {
+        method: 'PUT',
         credentials: 'include',
         body: formData,
       });
@@ -197,8 +197,8 @@ export function useDeleteProfilePicture() {
 
   return useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/delete_profile_picture', {
-        method: 'POST',
+      const response = await fetch('/api/profile/picture', {
+        method: 'DELETE',
         credentials: 'include',
       });
 
