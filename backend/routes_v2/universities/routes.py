@@ -112,30 +112,28 @@ def get_university(university_id: int):
     # Update post count for accuracy
     uni.update_post_count()
 
-    # Get members list with their profile information and roles
+    # Get members list with their profile information and roles (single JOIN query)
     members = []
-    member_ids = uni.get_members_list()
-    if member_ids:
-        users = User.query.filter(User.id.in_(member_ids)).all()
-        for m in users:
-            # Get user's role at this university
-            role_level = uni.get_member_role_level(m.id)
-            members.append({
-                'id': m.id,
-                'name': m.get_full_name(),
-                'email': m.email,
-                'avatar': m.get_profile_picture_url(),
-                'location': m.location or '',
-                'about': m.about_section or '',
-                'skills': m.get_skills_list(),
-                'interests': m.get_interests_list(),
-                'postCount': m.post_count or 0,
-                'role': role_level,
-                'roleName': UniversityRoles.get_name(role_level),
-            })
+    member_data = uni.get_members()  # Returns list of {'user': User, 'role': UniversityRole}
+    for item in member_data:
+        m = item['user']
+        role = item['role']
+        members.append({
+            'id': m.id,
+            'name': m.get_full_name(),
+            'email': m.email,
+            'avatar': m.get_profile_picture_url(),
+            'location': m.location or '',
+            'about': m.about_section or '',
+            'skills': m.get_skills_list(),
+            'interests': m.get_interests_list(),
+            'postCount': m.post_count or 0,
+            'role': role.role,
+            'roleName': role.role_name,
+        })
 
     # Check if current user is a member (for UI display purposes)
-    is_member = (current_user.is_authenticated and current_user.id in member_ids) if member_ids else False
+    is_member = current_user.is_authenticated and uni.is_member(current_user.id)
 
     # Get current user's permissions at this university
     user_permissions = {}
@@ -186,7 +184,8 @@ def delete_university(university_id: int):
     if not current_user.is_site_admin():
         return jsonify({'error': 'You are not authorized to delete this university.'}), 403
 
-    # Delete all roles associated with this university
+    # Explicitly delete all roles associated with this university
+    # (CASCADE should handle this, but we do it explicitly for SQLite compatibility)
     UniversityRole.query.filter_by(university_id=university_id).delete()
 
     db.session.delete(uni)
@@ -236,16 +235,12 @@ def remove_member(university_id: int, user_id: int):
     if uni.is_member_president(user_id):
         return jsonify({'error': 'Cannot remove the club president. Transfer presidency first.'}), 400
 
-    member_ids = uni.get_members_list()
-    if user_id not in member_ids:
+    # Check if user is a member
+    if not uni.is_member(user_id):
         return jsonify({'error': 'Member not found in this university.'}), 404
 
-    # Remove user from university members list
-    member_ids.remove(user_id)
-    uni.set_members_list(member_ids)
-
-    # Remove user's role at this university
-    UniversityRole.remove_role(user_id, university_id)
+    # Remove user from university (this also removes their role)
+    uni.remove_member(user_id)
 
     # Clear the user's university affiliation
     user = User.query.get(user_id)
@@ -341,8 +336,7 @@ def update_user_role(university_id: int, user_id: int):
     if not target_user:
         return jsonify({'error': 'User not found'}), 404
 
-    member_ids = uni.get_members_list()
-    if user_id not in member_ids:
+    if not uni.is_member(user_id):
         return jsonify({'error': 'User is not a member of this university'}), 400
 
     # Get current role

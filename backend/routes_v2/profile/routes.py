@@ -26,7 +26,7 @@ from datetime import datetime
 import base64
 import io
 from backend.extensions import db
-from backend.models import User, Note, Message, University, UserFollows, UserLikedUniversity
+from backend.models import User, Note, Message, University, UserFollows, UserLikedUniversity, UniversityRole
 from backend.utils.image import allowed_file, compress_image
 from backend.utils.time import format_full_date, format_join_date, to_iso
 
@@ -435,12 +435,9 @@ def delete_account():
         # 4. Delete all liked universities
         UserLikedUniversity.query.filter_by(user_id=user_id).delete()
 
-        # 5. Remove user from all university member lists
-        all_universities = University.query.all()
-        for uni in all_universities:
-            member_ids = uni.get_members_list()
-            if user_id in member_ids:
-                uni.remove_member(user_id)
+        # 5. Delete all university memberships (UniversityRole records)
+        # (CASCADE should handle this, but we do it explicitly for SQLite compatibility)
+        UniversityRole.query.filter_by(user_id=user_id).delete()
 
         # 6. If user is admin of any universities, set admin to None
         administered_universities = University.query.filter_by(admin_id=user_id).all()
