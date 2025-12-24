@@ -26,7 +26,7 @@ import { api } from './client';
  * console.log(user.email, user.full_name);
  */
 export async function getCurrentUser() {
-  return api.get('/user/profile');
+  return api.get('/profile');
 }
 
 /**

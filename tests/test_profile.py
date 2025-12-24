@@ -2,13 +2,13 @@
 Profile Management Tests
 
 Tests for profile-related endpoints:
-- GET /api/user/profile - Current user profile
+- GET /api/profile - Current user profile
 - GET /api/users/<id> - User profile by ID
-- GET /api/user/stats - User statistics
-- POST /api/update_profile - Update profile
-- POST /api/upload_profile_picture - Upload profile picture
-- POST /api/delete_profile_picture - Delete profile picture
-- POST /api/delete_account - Delete account
+- GET /api/profile/stats - User statistics
+- PATCH /api/profile - Update profile
+- PUT /api/profile/picture - Upload profile picture
+- DELETE /api/profile/picture - Delete profile picture
+- DELETE /api/account - Delete account
 """
 
 import pytest
@@ -23,7 +23,7 @@ class TestProfileRetrieval:
 
     def test_get_own_profile_authenticated(self, authenticated_client, app, test_user):
         """Test getting own profile while logged in"""
-        response = authenticated_client.get('/api/user/profile')
+        response = authenticated_client.get('/api/profile')
 
         assert response.status_code == 200
         data = response.get_json()
@@ -33,7 +33,7 @@ class TestProfileRetrieval:
 
     def test_get_own_profile_unauthenticated(self, client):
         """Test getting profile without login returns 401"""
-        response = client.get('/api/user/profile')
+        response = client.get('/api/profile')
 
         assert response.status_code == 401
 
@@ -67,7 +67,7 @@ class TestProfileRetrieval:
             user.following_count = 3
             db.session.commit()
 
-            response = authenticated_client.get('/api/user/stats')
+            response = authenticated_client.get('/api/profile/stats')
 
             assert response.status_code == 200
             data = response.get_json()
@@ -92,7 +92,7 @@ class TestProfileUpdates:
 
     def test_update_profile_basic_fields(self, authenticated_client, app, test_user):
         """Test updating basic profile fields"""
-        response = authenticated_client.post('/api/update_profile', json={
+        response = authenticated_client.patch('/api/profile', json={
             'first_name': 'Updated',
             'last_name': 'Name',
             'location': 'New York, NY',
@@ -108,7 +108,7 @@ class TestProfileUpdates:
 
     def test_update_profile_skills_as_array(self, authenticated_client, app):
         """Test updating skills with array input"""
-        response = authenticated_client.post('/api/update_profile', json={
+        response = authenticated_client.patch('/api/profile', json={
             'skills': ['Python', 'Machine Learning', 'TensorFlow']
         })
 
@@ -120,7 +120,7 @@ class TestProfileUpdates:
 
     def test_update_profile_skills_as_comma_string(self, authenticated_client, app):
         """Test updating skills with comma-separated string"""
-        response = authenticated_client.post('/api/update_profile', json={
+        response = authenticated_client.patch('/api/profile', json={
             'skills': 'Python, JavaScript, React'
         })
 
@@ -133,12 +133,12 @@ class TestProfileUpdates:
     def test_update_profile_empty_skills_clears(self, authenticated_client, app):
         """Test that setting empty skills clears the list"""
         # First set some skills
-        authenticated_client.post('/api/update_profile', json={
+        authenticated_client.patch('/api/profile', json={
             'skills': ['Python', 'ML']
         })
 
         # Then clear them
-        response = authenticated_client.post('/api/update_profile', json={
+        response = authenticated_client.patch('/api/profile', json={
             'skills': []
         })
 
@@ -148,7 +148,7 @@ class TestProfileUpdates:
 
     def test_update_profile_interests_as_array(self, authenticated_client, app):
         """Test updating interests with array input"""
-        response = authenticated_client.post('/api/update_profile', json={
+        response = authenticated_client.patch('/api/profile', json={
             'interests': ['NLP', 'Computer Vision', 'Robotics']
         })
 
@@ -158,7 +158,7 @@ class TestProfileUpdates:
 
     def test_update_profile_unauthenticated(self, client):
         """Test profile update without login returns 401"""
-        response = client.post('/api/update_profile', json={
+        response = client.patch('/api/profile', json={
             'first_name': 'Hacker'
         })
 
@@ -168,12 +168,12 @@ class TestProfileUpdates:
         """Test that partial updates don't clear other fields"""
         with app.app_context():
             # First update location
-            authenticated_client.post('/api/update_profile', json={
+            authenticated_client.patch('/api/profile', json={
                 'location': 'San Francisco, CA'
             })
 
             # Then update only about_section
-            response = authenticated_client.post('/api/update_profile', json={
+            response = authenticated_client.patch('/api/profile', json={
                 'about_section': 'New bio'
             })
 
@@ -192,8 +192,8 @@ class TestProfilePictures:
             'profile_picture': (io.BytesIO(sample_image_data), 'test.jpg')
         }
 
-        response = authenticated_client.post(
-            '/api/upload_profile_picture',
+        response = authenticated_client.put(
+            '/api/profile/picture',
             data=data,
             content_type='multipart/form-data'
         )
@@ -205,8 +205,8 @@ class TestProfilePictures:
 
     def test_upload_profile_picture_no_file(self, authenticated_client, app):
         """Test upload with no file returns error"""
-        response = authenticated_client.post(
-            '/api/upload_profile_picture',
+        response = authenticated_client.put(
+            '/api/profile/picture',
             data={},
             content_type='multipart/form-data'
         )
@@ -218,8 +218,8 @@ class TestProfilePictures:
         base64_image = base64.b64encode(sample_image_data).decode('utf-8')
         data_url = f'data:image/jpeg;base64,{base64_image}'
 
-        response = authenticated_client.post(
-            '/api/upload_profile_picture',
+        response = authenticated_client.put(
+            '/api/profile/picture',
             data={'camera_image': data_url},
             content_type='multipart/form-data'
         )
@@ -231,14 +231,14 @@ class TestProfilePictures:
     def test_delete_profile_picture(self, authenticated_client, app, sample_image_data, test_user):
         """Test deleting profile picture"""
         # First upload a picture
-        authenticated_client.post(
-            '/api/upload_profile_picture',
+        authenticated_client.put(
+            '/api/profile/picture',
             data={'profile_picture': (io.BytesIO(sample_image_data), 'test.jpg')},
             content_type='multipart/form-data'
         )
 
         # Then delete it
-        response = authenticated_client.post('/api/delete_profile_picture')
+        response = authenticated_client.delete('/api/profile/picture')
 
         assert response.status_code == 200
         data = response.get_json()
@@ -271,8 +271,8 @@ class TestProfilePictures:
 
     def test_upload_profile_picture_unauthenticated(self, client, sample_image_data):
         """Test upload without login returns 401"""
-        response = client.post(
-            '/api/upload_profile_picture',
+        response = client.put(
+            '/api/profile/picture',
             data={'profile_picture': (io.BytesIO(sample_image_data), 'test.jpg')},
             content_type='multipart/form-data'
         )
@@ -306,7 +306,7 @@ class TestAccountDeletion:
             })
 
             # Delete account
-            response = client.post('/api/delete_account')
+            response = client.delete('/api/account')
 
             assert response.status_code == 200
             data = response.get_json()
@@ -346,7 +346,7 @@ class TestAccountDeletion:
                 'email': 'uninmember@example.edu',
                 'password': 'password123'
             })
-            client.post('/api/delete_account')
+            client.delete('/api/account')
 
             # Refresh university and check
             db.session.refresh(university)
@@ -381,7 +381,7 @@ class TestAccountDeletion:
                 'email': 'noteauthor@example.edu',
                 'password': 'password123'
             })
-            client.post('/api/delete_account')
+            client.delete('/api/account')
 
             # Verify note is deleted
             deleted_note = db.session.get(Note, note_id)
@@ -409,7 +409,7 @@ class TestAccountDeletion:
                 'email': 'test@example.edu',
                 'password': 'testpassword123'
             })
-            client.post('/api/delete_account')
+            client.delete('/api/account')
 
             # Verify message is deleted
             deleted_msg = db.session.get(Message, msg_id)
@@ -436,10 +436,10 @@ class TestAccountDeletion:
             })
 
             # Delete account
-            client.post('/api/delete_account')
+            client.delete('/api/account')
 
             # Try to access protected route
-            response = client.get('/api/user/profile')
+            response = client.get('/api/profile')
             assert response.status_code == 401
 
     def test_delete_account_nullifies_admin_role(self, app, test_university):
@@ -470,7 +470,7 @@ class TestAccountDeletion:
                 'email': 'uniadmin@example.edu',
                 'password': 'password123'
             })
-            client.post('/api/delete_account')
+            client.delete('/api/account')
 
             # Refresh university and check
             updated_uni = db.session.get(University, uni_id)
@@ -478,5 +478,5 @@ class TestAccountDeletion:
 
     def test_delete_account_unauthenticated(self, client):
         """Test account deletion without login returns 401"""
-        response = client.post('/api/delete_account')
+        response = client.delete('/api/account')
         assert response.status_code == 401

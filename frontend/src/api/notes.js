@@ -67,7 +67,7 @@ export async function getNotes() {
  * });
  */
 export async function createNote(noteData) {
-  return api.post('/notes/create', noteData);
+  return api.post('/notes', noteData);
 }
 
 /**
@@ -119,5 +119,5 @@ export async function toggleBookmarkNote(id) {
  * await deleteNote(1);
  */
 export async function deleteNote(id) {
-  return api.delete(`/notes/${id}/delete`);
+  return api.delete(`/notes/${id}`);
 }

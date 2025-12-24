@@ -88,21 +88,27 @@ class TestSessionSecurity:
     def test_protected_routes_require_auth(self, client, app):
         """Test that all protected routes properly require authentication"""
         protected_endpoints = [
-            ('GET', '/api/user/profile'),
-            ('POST', '/api/update_profile'),
-            ('POST', '/api/notes/create'),
+            ('GET', '/api/profile'),
+            ('PATCH', '/api/profile'),
+            ('POST', '/api/notes'),
             ('GET', '/api/messages/conversations'),
-            ('POST', '/api/messages/send'),
-            ('POST', '/api/upload_profile_picture'),
-            ('POST', '/api/delete_account'),
+            ('POST', '/api/messages'),
+            ('PUT', '/api/profile/picture'),
+            ('DELETE', '/api/account'),
             ('GET', '/api/notifications/university-posts'),
         ]
 
         for method, endpoint in protected_endpoints:
             if method == 'GET':
                 response = client.get(endpoint)
-            else:
+            elif method == 'POST':
                 response = client.post(endpoint, json={})
+            elif method == 'PATCH':
+                response = client.patch(endpoint, json={})
+            elif method == 'PUT':
+                response = client.put(endpoint, json={})
+            elif method == 'DELETE':
+                response = client.delete(endpoint)
 
             assert response.status_code == 401, f"{method} {endpoint} should require auth"
 
@@ -112,7 +118,7 @@ class TestInputValidation:
 
     def test_unicode_in_profile(self, authenticated_client, app):
         """Test handling of unicode characters in profile"""
-        response = authenticated_client.post('/api/update_profile', json={
+        response = authenticated_client.patch('/api/profile', json={
             'first_name': 'Testy',
             'about_section': 'Hello! Привет! こんにちは! 你好! 안녕하세요!'
         })
@@ -123,7 +129,7 @@ class TestInputValidation:
 
     def test_emoji_in_content(self, authenticated_client, app):
         """Test handling of emojis in note content"""
-        response = authenticated_client.post('/api/notes/create', json={
+        response = authenticated_client.post('/api/notes', json={
             'title': 'Emoji Test',
             'content': 'Hello World! 🌍🚀💡🔥'
         })
@@ -137,7 +143,7 @@ class TestInputValidation:
         # Create a very long string (100KB of text)
         long_content = 'A' * (100 * 1024)
 
-        response = authenticated_client.post('/api/notes/create', json={
+        response = authenticated_client.post('/api/notes', json={
             'title': 'Long Content Test',
             'content': long_content
         })
@@ -147,7 +153,7 @@ class TestInputValidation:
 
     def test_null_bytes_in_input(self, authenticated_client, app):
         """Test handling of null byte injection"""
-        response = authenticated_client.post('/api/notes/create', json={
+        response = authenticated_client.post('/api/notes', json={
             'title': 'Null\x00Byte',
             'content': 'Content with\x00null byte'
         })
@@ -177,7 +183,7 @@ class TestInputValidation:
     def test_whitespace_variations(self, authenticated_client, app):
         """Test various whitespace handling"""
         # Leading/trailing whitespace should be trimmed
-        response = authenticated_client.post('/api/update_profile', json={
+        response = authenticated_client.patch('/api/profile', json={
             'first_name': '  Spaced  ',
             'last_name': '\tTabbed\t'
         })
@@ -263,7 +269,7 @@ class TestErrorHandling:
     def test_missing_content_type(self, authenticated_client, app):
         """Test request without content type"""
         response = authenticated_client.post(
-            '/api/notes/create',
+            '/api/notes',
             data='{"title": "Test", "content": "Content"}'
         )
 

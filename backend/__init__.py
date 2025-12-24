@@ -103,7 +103,7 @@ def create_app(config_class=Config):
             ensure_dev_user()
 
     # Register blueprints
-    from backend.routes import (
+    from backend.routes_v2 import (
         public_bp,
         auth_bp,
         api_auth_bp,

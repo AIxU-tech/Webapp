@@ -79,7 +79,7 @@ class TestLogin:
 
         assert response.status_code == 200
         # Check that we can access authenticated endpoint
-        me_response = client.get('/api/user/profile')
+        me_response = client.get('/api/profile')
         assert me_response.status_code == 200
 
 
@@ -344,7 +344,7 @@ class TestLogout:
         authenticated_client.post('/api/auth/logout')
 
         # Try to access protected route
-        response = authenticated_client.get('/api/user/profile')
+        response = authenticated_client.get('/api/profile')
         assert response.status_code == 401
 
 
@@ -361,14 +361,14 @@ class TestSessionSecurity:
             })
 
             # Access protected route
-            response = client.get('/api/user/profile')
+            response = client.get('/api/profile')
             assert response.status_code == 200
             data = response.get_json()
             assert data['email'] == 'test@example.edu'
 
     def test_protected_route_without_login(self, client):
         """Test accessing protected route without login"""
-        response = client.get('/api/user/profile')
+        response = client.get('/api/profile')
         assert response.status_code == 401
 
     def test_multiple_login_sessions(self, app, test_user):
@@ -378,7 +378,7 @@ class TestSessionSecurity:
 
         # First, verify that an unauthenticated client cannot access profile
         fresh_client = app.test_client()
-        response_unauth = fresh_client.get('/api/user/profile')
+        response_unauth = fresh_client.get('/api/profile')
         assert response_unauth.status_code == 401
 
         # Now login and verify we can access profile
@@ -391,12 +391,12 @@ class TestSessionSecurity:
             assert response_login.status_code == 200
 
             # Should be able to access profile after login
-            response_profile = client.get('/api/user/profile')
+            response_profile = client.get('/api/profile')
             assert response_profile.status_code == 200
 
         # After exiting the context, a new client should be unauthenticated
         another_fresh_client = app.test_client()
-        response_new = another_fresh_client.get('/api/user/profile')
+        response_new = another_fresh_client.get('/api/profile')
         assert response_new.status_code == 401
 
 
@@ -752,5 +752,5 @@ class TestCompleteAccount:
             })
 
             # Should be able to access protected route
-            profile_response = client.get('/api/user/profile')
+            profile_response = client.get('/api/profile')
             assert profile_response.status_code == 200

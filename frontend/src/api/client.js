@@ -146,6 +146,17 @@ export const api = {
   }),
 
   /**
+   * PATCH request
+   * @param {string} endpoint - API endpoint
+   * @param {object} body - Request body
+   * @returns {Promise<any>}
+   */
+  patch: (endpoint, body) => apiRequest(endpoint, {
+    method: 'PATCH',
+    body,
+  }),
+
+  /**
    * DELETE request
    * @param {string} endpoint - API endpoint
    * @returns {Promise<any>}

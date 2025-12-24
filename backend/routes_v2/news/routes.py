@@ -35,6 +35,7 @@ from backend.services.ai_news import (
     clear_chat_history
 )
 from backend.constants import ADMIN
+from backend.routes_v2.news.helpers import validate_request_data
 
 
 news_bp = Blueprint('news', __name__)
@@ -347,12 +348,12 @@ def chat_about_story(story_id: int):
     """
     data = request.get_json()
 
-    if not data:
-        return jsonify({'success': False, 'error': 'Request body required'}), 400
+    error, code = validate_request_data(data)
+
+    if error:
+        return jsonify({'success': False, 'error': error}), code
 
     message = data.get('message', '').strip()
-    if not message:
-        return jsonify({'success': False, 'error': 'Message is required'}), 400
 
     session_id = data.get('sessionId', '')
     if not session_id:
@@ -403,12 +404,12 @@ def chat_about_paper(paper_id: int):
     """
     data = request.get_json()
 
-    if not data:
-        return jsonify({'success': False, 'error': 'Request body required'}), 400
+    error, code = validate_request_data(data)
+
+    if error:
+        return jsonify({'success': False, 'error': error}), code
 
     message = data.get('message', '').strip()
-    if not message:
-        return jsonify({'success': False, 'error': 'Message is required'}), 400
 
     session_id = data.get('sessionId', '')
     if not session_id:

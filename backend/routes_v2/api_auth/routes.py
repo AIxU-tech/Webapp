@@ -21,8 +21,16 @@ from backend.extensions import db
 from backend.models import User, University, UniversityRequest
 from backend.utils.email import generate_verification_code, send_verification_email
 from backend.utils.validation import is_whitelisted_domain
+from backend.routes_v2.api_auth.helpers import (
+    setup_registration_session,
+    validate_registration_data,
+    create_db_user,
+    hash_verification_code
+)
 
 api_auth_bp = Blueprint('api_auth', __name__, url_prefix='/api/auth')
+
+REQUIRED_PASSWORD_LENGTH = 6
 
 
 # API endpoint for login (used by React frontend)
@@ -103,28 +111,18 @@ def api_register():
     - 409: Email already exists
     """
     try:
-        # Get JSON data from request
         data = request.get_json()
 
-        # Extract and validate required fields
-        email = data.get('email', '').strip()
-        password = data.get('password', '')
-        first_name = data.get('firstName', '').strip()
-        last_name = data.get('lastName', '').strip()
+        user_object, error = validate_registration_data(data)
 
-        # Validate all required fields are present
-        if not email or not password:
-            return jsonify({'error': 'Email and password are required'}), 400
+        if error:
+            message, code = error
+            return jsonify({'error': message}), code
 
-        if not first_name:
-            return jsonify({'error': 'First name is required'}), 400
-
-        if not last_name:
-            return jsonify({'error': 'Last name is required'}), 400
-
-        # Validate email format - must be a .edu email (or whitelisted domain)
-        if '@' not in email:
-            return jsonify({'error': 'Please enter a valid email address'}), 400
+        email = user_object.get('email')
+        password = user_object.get('password')
+        first_name = user_object.get('first_name')
+        last_name = user_object.get('last_name')
 
         email_domain = email.split('@')[1].lower()
         is_whitelisted = is_whitelisted_domain(email)
@@ -132,34 +130,22 @@ def api_register():
         if not email_domain.endswith('.edu') and not is_whitelisted:
             return jsonify({'error': 'Please use your university .edu email address'}), 400
 
-        # Find university matching the email domain
-        # This uses the University.find_by_email_domain() class method
-        # Whitelisted domains bypass university requirement
         university = University.find_by_email_domain(email)
+
         if not university and not is_whitelisted:
             return jsonify({
                 'error': 'No university found for your email domain. Please contact support if you believe this is an error.'
             }), 400
 
-        # Check if email already exists
         if User.query.filter_by(email=email).first():
             return jsonify({'error': 'Email already exists'}), 409
 
+        verification_code = generate_verification_code()
+
         # Store registration data in session for verification
         # University ID is determined automatically from email domain (None for whitelisted domains)
-        session['pending_registration'] = {
-            'email': email,
-            'password': password,
-            'first_name': first_name,
-            'last_name': last_name,
-            'university_id': str(university.id) if university else None,
-            'timestamp': time.time()
-        }
-
-        # Generate and send verification code
-        verification_code = generate_verification_code()
-        session['verification_code'] = verification_code
-        session['verification_timestamp'] = time.time()
+        setup_registration_session(
+            email, password, first_name, last_name, university, verification_code)
 
         # Send verification email
         if send_verification_email(email, verification_code):
@@ -179,12 +165,11 @@ def api_register():
         else:
             # Failed to send email, clean up session
             session.pop('pending_registration', None)
-            session.pop('verification_code', None)
+            session.pop('verification_code_hash', None)
             session.pop('verification_timestamp', None)
             return jsonify({'error': 'Failed to send verification email. Please try again.'}), 500
 
     except Exception as e:
-        # Handle any unexpected errors
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
@@ -211,7 +196,7 @@ def api_verify_email():
     """
     try:
         # Check if there's a pending registration
-        if 'pending_registration' not in session or 'verification_code' not in session:
+        if 'pending_registration' not in session or 'verification_code_hash' not in session:
             return jsonify({'error': 'No pending registration found. Please register first.'}), 400
 
         # Get verification code from request
@@ -224,47 +209,29 @@ def api_verify_email():
         # Check if code has expired (180 seconds = 3 minutes)
         if time.time() - session.get('verification_timestamp', 0) > 180:
             # Clean up expired session data
-            session.pop('verification_code', None)
+            session.pop('verification_code_hash', None)
             session.pop('verification_timestamp', None)
             session.pop('pending_registration', None)
             return jsonify({'error': 'Verification code has expired. Please register again.'}), 401
 
-        # Verify the code
+        # Verify the code by comparing hashes
         # In development mode (DEV_MODE=true), accept any 6-digit code for easier testing
         is_dev_mode = current_app.config.get('DEV_MODE', False)
         is_valid_dev_code = is_dev_mode and len(
             entered_code) == 6 and entered_code.isdigit()
-        if entered_code == session.get('verification_code') or is_valid_dev_code:
+
+        entered_code_hash = hash_verification_code(entered_code)
+        if entered_code_hash == session.get('verification_code_hash') or is_valid_dev_code:
             reg_data = session['pending_registration']
 
             # Check if user already exists (shouldn't happen, but be safe)
             user = User.query.filter_by(email=reg_data['email']).first()
             if user is None:
-                # Get the university for auto-enrollment
-                # University ID was determined during registration based on email domain
-                university_id = reg_data.get('university_id')
-                university = University.query.get(
-                    int(university_id)) if university_id else None
-
-                # Create new user with university already set
-                user = User(
-                    email=reg_data['email'],
-                    first_name=reg_data['first_name'],
-                    last_name=reg_data['last_name'],
-                    university=university.name if university else None
-                )
-                user.set_password(reg_data['password'])
-                db.session.add(user)
-                db.session.commit()
-
-                # Add user to university members list (automatic enrollment)
-                if university:
-                    university.add_member(user.id)
-                    db.session.commit()
+                user = create_db_user(reg_data)
 
             # Clean up session
             session.pop('pending_registration', None)
-            session.pop('verification_code', None)
+            session.pop('verification_code_hash', None)
             session.pop('verification_timestamp', None)
 
             # Log the user in
@@ -305,12 +272,12 @@ def api_resend_verification():
         if not email:
             return jsonify({'error': 'No email found in pending registration.'}), 400
 
-        # Generate new verification code
+        # Generate new verification code and store hash
         verification_code = generate_verification_code()
-        session['verification_code'] = verification_code
+        session['verification_code_hash'] = hash_verification_code(verification_code)
         session['verification_timestamp'] = time.time()
 
-        # Send verification email
+        # Send verification email (plain code goes to email only)
         if send_verification_email(email, verification_code):
             return jsonify({
                 'success': True,
@@ -438,7 +405,7 @@ def complete_account():
         if not password:
             return jsonify({'error': 'Password is required'}), 400
 
-        if len(password) < 6:
+        if len(password) < REQUIRED_PASSWORD_LENGTH:
             return jsonify({'error': 'Password must be at least 6 characters'}), 400
 
         # Find and validate the request by token
