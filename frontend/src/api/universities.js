@@ -55,39 +55,8 @@ export async function getUniversity(id) {
   return api.get(`/universities/${id}`);
 }
 
-/**
- * Create a new university
- *
- * Requires authentication. User becomes the admin of created university.
- * The admin's email domain is used to determine which users can be
- * auto-enrolled in this university.
- *
- * @param {object} universityData - University data
- * @param {string} universityData.name - University name
- * @param {string} universityData.location - University location
- * @param {string} universityData.clubName - AI club name
- * @param {string} universityData.description - Description
- * @param {Array<string>} universityData.tags - Tags/topics
- * @returns {Promise<object>} Created university object
- * @throws {ApiError} If user is not authenticated or validation fails
- *
- * @example
- * const newUni = await createUniversity({
- *   name: 'MIT',
- *   location: 'Cambridge, MA',
- *   clubName: 'MIT AI Club',
- *   description: 'AI research and learning at MIT',
- *   tags: ['machine-learning', 'research', 'robotics']
- * });
- */
-export async function createUniversity(universityData) {
-  return api.post('/universities/new', universityData);
-}
-
-// NOTE: joinUniversity and leaveUniversity functions have been removed.
-// Users are now automatically enrolled in a university based on their
-// .edu email domain during registration. See the registration flow in
-// api/auth.js for details.
+// NOTE: University creation is handled through the university request flow.
+// See universityRequests.js for the request/approval process.
 
 /**
  * Update university details (admin only)

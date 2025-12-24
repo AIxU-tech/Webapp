@@ -43,9 +43,11 @@ app = create_app()
 # Start the scheduler for automatic news refresh every 24 hours.
 # Only start in the main process (not in Flask's reloader subprocess).
 # WERKZEUG_RUN_MAIN is set to 'true' in the reloader child process.
-if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
-    from backend.services.scheduler import init_scheduler
-    init_scheduler(app)
+# Skip scheduler in DEV_MODE to avoid automatic API calls during development.
+if not app.config.get('DEV_MODE', False):
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
+        from backend.services.scheduler import init_scheduler
+        init_scheduler(app)
 
 if __name__ == '__main__':
     # =========================================================================

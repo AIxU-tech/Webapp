@@ -42,6 +42,7 @@ from backend.models.note import Note
 from backend.models.message import Message
 from backend.models.relationships import UserFollows
 from backend.models.university_role import UniversityRole
+from backend.models.ai_news import AINewsStory, AINewsSource, AIResearchPaper, AINewsChatMessage
 from backend.constants import UniversityRoles, ADMIN
 
 
@@ -132,6 +133,11 @@ def clear_existing_data():
     Note.query.delete()
     User.query.delete()
     University.query.delete()
+    # Clear AI news data (chat messages first due to foreign keys)
+    AINewsChatMessage.query.delete()
+    AINewsSource.query.delete()
+    AINewsStory.query.delete()
+    AIResearchPaper.query.delete()
     db.session.commit()
     print("Existing data cleared.")
 
@@ -614,6 +620,132 @@ def seed_follows(users):
     return follows
 
 
+def seed_ai_news():
+    """Create sample AI news stories and research papers."""
+    print("Seeding AI news content...")
+
+    batch_id = "dev-seed-batch"
+
+    # Sample news stories
+    stories_data = [
+        {
+            "title": "OpenAI Releases GPT-5 with Enhanced Reasoning Capabilities",
+            "summary": "OpenAI has unveiled GPT-5, their latest large language model featuring significant improvements in logical reasoning and multi-step problem solving. The model demonstrates near-human performance on complex mathematical proofs and shows remarkable ability to maintain context across extended conversations. Early benchmarks suggest a 40% improvement over GPT-4 on reasoning-heavy tasks.",
+            "significance": "This release marks a major milestone in AI capabilities, with implications for education, research, and software development. Students and researchers should pay attention to how these enhanced reasoning abilities might impact their work.",
+            "rank": 1,
+            "categories": ["LLMs", "Industry", "Research"],
+            "sources": [
+                {"url": "https://example.com/gpt5-release", "source_name": "TechCrunch", "article_title": "OpenAI's GPT-5 Sets New Benchmarks"},
+                {"url": "https://example.com/gpt5-analysis", "source_name": "MIT Technology Review", "article_title": "Inside GPT-5's Reasoning Engine"}
+            ]
+        },
+        {
+            "title": "Google DeepMind Achieves Breakthrough in Protein Folding Prediction",
+            "summary": "DeepMind's AlphaFold 3 has achieved unprecedented accuracy in predicting protein structures, including complex protein-protein interactions. The system can now model how proteins interact with DNA, RNA, and small molecules, opening new avenues for drug discovery and understanding disease mechanisms.",
+            "significance": "This advancement could accelerate pharmaceutical research and deepen our understanding of biological processes. AI students interested in computational biology should explore how deep learning is transforming this field.",
+            "rank": 2,
+            "categories": ["Research", "Healthcare", "Deep Learning"],
+            "sources": [
+                {"url": "https://example.com/alphafold3", "source_name": "Nature", "article_title": "AlphaFold 3 Revolutionizes Structural Biology"},
+                {"url": "https://example.com/protein-ai", "source_name": "Science Daily", "article_title": "AI Predicts Complex Protein Interactions"}
+            ]
+        },
+        {
+            "title": "EU Passes Comprehensive AI Regulation Framework",
+            "summary": "The European Union has finalized its AI Act, establishing the world's first comprehensive regulatory framework for artificial intelligence. The legislation categorizes AI systems by risk level and imposes strict requirements on high-risk applications in healthcare, education, and law enforcement. Companies have 24 months to comply.",
+            "significance": "This regulation will shape how AI is developed and deployed globally, as companies serving EU markets must comply. Understanding AI governance is becoming essential for anyone working in the field.",
+            "rank": 3,
+            "categories": ["Policy", "Ethics", "Industry"],
+            "sources": [
+                {"url": "https://example.com/eu-ai-act", "source_name": "Reuters", "article_title": "EU AI Act Becomes Law"},
+                {"url": "https://example.com/ai-regulation", "source_name": "The Verge", "article_title": "What the EU AI Act Means for Developers"}
+            ]
+        }
+    ]
+
+    # Sample research papers
+    papers_data = [
+        {
+            "title": "Scaling Laws for Neural Language Models: A Comprehensive Analysis",
+            "authors": "Chen, Williams, et al.",
+            "summary": "This paper provides a detailed analysis of how language model performance scales with compute, data, and parameters. The researchers find predictable relationships that can guide efficient allocation of training resources.",
+            "key_findings": "Model performance follows power-law scaling with compute budget. Data quality matters more than quantity beyond certain thresholds. Optimal model size depends on available compute.",
+            "significance": "Understanding scaling laws helps researchers and practitioners make informed decisions about model training, potentially saving significant computational resources.",
+            "paper_url": "https://arxiv.org/abs/example1",
+            "source_name": "arXiv",
+            "rank": 1,
+            "categories": ["LLMs", "Training", "Efficiency"]
+        },
+        {
+            "title": "Attention Is All You Need: Revisited for Multimodal Learning",
+            "authors": "Park, Johnson, Garcia",
+            "summary": "Researchers extend the transformer architecture to efficiently process multiple modalities simultaneously, achieving state-of-the-art results on vision-language tasks with 30% fewer parameters than previous approaches.",
+            "key_findings": "Cross-modal attention mechanisms can share representations efficiently. Pre-training on aligned multimodal data improves downstream performance. The architecture generalizes to audio and video modalities.",
+            "significance": "This work advances our understanding of how to build more capable AI systems that can reason across different types of input, moving closer to more general intelligence.",
+            "paper_url": "https://arxiv.org/abs/example2",
+            "source_name": "NeurIPS 2024",
+            "rank": 2,
+            "categories": ["Multimodal", "Transformers", "Vision"]
+        },
+        {
+            "title": "Reinforcement Learning from Human Feedback: Best Practices and Pitfalls",
+            "authors": "Smith, Lee, Patel, et al.",
+            "summary": "A comprehensive study examining RLHF implementations across major language models, identifying common failure modes and proposing improved training procedures that reduce reward hacking.",
+            "key_findings": "Reward model overoptimization is a persistent challenge. Diverse human feedback pools improve robustness. Iterative RLHF with fresh data outperforms single-stage training.",
+            "significance": "As RLHF becomes the standard for aligning AI systems with human preferences, understanding its limitations is crucial for building safer and more helpful AI.",
+            "paper_url": "https://arxiv.org/abs/example3",
+            "source_name": "ICML 2024",
+            "rank": 3,
+            "categories": ["RLHF", "Alignment", "Safety"]
+        }
+    ]
+
+    stories = []
+    for data in stories_data:
+        story = AINewsStory(
+            title=data["title"],
+            summary=data["summary"],
+            significance=data["significance"],
+            rank=data["rank"],
+            batch_id=batch_id
+        )
+        story.set_categories_list(data["categories"])
+        db.session.add(story)
+        db.session.flush()  # Get the story ID for sources
+
+        for source_data in data["sources"]:
+            source = AINewsSource(
+                story_id=story.id,
+                url=source_data["url"],
+                source_name=source_data["source_name"],
+                article_title=source_data["article_title"]
+            )
+            db.session.add(source)
+
+        stories.append(story)
+
+    papers = []
+    for data in papers_data:
+        paper = AIResearchPaper(
+            title=data["title"],
+            authors=data["authors"],
+            summary=data["summary"],
+            key_findings=data["key_findings"],
+            significance=data["significance"],
+            paper_url=data["paper_url"],
+            source_name=data["source_name"],
+            rank=data["rank"],
+            batch_id=batch_id
+        )
+        paper.set_categories_list(data["categories"])
+        db.session.add(paper)
+        papers.append(paper)
+
+    db.session.commit()
+    print(f"Created {len(stories)} news stories and {len(papers)} research papers.")
+    return stories, papers
+
+
 def seed_all():
     """Run all seed functions."""
     print("\n" + "="*50)
@@ -628,6 +760,7 @@ def seed_all():
     seed_notes(users)
     seed_messages(users)
     seed_follows(users)
+    seed_ai_news()
 
     print("\n" + "="*50)
     print("Seeding complete!")

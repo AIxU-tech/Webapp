@@ -4,6 +4,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
+
   // This is where the SPA will be hosted in prod
   base: '/app/',
 

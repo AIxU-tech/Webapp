@@ -162,7 +162,9 @@ export function useUploadProfilePicture() {
   return useMutation({
     mutationFn: async (file) => {
       const formData = new FormData();
-      formData.append('profile_picture', file);
+      // Provide a filename for the blob - backend requires valid extension
+      const filename = file.name || 'profile_picture.jpg';
+      formData.append('profile_picture', file, filename);
 
       const response = await fetch('/api/profile/picture', {
         method: 'PUT',
