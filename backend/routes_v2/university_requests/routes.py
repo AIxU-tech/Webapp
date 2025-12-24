@@ -27,12 +27,13 @@ from backend.utils.email import (
 )
 from backend.utils.validation import validate_edu_email, validate_required_fields
 from backend.constants import ADMIN
+from backend.routes_v2.api_auth.helpers import hash_verification_code
 
 university_requests_bp = Blueprint('university_requests', __name__, url_prefix='/api/university-requests')
 
 # Session keys (namespaced to avoid collision with registration flow)
 SESSION_PENDING = 'pending_uni_request'
-SESSION_CODE = 'uni_request_code'
+SESSION_CODE_HASH = 'uni_request_code_hash'
 SESSION_CODE_TIME = 'uni_request_code_time'
 SESSION_VERIFIED = 'uni_request_verified'
 
@@ -89,8 +90,9 @@ def start_request():
     }
 
     # Generate and send code (reusing existing infrastructure)
+    # Hash the code before storing - plain code only sent via email
     code = generate_verification_code()
-    session[SESSION_CODE] = code
+    session[SESSION_CODE_HASH] = hash_verification_code(code)
     session[SESSION_CODE_TIME] = time.time()
 
     if send_verification_email(email, code):
@@ -103,7 +105,7 @@ def start_request():
     else:
         # Clean up on failure
         session.pop(SESSION_PENDING, None)
-        session.pop(SESSION_CODE, None)
+        session.pop(SESSION_CODE_HASH, None)
         session.pop(SESSION_CODE_TIME, None)
         return jsonify({'error': 'Failed to send verification email. Please try again.'}), 500
 
@@ -112,12 +114,13 @@ def start_request():
 def verify_request():
     """
     Verify email code. Same logic as api_auth verify-email endpoint.
+    Compares hashed codes to prevent session cookie exposure.
     """
     pending = session.get(SESSION_PENDING)
-    stored_code = session.get(SESSION_CODE)
+    stored_code_hash = session.get(SESSION_CODE_HASH)
     code_time = session.get(SESSION_CODE_TIME, 0)
 
-    if not pending or not stored_code:
+    if not pending or not stored_code_hash:
         return jsonify({'error': 'No pending request found. Please start again.'}), 400
 
     data = request.get_json() or {}
@@ -128,19 +131,22 @@ def verify_request():
 
     # Check expiry (same 3-minute window as registration)
     if time.time() - code_time > CODE_EXPIRY_SECONDS:
-        session.pop(SESSION_CODE, None)
+        session.pop(SESSION_CODE_HASH, None)
         session.pop(SESSION_CODE_TIME, None)
         return jsonify({'error': 'Verification code has expired. Please request a new one.'}), 401
 
+    # Verify the code by comparing hashes
     # In development mode (DEV_MODE=true), accept any 6-digit code for easier testing
     is_dev_mode = current_app.config.get('DEV_MODE', False)
     is_valid_dev_code = is_dev_mode and len(entered_code) == 6 and entered_code.isdigit()
-    if entered_code != stored_code and not is_valid_dev_code:
+
+    entered_code_hash = hash_verification_code(entered_code)
+    if entered_code_hash != stored_code_hash and not is_valid_dev_code:
         return jsonify({'error': 'Invalid verification code. Please try again.'}), 401
 
-    # Mark verified
+    # Mark verified and clean up code from session
     session[SESSION_VERIFIED] = time.time()
-    session.pop(SESSION_CODE, None)
+    session.pop(SESSION_CODE_HASH, None)
     session.pop(SESSION_CODE_TIME, None)
 
     return jsonify({
@@ -160,8 +166,9 @@ def resend_code():
     if not pending:
         return jsonify({'error': 'No pending request found. Please start again.'}), 400
 
+    # Generate new code and store hash (plain code only sent via email)
     code = generate_verification_code()
-    session[SESSION_CODE] = code
+    session[SESSION_CODE_HASH] = hash_verification_code(code)
     session[SESSION_CODE_TIME] = time.time()
 
     if send_verification_email(pending['email'], code):
