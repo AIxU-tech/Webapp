@@ -1,10 +1,14 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-import json
 from backend.extensions import db
 from backend.models import Note, User, University
-from backend.routes_v2.community.helpers import create_db_note, get_db_notes, notes_to_dict
-from backend.routes_v2.community.helpers import toggle_like_status
+from backend.routes_v2.community.helpers import (
+    create_db_note,
+    get_db_notes,
+    notes_to_dict,
+    toggle_like_status,
+    toggle_bookmark_status,
+)
 
 community_bp = Blueprint('community', __name__)
 
@@ -112,7 +116,7 @@ def api_notes():
 def toggle_like(note_id):
     """
     Toggle like status for a note.
-    Updates user's liked_notes list and note's like count.
+    Uses NoteLike relationship table and updates note's like count.
     """
     try:
         note = Note.query.get(note_id)
@@ -141,36 +145,14 @@ def toggle_like(note_id):
 def toggle_bookmark(note_id):
     """
     Toggle bookmark status for a note.
-    Updates user's bookmarked_notes list.
+    Uses NoteBookmark relationship table.
     """
     try:
         note = Note.query.get(note_id)
         if not note:
             return jsonify({'success': False, 'error': 'Note not found'}), 404
 
-        # Get user's bookmarked notes list
-        bookmarked_notes = current_user.bookmarked_notes
-        if bookmarked_notes:
-            try:
-                bookmarked_list = json.loads(bookmarked_notes)
-            except:
-                bookmarked_list = []
-        else:
-            bookmarked_list = []
-
-        # Toggle bookmark
-        if note_id in bookmarked_list:
-            # Remove bookmark
-            bookmarked_list.remove(note_id)
-            is_bookmarked = False
-        else:
-            # Add bookmark
-            bookmarked_list.append(note_id)
-            is_bookmarked = True
-
-        # Save updated list
-        current_user.bookmarked_notes = json.dumps(bookmarked_list)
-        db.session.commit()
+        is_bookmarked = toggle_bookmark_status(current_user, note)
 
         return jsonify({
             'success': True,

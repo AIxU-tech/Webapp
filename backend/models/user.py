@@ -38,10 +38,15 @@ class User(UserMixin, db.Model):
     skills = db.Column(db.Text, nullable=True)  # Store as JSON string
     interests = db.Column(db.Text, nullable=True)  # Store as JSON string
 
-    # University fields
-    liked_universities = db.Column(db.Text, nullable=True)
-    liked_notes = db.Column(db.Text, nullable=True)
-    bookmarked_notes = db.Column(db.Text, nullable=True)
+    # DEPRECATED: These JSON columns are replaced by proper relationship tables.
+    # - liked_universities -> UserLikedUniversity table
+    # - liked_notes -> NoteLike table  
+    # - bookmarked_notes -> NoteBookmark table
+    # These columns are kept temporarily for backwards compatibility during migration.
+    # TODO: Remove these columns after data migration is complete.
+    # liked_universities = db.Column(db.Text, nullable=True)
+    # liked_notes = db.Column(db.Text, nullable=True)
+    # bookmarked_notes = db.Column(db.Text, nullable=True)
 
     #Profile pics
     # Add these new fields for profile picture
@@ -171,6 +176,52 @@ class User(UserMixin, db.Model):
         self.profile_picture = None
         self.profile_picture_filename = None
         self.profile_picture_mimetype = None
+
+    # -------------------------------------------------------------------------
+    # Note Like/Bookmark Methods
+    # -------------------------------------------------------------------------
+
+    def has_liked_note(self, note_id: int) -> bool:
+        """Check if this user has liked a specific note."""
+        from backend.models.relationships import NoteLike
+        return NoteLike.exists(self.id, note_id)
+
+    def has_bookmarked_note(self, note_id: int) -> bool:
+        """Check if this user has bookmarked a specific note."""
+        from backend.models.relationships import NoteBookmark
+        return NoteBookmark.exists(self.id, note_id)
+
+    def get_liked_notes(self):
+        """
+        Get all notes this user has liked.
+        
+        Returns:
+            List of Note objects, ordered by when they were liked (most recent first)
+        """
+        from backend.models.note import Note
+        from backend.models.relationships import NoteLike
+        
+        return db.session.query(Note).join(
+            NoteLike, Note.id == NoteLike.note_id
+        ).filter(
+            NoteLike.user_id == self.id
+        ).order_by(NoteLike.created_at.desc()).all()
+
+    def get_bookmarked_notes(self):
+        """
+        Get all notes this user has bookmarked.
+        
+        Returns:
+            List of Note objects, ordered by when they were bookmarked (most recent first)
+        """
+        from backend.models.note import Note
+        from backend.models.relationships import NoteBookmark
+        
+        return db.session.query(Note).join(
+            NoteBookmark, Note.id == NoteBookmark.note_id
+        ).filter(
+            NoteBookmark.user_id == self.id
+        ).order_by(NoteBookmark.created_at.desc()).all()
 
     # -------------------------------------------------------------------------
     # Permission Methods

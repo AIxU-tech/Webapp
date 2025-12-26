@@ -4,7 +4,12 @@ from backend.models.university_role import UniversityRole
 from backend.models.university_request import UniversityRequest, RequestStatus
 from backend.models.note import Note
 from backend.models.message import Message
-from backend.models.relationships import UserFollows, UserLikedUniversity
+from backend.models.relationships import (
+    UserFollows,
+    UserLikedUniversity,
+    NoteLike,
+    NoteBookmark,
+)
 from backend.models.ai_news import (
     AINewsStory,
     AINewsSource,
@@ -22,6 +27,8 @@ __all__ = [
     'Message',
     'UserFollows',
     'UserLikedUniversity',
+    'NoteLike',
+    'NoteBookmark',
     'AINewsStory',
     'AINewsSource',
     'AIResearchPaper',

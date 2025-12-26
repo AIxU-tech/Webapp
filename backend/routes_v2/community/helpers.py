@@ -1,12 +1,24 @@
-from flask import Blueprint, request, jsonify
-from flask_login import login_required, current_user
-import json
+"""
+Community Route Helpers
+
+Helper functions for community-related routes (notes, likes, bookmarks).
+"""
+
+from flask_login import current_user
 from backend.extensions import db
 from backend.models import Note, User, University
 
 
 def create_db_note(data):
-
+    """
+    Create a new note in the database.
+    
+    Args:
+        data: Dictionary containing 'title', 'content', and optional 'tags'
+        
+    Returns:
+        The newly created Note object
+    """
     note = Note(
         title=data['title'].strip(),
         content=data['content'].strip(),
@@ -26,14 +38,22 @@ def create_db_note(data):
 
 
 def get_db_notes(filter_user_id, search_query):
-
+    """
+    Fetch notes from the database with optional filtering.
+    
+    Args:
+        filter_user_id: If provided, only return notes by this user
+        search_query: If provided, search in title, content, and author name
+        
+    Returns:
+        List of Note objects, ordered by creation date (most recent first)
+    """
     if filter_user_id:
         # Fetch only notes from this user
         db_notes = Note.query.filter_by(author_id=filter_user_id).order_by(
             Note.created_at.desc(), Note.id.desc()).all()
     elif search_query:
         # Search in note title, content, and author name
-        # Note: username column was removed, search by first/last name and email only
         matching_users = User.query.filter(
             db.or_(
                 User.first_name.ilike(f'%{search_query}%'),
@@ -61,28 +81,26 @@ def get_db_notes(filter_user_id, search_query):
 
 
 def notes_to_dict(db_notes, current_user):
+    """
+    Convert a list of Note objects to dictionaries with user-specific data.
+    
+    Enriches each note with isLiked and isBookmarked flags based on
+    the current user's relationship with each note.
+    
+    Args:
+        db_notes: List of Note objects
+        current_user: The current authenticated user (or anonymous)
+        
+    Returns:
+        List of note dictionaries ready for JSON serialization
+    """
     notes = []
     for note in db_notes:
         note_dict = note.to_dict()
 
         if current_user.is_authenticated:
-            # Check if user liked this note
-            liked_notes = current_user.liked_notes
-            if liked_notes:
-                try:
-                    liked_list = json.loads(liked_notes)
-                    note_dict['isLiked'] = note.id in liked_list
-                except:
-                    note_dict['isLiked'] = False
-
-            # Check if user bookmarked this note
-            bookmarked_notes = current_user.bookmarked_notes
-            if bookmarked_notes:
-                try:
-                    bookmarked_list = json.loads(bookmarked_notes)
-                    note_dict['isBookmarked'] = note.id in bookmarked_list
-                except:
-                    note_dict['isBookmarked'] = False
+            note_dict['isLiked'] = note.is_liked_by(current_user.id)
+            note_dict['isBookmarked'] = note.is_bookmarked_by(current_user.id)
 
         notes.append(note_dict)
 
@@ -90,31 +108,34 @@ def notes_to_dict(db_notes, current_user):
 
 
 def toggle_like_status(current_user, note):
-    note_id = note.id
-    liked_notes = current_user.liked_notes
-    if liked_notes:
-        try:
-            liked_list = json.loads(liked_notes)
-        except:
-            liked_list = []
-    else:
-        liked_list = []
-
-    # Toggle like
-    if note_id in liked_list:
-        # Unlike
-        liked_list.remove(note_id)
-        note.likes = max(0, note.likes - 1)
-        is_liked = False
-    else:
-        # Like
-        liked_list.append(note_id)
-        note.likes += 1
-        is_liked = True
-
-    # Save updated list
-    current_user.liked_notes = json.dumps(liked_list)
-
+    """
+    Toggle the like status for a note.
+    
+    Updates both the NoteLike relationship and the denormalized likes counter.
+    
+    Args:
+        current_user: The user toggling the like
+        note: The Note object to like/unlike
+        
+    Returns:
+        True if the note is now liked, False if now unliked
+    """
+    is_liked = note.toggle_like(current_user.id)
     db.session.commit()
-
     return is_liked
+
+
+def toggle_bookmark_status(current_user, note):
+    """
+    Toggle the bookmark status for a note.
+    
+    Args:
+        current_user: The user toggling the bookmark
+        note: The Note object to bookmark/unbookmark
+        
+    Returns:
+        True if the note is now bookmarked, False if now unbookmarked
+    """
+    is_bookmarked = note.toggle_bookmark(current_user.id)
+    db.session.commit()
+    return is_bookmarked

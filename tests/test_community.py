@@ -11,7 +11,7 @@ Tests for note-related endpoints:
 
 import pytest
 import json
-from backend.models import User, Note, University
+from backend.models import User, Note, University, NoteBookmark, NoteLike
 from backend.extensions import db
 
 
@@ -370,7 +370,8 @@ class TestNoteLikes:
             authenticated_client.post(f'/api/notes/{note.id}/like')
 
             db.session.refresh(user)
-            liked_list = json.loads(user.liked_notes) if user.liked_notes else []
+            liked_notes = NoteLike.get_liked_notes(user.id)
+            liked_list = [note.id for note in liked_notes]
             assert note.id in liked_list
 
     def test_like_nonexistent_note_fails(self, authenticated_client, app):
@@ -430,7 +431,8 @@ class TestNoteBookmarks:
             authenticated_client.post(f'/api/notes/{note.id}/bookmark')
 
             db.session.refresh(user)
-            bookmarked_list = json.loads(user.bookmarked_notes) if user.bookmarked_notes else []
+            bookedmarked_notes = NoteBookmark.get_bookmarked_notes(user.id)
+            bookmarked_list = [note.id for note in bookedmarked_notes]
             assert note.id in bookmarked_list
 
     def test_bookmark_nonexistent_note_fails(self, authenticated_client, app):
