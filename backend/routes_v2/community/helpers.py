@@ -6,7 +6,7 @@ Helper functions for community-related routes (notes, likes, bookmarks).
 
 from flask_login import current_user
 from backend.extensions import db
-from backend.models import Note, User, University
+from backend.models import Note, User, University, NoteLike, NoteBookmark
 
 
 def create_db_note(data):
@@ -80,12 +80,50 @@ def get_db_notes(filter_user_id, search_query):
     return db_notes
 
 
+def get_user_note_interactions(user_id: int, note_ids: list[int]) -> tuple[set[int], set[int]]:
+    """
+    Fetch all likes and bookmarks for a user across multiple notes in 2 queries.
+    
+    Args:
+        user_id: The user's ID
+        note_ids: List of note IDs to check
+        
+    Returns:
+        Tuple of (liked_note_ids, bookmarked_note_ids) as sets
+    """
+    if not note_ids:
+        return set(), set()
+    
+    # Single query to get all liked note IDs for this user from the given notes
+    liked_note_ids = {
+        row.note_id for row in 
+        NoteLike.query.filter(
+            NoteLike.user_id == user_id,
+            NoteLike.note_id.in_(note_ids)
+        ).with_entities(NoteLike.note_id).all()
+    }
+    
+    # Single query to get all bookmarked note IDs for this user from the given notes
+    bookmarked_note_ids = {
+        row.note_id for row in 
+        NoteBookmark.query.filter(
+            NoteBookmark.user_id == user_id,
+            NoteBookmark.note_id.in_(note_ids)
+        ).with_entities(NoteBookmark.note_id).all()
+    }
+    
+    return liked_note_ids, bookmarked_note_ids
+
+
 def notes_to_dict(db_notes, current_user):
     """
     Convert a list of Note objects to dictionaries with user-specific data.
     
     Enriches each note with isLiked and isBookmarked flags based on
     the current user's relationship with each note.
+    
+    Uses batch queries to avoid N+1 query problem - fetches all like/bookmark
+    status in 2 queries total regardless of number of notes.
     
     Args:
         db_notes: List of Note objects
@@ -94,13 +132,22 @@ def notes_to_dict(db_notes, current_user):
     Returns:
         List of note dictionaries ready for JSON serialization
     """
+    # Pre-fetch all interactions in 2 queries (instead of 2N queries)
+    liked_ids = set()
+    bookmarked_ids = set()
+    
+    if current_user.is_authenticated and db_notes:
+        note_ids = [note.id for note in db_notes]
+        liked_ids, bookmarked_ids = get_user_note_interactions(current_user.id, note_ids)
+    
+    # Build response with O(1) lookups
     notes = []
     for note in db_notes:
         note_dict = note.to_dict()
 
         if current_user.is_authenticated:
-            note_dict['isLiked'] = note.is_liked_by(current_user.id)
-            note_dict['isBookmarked'] = note.is_bookmarked_by(current_user.id)
+            note_dict['isLiked'] = note.id in liked_ids
+            note_dict['isBookmarked'] = note.id in bookmarked_ids
 
         notes.append(note_dict)
 
