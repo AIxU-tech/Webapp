@@ -1,12 +1,13 @@
 """
 Community Route Helpers
 
-Helper functions for community-related routes (notes, likes, bookmarks).
+Helper functions for community-related routes (notes, comments, likes, bookmarks).
 """
 
+from datetime import datetime
 from flask_login import current_user
 from backend.extensions import db
-from backend.models import Note, User, University, NoteLike, NoteBookmark
+from backend.models import Note, NoteComment, User, University, NoteLike, NoteBookmark, NoteCommentLike
 
 
 def create_db_note(data):
@@ -186,3 +187,127 @@ def toggle_bookmark_status(current_user, note):
     is_bookmarked = note.toggle_bookmark(current_user.id)
     db.session.commit()
     return is_bookmarked
+
+
+# =============================================================================
+# Comment Helpers
+# =============================================================================
+
+def get_comments_for_note(note_id: int, current_user) -> list[dict]:
+    """
+    Fetch all comments for a note with user-specific like status.
+    
+    Uses batch query to avoid N+1 problem for isLiked status.
+    
+    Args:
+        note_id: The ID of the note to get comments for
+        current_user: The current authenticated user (or anonymous)
+        
+    Returns:
+        List of comment dictionaries ready for JSON serialization
+    """
+    comments = NoteComment.query.filter_by(note_id=note_id).order_by(
+        NoteComment.created_at.asc()
+    ).all()
+    
+    # Pre-fetch all like statuses in one query
+    liked_comment_ids = set()
+    if current_user.is_authenticated and comments:
+        comment_ids = [c.id for c in comments]
+        liked_comment_ids = {
+            row.comment_id for row in
+            NoteCommentLike.query.filter(
+                NoteCommentLike.user_id == current_user.id,
+                NoteCommentLike.comment_id.in_(comment_ids)
+            ).with_entities(NoteCommentLike.comment_id).all()
+        }
+    
+    # Build response with O(1) lookups
+    result = []
+    for comment in comments:
+        comment_dict = comment.to_dict()
+        if current_user.is_authenticated:
+            comment_dict['isLiked'] = comment.id in liked_comment_ids
+        result.append(comment_dict)
+    
+    return result
+
+
+def create_comment(note: Note, user_id: int, text: str) -> NoteComment:
+    """
+    Create a new comment on a note.
+    
+    Also increments the note's denormalized comment counter.
+    Caller must handle db.session.commit().
+    
+    Args:
+        note: The Note object to comment on
+        user_id: The ID of the user creating the comment
+        text: The comment text
+        
+    Returns:
+        The newly created NoteComment object
+    """
+    comment = NoteComment(
+        note_id=note.id,
+        user_id=user_id,
+        text=text.strip()
+    )
+    db.session.add(comment)
+    
+    # Increment denormalized counter
+    note.comments += 1
+    
+    return comment
+
+
+def update_comment(comment: NoteComment, text: str) -> NoteComment:
+    """
+    Update a comment's text.
+    
+    Sets the updated_at timestamp to indicate the comment was edited.
+    Caller must handle db.session.commit().
+    
+    Args:
+        comment: The NoteComment object to update
+        text: The new comment text
+        
+    Returns:
+        The updated NoteComment object
+    """
+    comment.text = text.strip()
+    comment.updated_at = datetime.utcnow()
+    return comment
+
+
+def delete_comment(comment: NoteComment, note: Note) -> None:
+    """
+    Delete a comment.
+    
+    Also decrements the note's denormalized comment counter.
+    Caller must handle db.session.commit().
+    
+    Args:
+        comment: The NoteComment object to delete
+        note: The Note the comment belongs to
+    """
+    db.session.delete(comment)
+    note.comments = max(0, note.comments - 1)
+
+
+def toggle_comment_like_status(current_user, comment: NoteComment) -> bool:
+    """
+    Toggle the like status for a comment.
+    
+    Updates both the NoteCommentLike relationship and the denormalized likes counter.
+    
+    Args:
+        current_user: The user toggling the like
+        comment: The NoteComment object to like/unlike
+        
+    Returns:
+        True if the comment is now liked, False if now unliked
+    """
+    is_liked = comment.toggle_like(current_user.id)
+    db.session.commit()
+    return is_liked

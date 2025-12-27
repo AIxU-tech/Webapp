@@ -1,13 +1,18 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from backend.extensions import db
-from backend.models import Note, User, University
+from backend.models import Note, NoteComment, User, University
 from backend.routes_v2.community.helpers import (
     create_db_note,
     get_db_notes,
     notes_to_dict,
     toggle_like_status,
     toggle_bookmark_status,
+    get_comments_for_note,
+    create_comment,
+    update_comment,
+    delete_comment,
+    toggle_comment_like_status,
 )
 
 community_bp = Blueprint('community', __name__)
@@ -127,7 +132,6 @@ def toggle_like(note_id):
         # Will like or unlike the note, and perform necessary database updates
         is_liked = toggle_like_status(current_user, note)
 
-
         return jsonify({
             'success': True,
             'likes': note.likes,
@@ -159,6 +163,151 @@ def toggle_bookmark(note_id):
             'isBookmarked': is_bookmarked
         })
 
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
+# Comment Routes
+# =============================================================================
+
+@community_bp.route('/api/notes/<int:note_id>/comments', methods=['GET'])
+def get_comments(note_id):
+    """
+    Get all comments for a note.
+    
+    Returns array of comment objects with author info, likes, etc.
+    """
+    note = Note.query.get(note_id)
+    if not note:
+        return jsonify({'success': False, 'error': 'Note not found'}), 404
+    
+    comments = get_comments_for_note(note_id, current_user)
+    return jsonify(comments)
+
+
+@community_bp.route('/api/notes/<int:note_id>/comments', methods=['POST'])
+@login_required
+def add_comment(note_id):
+    """
+    Create a new comment on a note.
+    """
+    try:
+        note = Note.query.get(note_id)
+        if not note:
+            return jsonify({'success': False, 'error': 'Note not found'}), 404
+        
+        data = request.get_json()
+        text = data.get('text', '').strip()
+        
+        if not text:
+            return jsonify({'success': False, 'error': 'Comment text is required'}), 400
+        
+        comment = create_comment(note, current_user.id, text)
+        db.session.commit()
+        
+        # Get the comment dict with isLiked set correctly
+        comment_dict = comment.to_dict()
+        comment_dict['isLiked'] = False  # New comment, not liked yet
+        
+        return jsonify({
+            'success': True,
+            'comment': comment_dict,
+            'commentCount': note.comments
+        }), 201
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@community_bp.route('/api/notes/<int:note_id>/comments/<int:comment_id>', methods=['PUT'])
+@login_required
+def edit_comment(note_id, comment_id):
+    """
+    Update a comment. Only the author can edit their comment.
+    """
+    try:
+        comment = NoteComment.query.filter_by(id=comment_id, note_id=note_id).first()
+        if not comment:
+            return jsonify({'success': False, 'error': 'Comment not found'}), 404
+        
+        # Check authorization
+        if comment.user_id != current_user.id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        
+        data = request.get_json()
+        text = data.get('text', '').strip()
+        
+        if not text:
+            return jsonify({'success': False, 'error': 'Comment text is required'}), 400
+        
+        update_comment(comment, text)
+        db.session.commit()
+        
+        comment_dict = comment.to_dict()
+        comment_dict['isLiked'] = comment.is_liked_by(current_user.id)
+        
+        return jsonify({
+            'success': True,
+            'comment': comment_dict
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@community_bp.route('/api/notes/<int:note_id>/comments/<int:comment_id>', methods=['DELETE'])
+@login_required
+def remove_comment(note_id, comment_id):
+    """
+    Delete a comment. Only the author can delete their comment.
+    """
+    try:
+        comment = NoteComment.query.filter_by(id=comment_id, note_id=note_id).first()
+        if not comment:
+            return jsonify({'success': False, 'error': 'Comment not found'}), 404
+        
+        # Check authorization
+        if comment.user_id != current_user.id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        
+        note = Note.query.get(note_id)
+        delete_comment(comment, note)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'commentCount': note.comments
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@community_bp.route('/api/notes/<int:note_id>/comments/<int:comment_id>/like', methods=['POST'])
+@login_required
+def toggle_comment_like(note_id, comment_id):
+    """
+    Toggle like status for a comment.
+    Uses NoteCommentLike relationship table and updates comment's like count.
+    """
+    try:
+        comment = NoteComment.query.filter_by(id=comment_id, note_id=note_id).first()
+        if not comment:
+            return jsonify({'success': False, 'error': 'Comment not found'}), 404
+        
+        is_liked = toggle_comment_like_status(current_user, comment)
+        
+        return jsonify({
+            'success': True,
+            'likes': comment.likes,
+            'isLiked': is_liked
+        })
+    
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500

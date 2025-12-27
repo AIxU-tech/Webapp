@@ -159,3 +159,48 @@ class NoteBookmark(db.Model):
             db.session.delete(bookmark)
             return True
         return False
+
+
+class NoteCommentLike(db.Model):
+    """
+    Junction table for user-likes-comment relationships.
+    
+    Tracks which comments a user has liked. The NoteComment model maintains
+    a denormalized `likes` counter for performance; this table is the source of truth.
+    """
+    __tablename__ = 'note_comment_likes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    comment_id = db.Column(db.Integer, db.ForeignKey('note_comments.id', ondelete='CASCADE'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'comment_id', name='uq_note_comment_like'),
+        db.Index('ix_note_comment_likes_user', 'user_id'),
+        db.Index('ix_note_comment_likes_comment', 'comment_id'),
+    )
+
+    user = db.relationship('User', backref='comment_likes')
+    comment = db.relationship('NoteComment', backref='like_records')
+
+    @classmethod
+    def exists(cls, user_id: int, comment_id: int) -> bool:
+        """Check if a user has liked a specific comment."""
+        return cls.query.filter_by(user_id=user_id, comment_id=comment_id).first() is not None
+
+    @classmethod
+    def create(cls, user_id: int, comment_id: int) -> 'NoteCommentLike':
+        """Create a new like record. Caller must handle commit."""
+        like = cls(user_id=user_id, comment_id=comment_id)
+        db.session.add(like)
+        return like
+
+    @classmethod
+    def delete(cls, user_id: int, comment_id: int) -> bool:
+        """Delete a like record. Returns True if deleted, False if not found. Caller must handle commit."""
+        like = cls.query.filter_by(user_id=user_id, comment_id=comment_id).first()
+        if like:
+            db.session.delete(like)
+            return True
+        return False

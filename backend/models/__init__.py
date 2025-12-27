@@ -3,12 +3,14 @@ from backend.models.university import University
 from backend.models.university_role import UniversityRole
 from backend.models.university_request import UniversityRequest, RequestStatus
 from backend.models.note import Note
+from backend.models.note_comment import NoteComment
 from backend.models.message import Message
 from backend.models.relationships import (
     UserFollows,
     UserLikedUniversity,
     NoteLike,
     NoteBookmark,
+    NoteCommentLike,
 )
 from backend.models.ai_news import (
     AINewsStory,
@@ -24,11 +26,13 @@ __all__ = [
     'UniversityRequest',
     'RequestStatus',
     'Note',
+    'NoteComment',
     'Message',
     'UserFollows',
     'UserLikedUniversity',
     'NoteLike',
     'NoteBookmark',
+    'NoteCommentLike',
     'AINewsStory',
     'AINewsSource',
     'AIResearchPaper',
