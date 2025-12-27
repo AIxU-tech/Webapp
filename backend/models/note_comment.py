@@ -11,16 +11,22 @@ from backend.utils.time import get_time_ago
 
 class NoteComment(db.Model):
     """
-    A comment on a note.
+    A comment on a note with single-level threading support.
     
-    Comments are flat (no threading/nesting). Each comment belongs to a note
-    and has an author. The likes counter is denormalized for performance.
+    Threading model:
+    - Top-level comments have parent_id = NULL
+    - Replies to top-level comments have parent_id = <top-level comment id>
+    - Replies to replies use the same parent_id as the comment being replied to
+      (keeps depth at max 1 level)
+    
+    The likes counter is denormalized for performance.
     """
     __tablename__ = 'note_comments'
 
     id = db.Column(db.Integer, primary_key=True)
     note_id = db.Column(db.Integer, db.ForeignKey('notes.id', ondelete='CASCADE'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    parent_id = db.Column(db.Integer, db.ForeignKey('note_comments.id', ondelete='CASCADE'), nullable=True)
     text = db.Column(db.Text, nullable=False)
     likes = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -29,12 +35,14 @@ class NoteComment(db.Model):
     __table_args__ = (
         db.Index('ix_note_comments_note', 'note_id'),
         db.Index('ix_note_comments_user', 'user_id'),
+        db.Index('ix_note_comments_parent', 'parent_id'),
     )
 
     # Relationships
     like_records = db.relationship('NoteCommentLike', backref='comment', cascade='all, delete-orphan', passive_deletes=True)
     author = db.relationship('User', backref='comments')
     note = db.relationship('Note', backref='comment_records')
+    replies = db.relationship('NoteComment', backref=db.backref('parent', remote_side='NoteComment.id'), cascade='all, delete-orphan', passive_deletes=True)
 
     def get_time_ago(self):
         """Calculate time ago string for display."""
@@ -45,6 +53,7 @@ class NoteComment(db.Model):
         return {
             'id': self.id,
             'noteId': self.note_id,
+            'parentId': self.parent_id,
             'text': self.text,
             'author': {
                 'id': self.user_id,

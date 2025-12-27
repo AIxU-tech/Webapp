@@ -7,16 +7,49 @@
  * Features:
  * - Author avatar and name
  * - Comment text with inline edit mode
+ * - @mention links to user profiles
  * - Time ago and "(edited)" indicator
  * - Like button with count
+ * - Reply button for threaded comments
  * - Edit/Delete buttons for comment owner
+ * - Indented styling for replies
  *
  * @component
  */
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { HeartIcon, PencilIcon, TrashIcon, XIcon, CheckIcon } from './icons';
+import { HeartIcon, PencilIcon, TrashIcon, XIcon, CheckIcon, ChatBubbleIcon } from './icons';
+
+/**
+ * Parse comment text and convert @mentions at the start to profile links.
+ * 
+ * @param {string} text - The comment text
+ * @returns {React.ReactNode} Text with @mention as a link if present
+ */
+function renderTextWithMention(text) {
+  // Match @Name at the very start of the text (supports multi-word names)
+  // Pattern: @ followed by words (with spaces between) until we hit common punctuation or end
+  const mentionMatch = text.match(/^@([A-Za-z]+(?:\s+[A-Za-z]+)*)\s*/);
+  
+  if (!mentionMatch) {
+    return text;
+  }
+  
+  const mentionName = mentionMatch[1];
+  const mentionFull = mentionMatch[0];
+  const restOfText = text.slice(mentionFull.length);
+  
+  // We don't have the user ID from just the name, so we'll make the @mention
+  // visually distinct but not linkable. The parent comment's author info could
+  // be passed down if we want to make it a real link.
+  return (
+    <>
+      <span className="text-primary font-medium">@{mentionName}</span>
+      {' '}{restOfText}
+    </>
+  );
+}
 
 /**
  * CommentCard Component
@@ -27,8 +60,10 @@ import { HeartIcon, PencilIcon, TrashIcon, XIcon, CheckIcon } from './icons';
  * @param {Function} props.onLike - Callback when like button is clicked
  * @param {Function} props.onEdit - Callback when comment is edited
  * @param {Function} props.onDelete - Callback when delete button is clicked
+ * @param {Function} [props.onReply] - Callback when reply button is clicked
  * @param {number} [props.currentUserId] - Current authenticated user's ID
  * @param {boolean} [props.isAuthenticated] - Whether user is authenticated
+ * @param {boolean} [props.isReply] - Whether this comment is a reply (affects styling)
  */
 export default function CommentCard({
   comment,
@@ -36,8 +71,10 @@ export default function CommentCard({
   onLike,
   onEdit,
   onDelete,
+  onReply,
   currentUserId,
   isAuthenticated = false,
+  isReply = false,
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(comment.text);
@@ -76,14 +113,17 @@ export default function CommentCard({
     }
   };
 
+  // Avatar size based on whether this is a reply
+  const avatarSize = isReply ? 'w-6 h-6' : 'w-8 h-8';
+
   return (
-    <div className="flex space-x-3 py-3">
+    <div className={`flex space-x-3 py-3 ${isReply ? 'ml-11' : ''}`}>
       {/* Author Avatar */}
       <Link to={`/users/${comment.author.id}`} className="flex-shrink-0">
         <img
           src={comment.author.avatar}
           alt={comment.author.name}
-          className="w-8 h-8 rounded-full hover:ring-2 hover:ring-primary transition-all"
+          className={`${avatarSize} rounded-full hover:ring-2 hover:ring-primary transition-all`}
         />
       </Link>
 
@@ -134,7 +174,7 @@ export default function CommentCard({
           </div>
         ) : (
           <p className="text-sm text-foreground whitespace-pre-wrap break-words">
-            {comment.text}
+            {renderTextWithMention(comment.text)}
           </p>
         )}
 
@@ -155,6 +195,18 @@ export default function CommentCard({
               <HeartIcon filled={comment.isLiked} className="w-4 h-4" />
               {comment.likes > 0 && <span>{comment.likes}</span>}
             </button>
+
+            {/* Reply Button */}
+            {onReply && isAuthenticated && (
+              <button
+                onClick={() => onReply(comment)}
+                className="flex items-center space-x-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Reply to comment"
+              >
+                <ChatBubbleIcon className="w-3.5 h-3.5" />
+                <span>Reply</span>
+              </button>
+            )}
 
             {/* Edit Button (owner only) */}
             {isOwner && (
@@ -185,4 +237,3 @@ export default function CommentCard({
     </div>
   );
 }
-

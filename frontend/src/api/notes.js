@@ -148,16 +148,24 @@ export async function fetchComments(noteId) {
  *
  * @param {number} noteId - Note ID
  * @param {string} text - Comment text
+ * @param {number} [replyToId] - Optional ID of comment being replied to
  * @returns {Promise<object>} Response with created comment and updated comment count
  * @throws {ApiError} If not authenticated or validation fails
  *
  * @example
+ * // Top-level comment
  * const result = await createComment(123, 'Great post!');
- * console.log(result.comment); // The new comment
- * console.log(result.commentCount); // Updated count on the note
+ * 
+ * // Reply to a comment
+ * const reply = await createComment(123, '@John Great point!', 456);
+ * console.log(reply.comment.parentId); // The parent comment's ID
  */
-export async function createComment(noteId, text) {
-  return api.post(`/notes/${noteId}/comments`, { text });
+export async function createComment(noteId, text, replyToId = null) {
+  const payload = { text };
+  if (replyToId !== null) {
+    payload.replyToId = replyToId;
+  }
+  return api.post(`/notes/${noteId}/comments`, payload);
 }
 
 /**

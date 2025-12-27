@@ -10,6 +10,7 @@ from backend.routes_v2.community.helpers import (
     toggle_bookmark_status,
     get_comments_for_note,
     create_comment,
+    resolve_parent_id,
     update_comment,
     delete_comment,
     toggle_comment_like_status,
@@ -192,6 +193,15 @@ def get_comments(note_id):
 def add_comment(note_id):
     """
     Create a new comment on a note.
+    
+    Request body:
+        - text (required): The comment text
+        - replyToId (optional): ID of comment being replied to
+        
+    Threading behavior:
+        - If replyToId is omitted, creates a top-level comment
+        - If replying to a top-level comment, uses that comment's id as parent_id
+        - If replying to a reply, uses that reply's parent_id (keeps depth at 1)
     """
     try:
         note = Note.query.get(note_id)
@@ -200,11 +210,24 @@ def add_comment(note_id):
         
         data = request.get_json()
         text = data.get('text', '').strip()
+        reply_to_id = data.get('replyToId')
         
         if not text:
             return jsonify({'success': False, 'error': 'Comment text is required'}), 400
         
-        comment = create_comment(note, current_user.id, text)
+        # Resolve the parent_id based on threading rules
+        try:
+            parent_id = resolve_parent_id(reply_to_id)
+        except ValueError as e:
+            return jsonify({'success': False, 'error': str(e)}), 400
+        
+        # Validate that the replied-to comment belongs to this note
+        if reply_to_id is not None:
+            replied_to = NoteComment.query.get(reply_to_id)
+            if replied_to and replied_to.note_id != note_id:
+                return jsonify({'success': False, 'error': 'Cannot reply to comment from different note'}), 400
+        
+        comment = create_comment(note, current_user.id, text, parent_id)
         db.session.commit()
         
         # Get the comment dict with isLiked set correctly

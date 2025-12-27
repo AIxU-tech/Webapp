@@ -197,6 +197,7 @@ def get_comments_for_note(note_id: int, current_user) -> list[dict]:
     """
     Fetch all comments for a note with user-specific like status.
     
+    Returns comments ordered oldest-first (ASC) for natural conversation flow.
     Uses batch query to avoid N+1 problem for isLiked status.
     
     Args:
@@ -204,10 +205,12 @@ def get_comments_for_note(note_id: int, current_user) -> list[dict]:
         current_user: The current authenticated user (or anonymous)
         
     Returns:
-        List of comment dictionaries ready for JSON serialization
+        List of comment dictionaries ready for JSON serialization.
+        Each comment includes a parentId field (null for top-level, 
+        or the id of the parent comment for replies).
     """
     comments = NoteComment.query.filter_by(note_id=note_id).order_by(
-        NoteComment.created_at.desc()
+        NoteComment.created_at.asc()
     ).all()
     
     # Pre-fetch all like statuses in one query
@@ -233,7 +236,40 @@ def get_comments_for_note(note_id: int, current_user) -> list[dict]:
     return result
 
 
-def create_comment(note: Note, user_id: int, text: str) -> NoteComment:
+def resolve_parent_id(reply_to_id: int | None) -> int | None:
+    """
+    Resolve the correct parent_id for a new comment based on the comment being replied to.
+    
+    Threading model (max depth of 1):
+    - If replying to a top-level comment (parent_id=NULL), use that comment's id as parent_id
+    - If replying to a reply (parent_id!=NULL), use that comment's parent_id (keeps depth at 1)
+    - If not replying to anything, return None (top-level comment)
+    
+    Args:
+        reply_to_id: The ID of the comment being replied to, or None for top-level
+        
+    Returns:
+        The parent_id to use for the new comment, or None if top-level
+        
+    Raises:
+        ValueError: If reply_to_id doesn't exist
+    """
+    if reply_to_id is None:
+        return None
+    
+    replied_to_comment = NoteComment.query.get(reply_to_id)
+    if not replied_to_comment:
+        raise ValueError(f'Comment {reply_to_id} not found')
+    
+    # If the replied-to comment is top-level, use its id as parent
+    # If it's already a reply, use its parent_id (keeps depth at 1)
+    if replied_to_comment.parent_id is None:
+        return replied_to_comment.id
+    else:
+        return replied_to_comment.parent_id
+
+
+def create_comment(note: Note, user_id: int, text: str, parent_id: int | None = None) -> NoteComment:
     """
     Create a new comment on a note.
     
@@ -244,6 +280,7 @@ def create_comment(note: Note, user_id: int, text: str) -> NoteComment:
         note: The Note object to comment on
         user_id: The ID of the user creating the comment
         text: The comment text
+        parent_id: The ID of the parent comment for replies, or None for top-level
         
     Returns:
         The newly created NoteComment object
@@ -251,7 +288,8 @@ def create_comment(note: Note, user_id: int, text: str) -> NoteComment:
     comment = NoteComment(
         note_id=note.id,
         user_id=user_id,
-        text=text.strip()
+        text=text.strip(),
+        parent_id=parent_id
     )
     db.session.add(comment)
     
@@ -282,17 +320,22 @@ def update_comment(comment: NoteComment, text: str) -> NoteComment:
 
 def delete_comment(comment: NoteComment, note: Note) -> None:
     """
-    Delete a comment.
+    Delete a comment and its replies (via cascade).
     
-    Also decrements the note's denormalized comment counter.
+    Also decrements the note's denormalized comment counter by the total
+    number of comments being deleted (the comment itself plus any replies).
     Caller must handle db.session.commit().
     
     Args:
         comment: The NoteComment object to delete
         note: The Note the comment belongs to
     """
+    # Count replies that will be cascade-deleted (only for top-level comments)
+    reply_count = len(comment.replies) if comment.parent_id is None else 0
+    total_deleted = 1 + reply_count
+    
     db.session.delete(comment)
-    note.comments = max(0, note.comments - 1)
+    note.comments = max(0, note.comments - total_deleted)
 
 
 def toggle_comment_like_status(current_user, comment: NoteComment) -> bool:
