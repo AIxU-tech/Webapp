@@ -83,6 +83,11 @@ export {
   useLikeNote,
   useBookmarkNote,
   useDeleteNote,
+  useComments,
+  useCreateComment,
+  useUpdateComment,
+  useDeleteComment,
+  useLikeComment,
   noteKeys,
   prefetchNotes,
 } from './useNotes';

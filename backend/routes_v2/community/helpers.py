@@ -207,7 +207,7 @@ def get_comments_for_note(note_id: int, current_user) -> list[dict]:
         List of comment dictionaries ready for JSON serialization
     """
     comments = NoteComment.query.filter_by(note_id=note_id).order_by(
-        NoteComment.created_at.asc()
+        NoteComment.created_at.desc()
     ).all()
     
     # Pre-fetch all like statuses in one query

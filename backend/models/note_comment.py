@@ -32,6 +32,7 @@ class NoteComment(db.Model):
     )
 
     # Relationships
+    like_records = db.relationship('NoteCommentLike', backref='comment', cascade='all, delete-orphan', passive_deletes=True)
     author = db.relationship('User', backref='comments')
     note = db.relationship('Note', backref='comment_records')
 

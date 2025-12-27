@@ -182,7 +182,6 @@ class NoteCommentLike(db.Model):
     )
 
     user = db.relationship('User', backref='comment_likes')
-    comment = db.relationship('NoteComment', backref='like_records')
 
     @classmethod
     def exists(cls, user_id: int, comment_id: int) -> bool:

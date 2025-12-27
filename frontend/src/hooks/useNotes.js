@@ -29,6 +29,11 @@ import {
   toggleLikeNote,
   toggleBookmarkNote,
   deleteNote,
+  fetchComments,
+  createComment,
+  updateComment,
+  deleteComment,
+  toggleLikeComment,
 } from '../api/notes';
 import { STALE_TIMES } from '../config/cache';
 
@@ -42,6 +47,9 @@ export const noteKeys = {
 
   // Key for notes list with filters
   list: (params = {}) => [...noteKeys.all, 'list', params],
+
+  // Key for comments on a specific note
+  comments: (noteId) => [...noteKeys.all, noteId, 'comments'],
 };
 
 // =============================================================================
@@ -309,6 +317,306 @@ export function useDeleteNote() {
           queryClient.setQueryData(queryKey, data);
         });
       }
+    },
+  });
+}
+
+// =============================================================================
+// Comment Query Hooks
+// =============================================================================
+
+/**
+ * useComments Hook
+ *
+ * Fetches and caches comments for a specific note.
+ * Only fetches when enabled (i.e., when comment section is expanded).
+ *
+ * @param {number} noteId - The note ID to fetch comments for
+ * @param {object} options - Additional options
+ * @param {boolean} [options.enabled=true] - Whether to fetch comments
+ * @returns {object} React Query result with comments array
+ *
+ * @example
+ * const { data: comments, isLoading } = useComments(noteId, { enabled: isExpanded });
+ */
+export function useComments(noteId, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: noteKeys.comments(noteId),
+    queryFn: () => fetchComments(noteId),
+    enabled: enabled && !!noteId,
+    staleTime: STALE_TIMES.NOTES,
+    select: (data) => (Array.isArray(data) ? data : []),
+  });
+}
+
+// =============================================================================
+// Comment Mutation Hooks
+// =============================================================================
+
+/**
+ * useCreateComment Hook
+ *
+ * Mutation hook for creating a new comment with optimistic updates.
+ * Adds comment to the top of the list immediately, reverts on failure.
+ *
+ * @returns {object} React Query mutation result
+ *
+ * @example
+ * const createMutation = useCreateComment();
+ * createMutation.mutate({ noteId: 123, text: 'Great post!', user: currentUser });
+ */
+export function useCreateComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ noteId, text }) => createComment(noteId, text),
+
+    onMutate: async ({ noteId, text, user }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: noteKeys.comments(noteId) });
+      await queryClient.cancelQueries({ queryKey: noteKeys.all });
+
+      // Snapshot previous data
+      const previousComments = queryClient.getQueryData(noteKeys.comments(noteId));
+      const previousNotes = queryClient.getQueriesData({ queryKey: noteKeys.all });
+
+      // Create optimistic comment (newest first, so add to beginning)
+      const optimisticComment = {
+        id: `temp-${Date.now()}`,
+        noteId,
+        text,
+        author: {
+          id: user.id,
+          name: user.first_name && user.last_name
+            ? `${user.first_name} ${user.last_name}`
+            : user.username,
+          avatar: user.profile_picture_url || '/static/default-avatar.png',
+        },
+        likes: 0,
+        timeAgo: 'Just now',
+        isEdited: false,
+        isLiked: false,
+        isOptimistic: true,
+      };
+
+      // Add to comments list
+      queryClient.setQueryData(noteKeys.comments(noteId), (old = []) => [
+        optimisticComment,
+        ...old,
+      ]);
+
+      // Update note's comment count
+      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.map((note) =>
+          note.id === noteId ? { ...note, comments: note.comments + 1 } : note
+        );
+      });
+
+      return { previousComments, previousNotes, noteId };
+    },
+
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousComments !== undefined) {
+        queryClient.setQueryData(
+          noteKeys.comments(context.noteId),
+          context.previousComments
+        );
+      }
+      if (context?.previousNotes) {
+        context.previousNotes.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+
+    onSuccess: (result, { noteId }) => {
+      // Replace optimistic comment with real one
+      queryClient.setQueryData(noteKeys.comments(noteId), (old = []) =>
+        old.map((comment) =>
+          comment.isOptimistic ? result.comment : comment
+        )
+      );
+
+      // Update note's comment count with server value
+      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.map((note) =>
+          note.id === noteId ? { ...note, comments: result.commentCount } : note
+        );
+      });
+    },
+  });
+}
+
+/**
+ * useUpdateComment Hook
+ *
+ * Mutation hook for updating a comment with optimistic updates.
+ *
+ * @returns {object} React Query mutation result
+ */
+export function useUpdateComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ noteId, commentId, text }) =>
+      updateComment(noteId, commentId, text),
+
+    onMutate: async ({ noteId, commentId, text }) => {
+      await queryClient.cancelQueries({ queryKey: noteKeys.comments(noteId) });
+
+      const previousComments = queryClient.getQueryData(noteKeys.comments(noteId));
+
+      // Optimistically update the comment
+      queryClient.setQueryData(noteKeys.comments(noteId), (old = []) =>
+        old.map((comment) =>
+          comment.id === commentId
+            ? { ...comment, text, isEdited: true }
+            : comment
+        )
+      );
+
+      return { previousComments, noteId };
+    },
+
+    onError: (err, variables, context) => {
+      if (context?.previousComments !== undefined) {
+        queryClient.setQueryData(
+          noteKeys.comments(context.noteId),
+          context.previousComments
+        );
+      }
+    },
+
+    onSuccess: (result, { noteId, commentId }) => {
+      // Update with server response
+      queryClient.setQueryData(noteKeys.comments(noteId), (old = []) =>
+        old.map((comment) =>
+          comment.id === commentId ? result.comment : comment
+        )
+      );
+    },
+  });
+}
+
+/**
+ * useDeleteComment Hook
+ *
+ * Mutation hook for deleting a comment with optimistic removal.
+ *
+ * @returns {object} React Query mutation result
+ */
+export function useDeleteComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ noteId, commentId }) => deleteComment(noteId, commentId),
+
+    onMutate: async ({ noteId, commentId }) => {
+      await queryClient.cancelQueries({ queryKey: noteKeys.comments(noteId) });
+      await queryClient.cancelQueries({ queryKey: noteKeys.all });
+
+      const previousComments = queryClient.getQueryData(noteKeys.comments(noteId));
+      const previousNotes = queryClient.getQueriesData({ queryKey: noteKeys.all });
+
+      // Optimistically remove the comment
+      queryClient.setQueryData(noteKeys.comments(noteId), (old = []) =>
+        old.filter((comment) => comment.id !== commentId)
+      );
+
+      // Decrement note's comment count
+      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.map((note) =>
+          note.id === noteId
+            ? { ...note, comments: Math.max(0, note.comments - 1) }
+            : note
+        );
+      });
+
+      return { previousComments, previousNotes, noteId };
+    },
+
+    onError: (err, variables, context) => {
+      if (context?.previousComments !== undefined) {
+        queryClient.setQueryData(
+          noteKeys.comments(context.noteId),
+          context.previousComments
+        );
+      }
+      if (context?.previousNotes) {
+        context.previousNotes.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+
+    onSuccess: (result, { noteId }) => {
+      // Update note's comment count with server value
+      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.map((note) =>
+          note.id === noteId ? { ...note, comments: result.commentCount } : note
+        );
+      });
+    },
+  });
+}
+
+/**
+ * useLikeComment Hook
+ *
+ * Mutation hook for liking/unliking a comment with optimistic updates.
+ *
+ * @returns {object} React Query mutation result
+ */
+export function useLikeComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ noteId, commentId }) => toggleLikeComment(noteId, commentId),
+
+    onMutate: async ({ noteId, commentId }) => {
+      await queryClient.cancelQueries({ queryKey: noteKeys.comments(noteId) });
+
+      const previousComments = queryClient.getQueryData(noteKeys.comments(noteId));
+
+      // Optimistically toggle like
+      queryClient.setQueryData(noteKeys.comments(noteId), (old = []) =>
+        old.map((comment) =>
+          comment.id === commentId
+            ? {
+              ...comment,
+              isLiked: !comment.isLiked,
+              likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1,
+            }
+            : comment
+        )
+      );
+
+      return { previousComments, noteId };
+    },
+
+    onError: (err, variables, context) => {
+      if (context?.previousComments !== undefined) {
+        queryClient.setQueryData(
+          noteKeys.comments(context.noteId),
+          context.previousComments
+        );
+      }
+    },
+
+    onSuccess: (result, { noteId, commentId }) => {
+      // Update with server response
+      queryClient.setQueryData(noteKeys.comments(noteId), (old = []) =>
+        old.map((comment) =>
+          comment.id === commentId
+            ? { ...comment, isLiked: result.isLiked, likes: result.likes }
+            : comment
+        )
+      );
     },
   });
 }
