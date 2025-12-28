@@ -9,6 +9,7 @@
  * - Note title and content
  * - Tag badges
  * - Like, comment, share, and bookmark actions
+ * - Expandable comment section
  * - Delete button for note owner
  *
  * @component
@@ -24,6 +25,7 @@
  * />
  */
 
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from './ui';
 import {
@@ -33,6 +35,7 @@ import {
   BookmarkIcon,
   TrashIcon,
 } from './icons';
+import CommentSection from './CommentSection';
 
 /**
  * NoteCard Component
@@ -53,8 +56,16 @@ export default function NoteCard({
   currentUserId,
   isAuthenticated = false,
 }) {
+  // Local state for comment section expansion
+  const [isCommentsExpanded, setIsCommentsExpanded] = useState(false);
+
   // Determine if current user owns this note
   const isOwner = isAuthenticated && currentUserId && note.author.id === currentUserId;
+
+  // Toggle comment section
+  const handleToggleComments = () => {
+    setIsCommentsExpanded((prev) => !prev);
+  };
 
   return (
     <article className="bg-card border border-border rounded-lg p-6 shadow-card hover:shadow-hover transition-all duration-200">
@@ -118,21 +129,25 @@ export default function NoteCard({
           {/* Like Button */}
           <button
             onClick={() => onLike(note.id)}
-            className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 ${
-              note.isLiked
+            className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 ${note.isLiked
                 ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-            }`}
+              }`}
             aria-label={note.isLiked ? 'Unlike note' : 'Like note'}
           >
             <HeartIcon filled={note.isLiked} />
             <span className="font-medium">{note.likes}</span>
           </button>
 
-          {/* Comment Button (placeholder for future feature) */}
+          {/* Comment Button */}
           <button
-            className="flex items-center space-x-2 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
-            aria-label="View comments"
+            onClick={handleToggleComments}
+            className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 ${isCommentsExpanded
+                ? 'text-primary bg-primary/10'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+            aria-label={isCommentsExpanded ? 'Hide comments' : 'View comments'}
+            aria-expanded={isCommentsExpanded}
           >
             <MessageCircleIcon />
             <span className="font-medium">{note.comments}</span>
@@ -151,16 +166,18 @@ export default function NoteCard({
         {/* Bookmark Button */}
         <button
           onClick={() => onBookmark(note.id)}
-          className={`p-2 rounded-lg transition-all duration-200 ${
-            note.isBookmarked
+          className={`p-2 rounded-lg transition-all duration-200 ${note.isBookmarked
               ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-          }`}
+            }`}
           aria-label={note.isBookmarked ? 'Remove bookmark' : 'Bookmark note'}
         >
           <BookmarkIcon filled={note.isBookmarked} />
         </button>
       </div>
+
+      {/* Comment Section */}
+      <CommentSection noteId={note.id} isExpanded={isCommentsExpanded} />
     </article>
   );
 }
