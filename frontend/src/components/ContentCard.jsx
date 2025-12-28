@@ -35,6 +35,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { ExternalLinkIcon, ArrowLeftIcon, ChatBubbleIcon, SendIcon } from './icons';
 import { useStoryChatMutation, usePaperChatMutation } from '../hooks/useNews';
+import Tag, { TagGroup } from './ui/Tag';
 
 /**
  * Strip citation tags from text.
@@ -304,22 +305,19 @@ export default function ContentCard({
             )}
 
             {/* Categories */}
-            <div className="flex flex-wrap items-center gap-1.5">
+            <TagGroup className="items-center gap-1.5">
               {/* Paper-specific: Source badge */}
               {type === 'paper' && item.sourceName && (
-                <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full font-medium">
+                <Tag variant="primary" size="xs" className="bg-primary/10 text-primary">
                   {item.sourceName}
-                </span>
+                </Tag>
               )}
               {categories.map((category, idx) => (
-                <span
-                  key={idx}
-                  className="px-2 py-0.5 bg-secondary text-secondary-foreground text-xs rounded-full"
-                >
+                <Tag key={idx} variant="default" size="xs">
                   {category}
-                </span>
+                </Tag>
               ))}
-            </div>
+            </TagGroup>
           </div>
         </div>
 
