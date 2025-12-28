@@ -185,7 +185,7 @@ def delete_university(university_id: int):
         return jsonify({'error': 'You are not authorized to delete this university.'}), 403
 
     # Explicitly delete all roles associated with this university
-    # (CASCADE should handle this, but we do it explicitly for SQLite compatibility)
+    # Cascade should handle this, but we do this for SQLite compatibility for our tests.
     UniversityRole.query.filter_by(university_id=university_id).delete()
 
     db.session.delete(uni)
@@ -270,22 +270,24 @@ def get_university_roles(university_id: int):
     if not uni:
         return jsonify({'error': 'University not found'}), 404
 
-    # Get all roles for this university
-    roles = UniversityRole.query.filter_by(university_id=university_id).all()
+    # Single query with JOIN to fetch roles and users together
+    results = db.session.query(UniversityRole, User).join(
+        User, UniversityRole.user_id == User.id
+    ).filter(
+        UniversityRole.university_id == university_id
+    ).all()
 
-    # Build response with user info
-    roles_data = []
-    for role in roles:
-        user = User.query.get(role.user_id)
-        if user:
-            roles_data.append({
-                'userId': user.id,
-                'userName': user.get_full_name(),
-                'userEmail': user.email,
-                'userAvatar': user.get_profile_picture_url(),
-                'role': role.role,
-                'roleName': role.role_name,
-            })
+    roles_data = [
+        {
+            'userId': user.id,
+            'userName': user.get_full_name(),
+            'userEmail': user.email,
+            'userAvatar': user.get_profile_picture_url(),
+            'role': role.role,
+            'roleName': role.role_name,
+        }
+        for role, user in results
+    ]
 
     return jsonify({
         'universityId': university_id,

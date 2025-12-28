@@ -5,8 +5,15 @@ from backend.models.university_request import UniversityRequest, RequestStatus
 from backend.models.note import Note
 from backend.models.opportunity import Opportunity
 from backend.models.opportunity_tag import OpportunityTag
+from backend.models.note_comment import NoteComment
 from backend.models.message import Message
-from backend.models.relationships import UserFollows, UserLikedUniversity
+from backend.models.relationships import (
+    UserFollows,
+    UserLikedUniversity,
+    NoteLike,
+    NoteBookmark,
+    NoteCommentLike,
+)
 from backend.models.ai_news import (
     AINewsStory,
     AINewsSource,
@@ -23,9 +30,13 @@ __all__ = [
     'Note',
     'Opportunity',
     'OpportunityTag',
+    'NoteComment',
     'Message',
     'UserFollows',
     'UserLikedUniversity',
+    'NoteLike',
+    'NoteBookmark',
+    'NoteCommentLike',
     'AINewsStory',
     'AINewsSource',
     'AIResearchPaper',

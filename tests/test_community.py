@@ -11,7 +11,7 @@ Tests for note-related endpoints:
 
 import pytest
 import json
-from backend.models import User, Note, University
+from backend.models import User, Note, NoteComment, University, NoteBookmark, NoteLike, NoteCommentLike
 from backend.extensions import db
 
 
@@ -370,7 +370,8 @@ class TestNoteLikes:
             authenticated_client.post(f'/api/notes/{note.id}/like')
 
             db.session.refresh(user)
-            liked_list = json.loads(user.liked_notes) if user.liked_notes else []
+            liked_notes = NoteLike.get_liked_notes(user.id)
+            liked_list = [note.id for note in liked_notes]
             assert note.id in liked_list
 
     def test_like_nonexistent_note_fails(self, authenticated_client, app):
@@ -430,7 +431,8 @@ class TestNoteBookmarks:
             authenticated_client.post(f'/api/notes/{note.id}/bookmark')
 
             db.session.refresh(user)
-            bookmarked_list = json.loads(user.bookmarked_notes) if user.bookmarked_notes else []
+            bookedmarked_notes = NoteBookmark.get_bookmarked_notes(user.id)
+            bookmarked_list = [note.id for note in bookedmarked_notes]
             assert note.id in bookmarked_list
 
     def test_bookmark_nonexistent_note_fails(self, authenticated_client, app):
@@ -487,3 +489,291 @@ class TestNoteDetails:
 
         assert 'tags' in note
         assert isinstance(note['tags'], list)
+
+
+class TestNoteComments:
+    """Tests for comment-related endpoints on notes"""
+
+    # -------------------------------------------------------------------------
+    # Authorization Tests
+    # -------------------------------------------------------------------------
+
+    def test_create_comment_unauthenticated_fails(self, client, test_note, app):
+        """Test that unauthenticated user cannot create comments"""
+        with app.app_context():
+            note = db.session.get(Note, test_note.id)
+
+            response = client.post(f'/api/notes/{note.id}/comments', json={
+                'text': 'This should fail'
+            })
+
+            assert response.status_code == 401
+
+    def test_delete_other_user_comment_fails(self, app, test_user, second_user, test_note):
+        """Test that non-author cannot delete comment"""
+        with app.app_context():
+            note = db.session.get(Note, test_note.id)
+            user1 = db.session.get(User, test_user.id)
+
+            # Create comment by test_user
+            comment = NoteComment(
+                note_id=note.id,
+                user_id=user1.id,
+                text='Protected comment'
+            )
+            db.session.add(comment)
+            db.session.commit()
+            comment_id = comment.id
+
+            # Login as second_user
+            client = app.test_client()
+            client.post('/api/auth/login', json={
+                'email': 'second@example.edu',
+                'password': 'secondpass123'
+            })
+
+            # Try to delete
+            response = client.delete(f'/api/notes/{note.id}/comments/{comment_id}')
+
+            assert response.status_code == 403
+            data = response.get_json()
+            assert 'unauthorized' in data['error'].lower()
+
+    def test_edit_other_user_comment_fails(self, app, test_user, second_user, test_note):
+        """Test that non-author cannot edit comment"""
+        with app.app_context():
+            note = db.session.get(Note, test_note.id)
+            user1 = db.session.get(User, test_user.id)
+
+            # Create comment by test_user
+            comment = NoteComment(
+                note_id=note.id,
+                user_id=user1.id,
+                text='Original comment'
+            )
+            db.session.add(comment)
+            db.session.commit()
+            comment_id = comment.id
+
+            # Login as second_user
+            client = app.test_client()
+            client.post('/api/auth/login', json={
+                'email': 'second@example.edu',
+                'password': 'secondpass123'
+            })
+
+            # Try to edit
+            response = client.put(f'/api/notes/{note.id}/comments/{comment_id}', json={
+                'text': 'Trying to edit someone else\'s comment'
+            })
+
+            assert response.status_code == 403
+            data = response.get_json()
+            assert 'unauthorized' in data['error'].lower()
+
+    # -------------------------------------------------------------------------
+    # Core CRUD Tests
+    # -------------------------------------------------------------------------
+
+    def test_create_comment_success(self, authenticated_client, app, test_user, test_note):
+        """Test creating a comment successfully"""
+        with app.app_context():
+            note = db.session.get(Note, test_note.id)
+            initial_comment_count = note.comments
+
+            response = authenticated_client.post(f'/api/notes/{note.id}/comments', json={
+                'text': 'This is a great post!'
+            })
+
+            assert response.status_code == 201
+            data = response.get_json()
+            assert data['success'] is True
+            assert data['comment']['text'] == 'This is a great post!'
+            assert data['comment']['author']['id'] == test_user.id
+            assert data['commentCount'] == initial_comment_count + 1
+
+            # Verify in database
+            db.session.refresh(note)
+            assert note.comments == initial_comment_count + 1
+
+            # Verify comment exists
+            comment = NoteComment.query.filter_by(note_id=note.id).first()
+            assert comment is not None
+            assert comment.text == 'This is a great post!'
+
+    def test_delete_own_comment_success(self, authenticated_client, app, test_user, test_note):
+        """Test that author can delete their own comment"""
+        with app.app_context():
+            note = db.session.get(Note, test_note.id)
+            user = db.session.get(User, test_user.id)
+
+            # Create a comment first
+            comment = NoteComment(
+                note_id=note.id,
+                user_id=user.id,
+                text='Comment to delete'
+            )
+            db.session.add(comment)
+            note.comments += 1
+            db.session.commit()
+
+            comment_id = comment.id
+            initial_count = note.comments
+
+            # Delete the comment
+            response = authenticated_client.delete(f'/api/notes/{note.id}/comments/{comment_id}')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
+            assert data['commentCount'] == initial_count - 1
+
+            # Verify deleted from database
+            deleted_comment = db.session.get(NoteComment, comment_id)
+            assert deleted_comment is None
+
+            # Verify note count updated
+            db.session.refresh(note)
+            assert note.comments == initial_count - 1
+
+    def test_edit_own_comment_success(self, authenticated_client, app, test_user, test_note):
+        """Test that author can edit their own comment"""
+        with app.app_context():
+            note = db.session.get(Note, test_note.id)
+            user = db.session.get(User, test_user.id)
+
+            # Create a comment first
+            comment = NoteComment(
+                note_id=note.id,
+                user_id=user.id,
+                text='Original text'
+            )
+            db.session.add(comment)
+            db.session.commit()
+            comment_id = comment.id
+
+            # Edit the comment
+            response = authenticated_client.put(f'/api/notes/{note.id}/comments/{comment_id}', json={
+                'text': 'Updated text'
+            })
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
+            assert data['comment']['text'] == 'Updated text'
+            assert data['comment']['isEdited'] is True
+
+            # Verify in database
+            db.session.refresh(comment)
+            assert comment.text == 'Updated text'
+            assert comment.updated_at is not None
+
+    # -------------------------------------------------------------------------
+    # Like Functionality Tests
+    # -------------------------------------------------------------------------
+
+    def test_like_unlike_comment_toggle(self, authenticated_client, app, test_user, test_note):
+        """Test that liking and unliking comments works correctly"""
+        with app.app_context():
+            note = db.session.get(Note, test_note.id)
+            user = db.session.get(User, test_user.id)
+
+            # Create a comment
+            comment = NoteComment(
+                note_id=note.id,
+                user_id=user.id,
+                text='Comment to like'
+            )
+            db.session.add(comment)
+            db.session.commit()
+            comment_id = comment.id
+
+            # Like the comment
+            response = authenticated_client.post(f'/api/notes/{note.id}/comments/{comment_id}/like')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
+            assert data['isLiked'] is True
+            assert data['likes'] == 1
+
+            # Verify like exists in database
+            like = NoteCommentLike.query.filter_by(
+                user_id=user.id,
+                comment_id=comment_id
+            ).first()
+            assert like is not None
+
+            # Unlike the comment (toggle)
+            response = authenticated_client.post(f'/api/notes/{note.id}/comments/{comment_id}/like')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
+            assert data['isLiked'] is False
+            assert data['likes'] == 0
+
+            # Verify like removed from database
+            like = NoteCommentLike.query.filter_by(
+                user_id=user.id,
+                comment_id=comment_id
+            ).first()
+            assert like is None
+
+    # -------------------------------------------------------------------------
+    # Edge Case Tests
+    # -------------------------------------------------------------------------
+
+    def test_comment_on_nonexistent_note_fails(self, authenticated_client, app):
+        """Test that commenting on non-existent note returns 404"""
+        response = authenticated_client.post('/api/notes/99999/comments', json={
+            'text': 'Comment on ghost note'
+        })
+
+        assert response.status_code == 404
+
+    # -------------------------------------------------------------------------
+    # Validation Tests
+    # -------------------------------------------------------------------------
+
+    def test_create_comment_empty_text_fails(self, authenticated_client, app, test_note):
+        """Test that creating comment with empty text fails"""
+        with app.app_context():
+            note = db.session.get(Note, test_note.id)
+
+            response = authenticated_client.post(f'/api/notes/{note.id}/comments', json={
+                'text': ''
+            })
+
+            assert response.status_code == 400
+            data = response.get_json()
+            assert data['success'] is False
+
+    def test_edit_comment_empty_text_fails(self, authenticated_client, app, test_user, test_note):
+        """Test that editing comment to empty text fails"""
+        with app.app_context():
+            note = db.session.get(Note, test_note.id)
+            user = db.session.get(User, test_user.id)
+
+            # Create a comment first
+            comment = NoteComment(
+                note_id=note.id,
+                user_id=user.id,
+                text='Original text'
+            )
+            db.session.add(comment)
+            db.session.commit()
+            comment_id = comment.id
+
+            # Try to edit with empty text
+            response = authenticated_client.put(f'/api/notes/{note.id}/comments/{comment_id}', json={
+                'text': ''
+            })
+
+            assert response.status_code == 400
+            data = response.get_json()
+            assert data['success'] is False
+
+            # Verify original text unchanged
+            db.session.refresh(comment)
+            assert comment.text == 'Original text'

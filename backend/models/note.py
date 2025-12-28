@@ -55,3 +55,58 @@ class Note(db.Model):
             'isLiked': False,  # Will be updated based on current user
             'isBookmarked': False  # Will be updated based on current user
         }
+
+    def is_liked_by(self, user_id: int) -> bool:
+        """Check if this note has been liked by a specific user."""
+        from backend.models.relationships import NoteLike
+        return NoteLike.exists(user_id, self.id)
+
+    def is_bookmarked_by(self, user_id: int) -> bool:
+        """Check if this note has been bookmarked by a specific user."""
+        from backend.models.relationships import NoteBookmark
+        return NoteBookmark.exists(user_id, self.id)
+
+    def toggle_like(self, user_id: int) -> bool:
+        """
+        Toggle like status for this note by a user.
+        
+        Updates both the NoteLike record and the denormalized likes counter.
+        Caller must handle db.session.commit().
+        
+        Args:
+            user_id: The ID of the user toggling the like
+            
+        Returns:
+            True if now liked, False if now unliked
+        """
+        from backend.models.relationships import NoteLike
+        
+        if NoteLike.exists(user_id, self.id):
+            NoteLike.delete(user_id, self.id)
+            self.likes = max(0, self.likes - 1)
+            return False
+        else:
+            NoteLike.create(user_id, self.id)
+            self.likes += 1
+            return True
+
+    def toggle_bookmark(self, user_id: int) -> bool:
+        """
+        Toggle bookmark status for this note by a user.
+        
+        Caller must handle db.session.commit().
+        
+        Args:
+            user_id: The ID of the user toggling the bookmark
+            
+        Returns:
+            True if now bookmarked, False if now unbookmarked
+        """
+        from backend.models.relationships import NoteBookmark
+        
+        if NoteBookmark.exists(user_id, self.id):
+            NoteBookmark.delete(user_id, self.id)
+            return False
+        else:
+            NoteBookmark.create(user_id, self.id)
+            return True

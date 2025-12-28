@@ -121,3 +121,100 @@ export async function toggleBookmarkNote(id) {
 export async function deleteNote(id) {
   return api.delete(`/notes/${id}`);
 }
+
+// =============================================================================
+// Comment API Functions
+// =============================================================================
+
+/**
+ * Get all comments for a note
+ *
+ * Returns comments sorted by creation date (newest first).
+ *
+ * @param {number} noteId - Note ID
+ * @returns {Promise<Array>} Array of comment objects
+ *
+ * @example
+ * const comments = await fetchComments(123);
+ */
+export async function fetchComments(noteId) {
+  return api.get(`/notes/${noteId}/comments`);
+}
+
+/**
+ * Create a new comment on a note
+ *
+ * Requires authentication.
+ *
+ * @param {number} noteId - Note ID
+ * @param {string} text - Comment text
+ * @param {number} [replyToId] - Optional ID of comment being replied to
+ * @returns {Promise<object>} Response with created comment and updated comment count
+ * @throws {ApiError} If not authenticated or validation fails
+ *
+ * @example
+ * // Top-level comment
+ * const result = await createComment(123, 'Great post!');
+ * 
+ * // Reply to a comment
+ * const reply = await createComment(123, '@John Great point!', 456);
+ * console.log(reply.comment.parentId); // The parent comment's ID
+ */
+export async function createComment(noteId, text, replyToId = null) {
+  const payload = { text };
+  if (replyToId !== null) {
+    payload.replyToId = replyToId;
+  }
+  return api.post(`/notes/${noteId}/comments`, payload);
+}
+
+/**
+ * Update a comment (author only)
+ *
+ * @param {number} noteId - Note ID
+ * @param {number} commentId - Comment ID
+ * @param {string} text - New comment text
+ * @returns {Promise<object>} Response with updated comment
+ * @throws {ApiError} If not author or not authenticated (403)
+ *
+ * @example
+ * const result = await updateComment(123, 456, 'Updated text');
+ */
+export async function updateComment(noteId, commentId, text) {
+  return api.put(`/notes/${noteId}/comments/${commentId}`, { text });
+}
+
+/**
+ * Delete a comment (author only)
+ *
+ * @param {number} noteId - Note ID
+ * @param {number} commentId - Comment ID
+ * @returns {Promise<object>} Response with success status and updated comment count
+ * @throws {ApiError} If not author or not authenticated (403)
+ *
+ * @example
+ * const result = await deleteComment(123, 456);
+ * console.log(result.commentCount); // Updated count on the note
+ */
+export async function deleteComment(noteId, commentId) {
+  return api.delete(`/notes/${noteId}/comments/${commentId}`);
+}
+
+/**
+ * Like or unlike a comment
+ *
+ * Toggles like status for current user.
+ *
+ * @param {number} noteId - Note ID
+ * @param {number} commentId - Comment ID
+ * @returns {Promise<object>} Response with new like status and count
+ * @throws {ApiError} If not authenticated
+ *
+ * @example
+ * const result = await toggleLikeComment(123, 456);
+ * console.log(result.isLiked); // true or false
+ * console.log(result.likes); // total likes
+ */
+export async function toggleLikeComment(noteId, commentId) {
+  return api.post(`/notes/${noteId}/comments/${commentId}/like`);
+}
