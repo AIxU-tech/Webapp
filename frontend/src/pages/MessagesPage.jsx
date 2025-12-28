@@ -21,7 +21,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -51,6 +51,7 @@ export default function MessagesPage() {
   // Hooks and Context
   // ---------------------------------------------------------------------------
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
 
@@ -84,6 +85,20 @@ export default function MessagesPage() {
       navigate('/login');
     }
   }, [isAuthenticated, navigate]);
+
+  // ---------------------------------------------------------------------------
+  // Handle startWith URL Parameter (e.g., from "Message Poster" button)
+  // Opens conversation modal directly with the specified user
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const startWithUserId = searchParams.get('startWith');
+    if (startWithUserId && isAuthenticated) {
+      // Open conversation with the specified user
+      setActiveConversationUserId(parseInt(startWithUserId, 10));
+      // Clear the URL param to prevent re-opening on navigation
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams, isAuthenticated]);
 
   // ---------------------------------------------------------------------------
   // Conversation Modal Functions
