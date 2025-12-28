@@ -2,7 +2,7 @@
  * TagSelector Component
  *
  * A toggleable tag selection interface. Allows users to select one or multiple
- * tags from a predefined list.
+ * tags from a predefined list. Uses ToggleTag for consistent styling.
  *
  * @component
  *
@@ -25,6 +25,8 @@
  * />
  */
 
+import { ToggleTag, TagGroup } from './Tag';
+
 export default function TagSelector({
   tags = [],
   selected,
@@ -32,14 +34,12 @@ export default function TagSelector({
   showAll = false,
   allLabel = 'All',
   multiple = false,
+  size = 'md',
   className = '',
 }) {
-  /**
-   * Handle tag click
-   */
+  /** Toggle a tag on/off in multi-select or set in single-select */
   const handleTagClick = (tag) => {
     if (multiple) {
-      // Multi-select mode
       const currentSelected = Array.isArray(selected) ? selected : [];
       if (currentSelected.includes(tag)) {
         onChange(currentSelected.filter((t) => t !== tag));
@@ -47,14 +47,11 @@ export default function TagSelector({
         onChange([...currentSelected, tag]);
       }
     } else {
-      // Single-select mode
       onChange(tag);
     }
   };
 
-  /**
-   * Check if a tag is selected
-   */
+  /** Check if a tag is currently selected */
   const isSelected = (tag) => {
     if (multiple) {
       return Array.isArray(selected) && selected.includes(tag);
@@ -62,37 +59,30 @@ export default function TagSelector({
     return selected === tag;
   };
 
-  /**
-   * Base button styles
-   */
-  const baseClass = 'px-3 py-1.5 rounded-full text-sm font-medium transition-colors';
-  const activeClass = 'bg-primary text-primary-foreground';
-  const inactiveClass = 'bg-secondary text-secondary-foreground hover:bg-secondary/80';
-
   return (
-    <div className={`flex flex-wrap gap-2 ${className}`}>
+    <TagGroup className={className}>
       {/* "All" option for single-select mode */}
       {showAll && !multiple && (
-        <button
-          type="button"
+        <ToggleTag
+          selected={selected === 'all'}
           onClick={() => onChange('all')}
-          className={`${baseClass} ${selected === 'all' ? activeClass : inactiveClass}`}
+          size={size}
         >
           {allLabel}
-        </button>
+        </ToggleTag>
       )}
 
       {/* Tag buttons */}
       {tags.map((tag) => (
-        <button
+        <ToggleTag
           key={tag}
-          type="button"
+          selected={isSelected(tag)}
           onClick={() => handleTagClick(tag)}
-          className={`${baseClass} ${isSelected(tag) ? activeClass : inactiveClass}`}
+          size={size}
         >
           {tag}
-        </button>
+        </ToggleTag>
       ))}
-    </div>
+    </TagGroup>
   );
 }

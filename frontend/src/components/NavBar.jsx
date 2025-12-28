@@ -24,6 +24,7 @@ import {
   BrainCircuitIcon,
   CommunityIcon,
   UniversitiesIcon,
+  OpportunitiesIcon,
   MessagesIcon,
   NewsIcon,
   ProfileIcon,
@@ -141,6 +142,11 @@ export default function NavBar() {
             <NavLink to="/universities" currentPath={currentPath}>
               <UniversitiesIcon />
               <span>Universities</span>
+            </NavLink>
+
+            <NavLink to="/opportunities" currentPath={currentPath}>
+              <OpportunitiesIcon />
+              <span>Opportunities</span>
             </NavLink>
 
             <NavLink to="/messages" currentPath={currentPath}>

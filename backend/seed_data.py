@@ -43,6 +43,7 @@ from backend.models.message import Message
 from backend.models.relationships import UserFollows
 from backend.models.university_role import UniversityRole
 from backend.models.ai_news import AINewsStory, AINewsSource, AIResearchPaper, AINewsChatMessage
+from backend.models.opportunity import Opportunity
 from backend.constants import UniversityRoles, ADMIN
 
 
@@ -131,6 +132,7 @@ def clear_existing_data():
     UniversityRole.query.delete()
     Message.query.delete()
     Note.query.delete()
+    Opportunity.query.delete()
     User.query.delete()
     University.query.delete()
     # Clear AI news data (chat messages first due to foreign keys)
@@ -548,6 +550,69 @@ def seed_notes(users):
     return notes
 
 
+def seed_opportunities(users):
+    """Create 5 sample opportunity posts."""
+    print("Seeding opportunities...")
+
+    opportunities_data = [
+        {
+            "title": "ML Research Assistant for NLP Project",
+            "description": "Looking for a motivated undergraduate or graduate student to join our NLP research team. You'll be working on fine-tuning large language models for domain-specific applications in healthcare. Experience with PyTorch and Hugging Face Transformers preferred. This is a great opportunity to get hands-on research experience and potentially co-author a paper.",
+            "compensation": "$20/hour, 10-15 hours/week",
+            "university_only": True,
+            "tags": ["On-site", "Paid", "Research"]
+        },
+        {
+            "title": "AI Startup Co-founder - Computer Vision Focus",
+            "description": "I'm building a startup that uses computer vision to help farmers detect crop diseases early. Looking for a technical co-founder who's passionate about using AI for social good. We've been accepted into a university incubator and have initial seed funding. Ideal partner has experience with object detection, mobile deployment, and isn't afraid to talk to customers.",
+            "compensation": "Equity split negotiable, no salary initially",
+            "university_only": False,
+            "tags": ["Remote", "Unpaid", "Startup"]
+        },
+        {
+            "title": "Hackathon Team - Climate Tech Challenge",
+            "description": "Forming a team for the upcoming Climate AI Hackathon (Jan 15-17). We need 2 more members: ideally someone with frontend/demo skills and someone with ML experience. The theme is using AI to combat climate change. I have experience with satellite imagery analysis and want to build something around deforestation detection. Let's win this!",
+            "compensation": None,
+            "university_only": False,
+            "tags": ["Hybrid", "Unpaid", "Hackathon"]
+        },
+        {
+            "title": "Summer Research Internship - AI Safety Lab",
+            "description": "Our AI safety lab is hiring summer interns to work on interpretability research. You'll be investigating how neural networks represent concepts internally, with the goal of making AI systems more transparent and trustworthy. Strong math background required (linear algebra, probability). Programming in Python/JAX. Remote-friendly with optional in-person collaboration.",
+            "compensation": "$8,000/month stipend + housing assistance",
+            "university_only": False,
+            "tags": ["Hybrid", "Paid", "Research"]
+        },
+        {
+            "title": "Mobile App Project - Campus Event Finder",
+            "description": "Building a React Native app to help students discover AI/ML events on campus. Looking for 1-2 collaborators interested in mobile development. I'll handle the backend, need help with UI/UX and frontend. Great portfolio project! We meet weekly on Thursdays 6-8pm in the CS building.",
+            "compensation": None,
+            "university_only": True,
+            "tags": ["On-site", "Unpaid", "Project"]
+        },
+    ]
+
+    opportunities = []
+    for i, data in enumerate(opportunities_data):
+        # Distribute opportunities among users
+        author = users[i % len(users)]
+        opp = Opportunity(
+            title=data["title"],
+            description=data["description"],
+            compensation=data["compensation"],
+            university_only=data["university_only"],
+            author_id=author.id,
+            created_at=datetime.utcnow() - timedelta(days=random.randint(1, 30))
+        )
+        opp.set_tags_list(data["tags"])
+        db.session.add(opp)
+        opportunities.append(opp)
+
+    db.session.commit()
+    print(f"Created {len(opportunities)} opportunities.")
+    return opportunities
+
+
 def seed_messages(users):
     """Create some sample messages between users."""
     print("Seeding messages...")
@@ -758,6 +823,7 @@ def seed_all():
     users = seed_users(universities)
     seed_university_memberships(users, universities)
     seed_notes(users)
+    seed_opportunities(users)
     seed_messages(users)
     seed_follows(users)
     seed_ai_news()
