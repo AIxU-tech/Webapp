@@ -30,16 +30,16 @@ import { HeartIcon, PencilIcon, TrashIcon, XIcon, CheckIcon, ChatBubbleIcon } fr
 function renderTextWithMention(text) {
   // Match @Name at the very start of the text (supports multi-word names)
   // Pattern: @ followed by words (with spaces between) until we hit common punctuation or end
-  const mentionMatch = text.match(/^@([A-Za-z]+(?:\s+[A-Za-z]+)*)\s*/);
-  
+  const mentionMatch = text.match(/^@([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+/);
+
   if (!mentionMatch) {
     return text;
   }
-  
+
   const mentionName = mentionMatch[1];
   const mentionFull = mentionMatch[0];
   const restOfText = text.slice(mentionFull.length);
-  
+
   // We don't have the user ID from just the name, so we'll make the @mention
   // visually distinct but not linkable. The parent comment's author info could
   // be passed down if we want to make it a real link.
@@ -185,11 +185,10 @@ export default function CommentCard({
             <button
               onClick={() => onLike(noteId, comment.id)}
               disabled={!isAuthenticated}
-              className={`flex items-center space-x-1 text-xs transition-colors ${
-                comment.isLiked
+              className={`flex items-center space-x-1 text-xs transition-colors ${comment.isLiked
                   ? 'text-red-500 hover:text-red-600'
                   : 'text-muted-foreground hover:text-foreground'
-              } ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''}`}
+                } ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''}`}
               aria-label={comment.isLiked ? 'Unlike comment' : 'Like comment'}
             >
               <HeartIcon filled={comment.isLiked} className="w-4 h-4" />
