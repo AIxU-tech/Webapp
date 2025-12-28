@@ -36,6 +36,9 @@ export const STALE_TIMES = {
   // Notes change moderately - balance freshness and performance
   NOTES: 2 * 60 * 1000, // 2 minutes
 
+  // Opportunities change less frequently than notes
+  OPPORTUNITIES: 3 * 60 * 1000, // 3 minutes
+
   // Conversations - WebSocket handles real-time, this is a safety net
   CONVERSATIONS: 2 * 60 * 1000, // 2 minutes
 
@@ -60,6 +63,9 @@ export const GC_TIMES = {
 
   // Notes - moderate retention
   NOTES: 30 * 60 * 1000, // 30 minutes (uses default)
+
+  // Opportunities - moderate retention
+  OPPORTUNITIES: 30 * 60 * 1000, // 30 minutes
 
   // Conversations - keep for quick access when switching chats
   CONVERSATIONS: 10 * 60 * 1000, // 10 minutes

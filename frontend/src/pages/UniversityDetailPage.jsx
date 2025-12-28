@@ -36,7 +36,8 @@ import {
 import {
   BaseModal,
   LoadingState,
-  Badge,
+  Tag,
+  TagGroup,
   Tooltip,
   SecondaryButton,
   StatCard,
@@ -463,13 +464,13 @@ export default function UniversityDetailPage() {
 
                 {/* Tags */}
                 {tags.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <TagGroup className="mt-4">
                     {tags.map((tag, index) => (
-                      <Badge key={index} variant="secondary" size="sm">
+                      <Tag key={index} variant="secondary" size="sm">
                         {tag}
-                      </Badge>
+                      </Tag>
                     ))}
-                  </div>
+                  </TagGroup>
                 )}
               </section>
 

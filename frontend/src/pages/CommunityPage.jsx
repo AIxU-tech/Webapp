@@ -36,11 +36,9 @@ import {
 // UI Components
 import {
   BaseModal,
-  EmptyState,
-  LoadingState,
-  ErrorState,
   TagSelector,
   GradientButton,
+  FeedItemList,
 } from '../components/ui';
 import ConfirmationModal from '../components/ConfirmationModal';
 import NoteCard from '../components/NoteCard';
@@ -109,8 +107,6 @@ export default function CommunityPage() {
     error: queryError,
     refetch,
   } = useNotes(queryParams);
-
-  const errorMessage = queryError?.message || null;
 
   /**
    * Mutations with Optimistic Updates
@@ -384,42 +380,28 @@ export default function CommunityPage() {
         />
       </div>
 
-      {/*
-        Notes Grid
-
-        Displays notes list with loading, error, and empty states.
-      */}
-      <div className="space-y-6">
-        {/* Loading State */}
-        {loading && <LoadingState text="Loading notes..." size="lg" />}
-
-        {/* Error State */}
-        {errorMessage && (
-          <ErrorState message={errorMessage} onRetry={() => refetch()} />
-        )}
-
-        {/* Empty State */}
-        {!loading && !errorMessage && filteredNotes.length === 0 && (
-          <EmptyState
-            icon={<FileTextIcon className="h-12 w-12" />}
-            title={searchQuery ? 'No results found' : 'No posts yet'}
-            description={
-              searchQuery
-                ? `No posts match your search for "${searchQuery}". Try a different keyword or author name.`
-                : filterUserId
-                ? "This user hasn't created any posts yet."
-                : 'There are no posts in the community yet. Be the first to share!'
-            }
-            action={
-              (filterUserId || searchQuery)
-                ? { label: 'View all community posts', onClick: clearFilters }
-                : undefined
-            }
-          />
-        )}
-
-        {/* Notes List */}
-        {!loading && !errorMessage && filteredNotes.map(note => (
+      {/* Notes List */}
+      <FeedItemList
+        items={filteredNotes}
+        isLoading={loading}
+        error={queryError}
+        onRetry={refetch}
+        loadingText="Loading notes..."
+        emptyIcon={<FileTextIcon className="h-12 w-12" />}
+        emptyTitle={searchQuery ? 'No results found' : 'No posts yet'}
+        emptyDescription={
+          searchQuery
+            ? `No posts match your search for "${searchQuery}". Try a different keyword or author name.`
+            : filterUserId
+            ? "This user hasn't created any posts yet."
+            : 'There are no posts in the community yet. Be the first to share!'
+        }
+        emptyAction={
+          (filterUserId || searchQuery)
+            ? { label: 'View all community posts', onClick: clearFilters }
+            : undefined
+        }
+        renderItem={(note) => (
           <NoteCard
             key={note.id}
             note={note}
@@ -429,8 +411,8 @@ export default function CommunityPage() {
             currentUserId={user?.id}
             isAuthenticated={isAuthenticated}
           />
-        ))}
-      </div>
+        )}
+      />
 
       {/*
         Create Note Modal
@@ -443,31 +425,11 @@ export default function CommunityPage() {
         title="Creating a note"
         size="2xl"
       >
-        {/* User Info Section */}
-        {user && (
-          <div className="px-6 pt-4 pb-2 border-b border-border">
-            <div className="flex items-center space-x-3">
-              <img
-                src={user.avatar || '/static/default-avatar.png'}
-                alt={user.first_name || user.username}
-                className="w-10 h-10 rounded-full"
-              />
-              <div>
-                <h4 className="font-semibold text-foreground">
-                  {user.first_name && user.last_name
-                    ? `${user.first_name} ${user.last_name}`
-                    : user.username}
-                </h4>
-                <p className="text-sm text-muted-foreground">Post to Anyone</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Create Note Form */}
         <form onSubmit={handleCreateNote} className="p-6">
           {/* Title Input */}
           <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">Title *</label>
             <input
               type="text"
               placeholder="Title"
@@ -480,6 +442,7 @@ export default function CommunityPage() {
 
           {/* Content Textarea */}
           <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">Content *</label>
             <textarea
               placeholder="What do you want to talk about?"
               value={noteContent}

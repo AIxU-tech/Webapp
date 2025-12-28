@@ -42,6 +42,7 @@ class User(UserMixin, db.Model):
     liked_universities = db.Column(db.Text, nullable=True)
     liked_notes = db.Column(db.Text, nullable=True)
     bookmarked_notes = db.Column(db.Text, nullable=True)
+    bookmarked_opportunities = db.Column(db.Text, nullable=True)
 
     #Profile pics
     # Add these new fields for profile picture

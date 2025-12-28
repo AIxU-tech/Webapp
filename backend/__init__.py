@@ -96,6 +96,12 @@ def create_app(config_class=Config):
         db.create_all()  # default bind
         print("All tables ensured.")
 
+        # One-time migration: move opportunity tags from JSON to normalized table
+        from backend.routes_v2.opportunities.helpers import migrate_json_tags_to_table
+        migrated = migrate_json_tags_to_table()
+        if migrated > 0:
+            print(f"Migrated {migrated} opportunity tags to normalized table.")
+
         # In development mode, ensure dev user exists for auto-login.
         # This creates dev@test.edu if not present, enabling seamless dev experience.
         if app.config.get('DEV_MODE', False):
@@ -111,6 +117,7 @@ def create_app(config_class=Config):
         universities_bp,
         university_requests_bp,
         community_bp,
+        opportunities_bp,
         messages_bp,
         notifications_bp,
         news_bp
@@ -123,6 +130,7 @@ def create_app(config_class=Config):
     app.register_blueprint(universities_bp)
     app.register_blueprint(university_requests_bp)
     app.register_blueprint(community_bp)
+    app.register_blueprint(opportunities_bp)
     app.register_blueprint(messages_bp)
     app.register_blueprint(notifications_bp)
     app.register_blueprint(news_bp)

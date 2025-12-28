@@ -21,6 +21,13 @@
  * - useDeleteNote() - Delete mutation
  * - prefetchNotes() - Prefetch notes list
  *
+ * Opportunities:
+ * - useOpportunities(params) - Get opportunities with filters
+ * - useCreateOpportunity() - Create mutation
+ * - useBookmarkOpportunity() - Bookmark mutation
+ * - useDeleteOpportunity() - Delete mutation
+ * - prefetchOpportunities() - Prefetch opportunities list
+ *
  * Messages:
  * - useConversations() - Get conversations with real-time updates
  * - useConversation(userId) - Get conversation with user
@@ -86,6 +93,18 @@ export {
   noteKeys,
   prefetchNotes,
 } from './useNotes';
+
+// =============================================================================
+// Opportunities Hooks
+// =============================================================================
+export {
+  useOpportunities,
+  useCreateOpportunity,
+  useBookmarkOpportunity,
+  useDeleteOpportunity,
+  opportunityKeys,
+  prefetchOpportunities,
+} from './useOpportunities';
 
 // =============================================================================
 // Messages Hooks
@@ -161,3 +180,20 @@ export { useEmailVerification } from './useEmailVerification.jsx';
 // Form Hooks
 // =============================================================================
 export { useForm } from './useForm';
+
+// =============================================================================
+// Feed Page Hooks
+// =============================================================================
+export { default as useFeedPageState } from './useFeedPageState';
+
+// =============================================================================
+// Hook Factories
+// =============================================================================
+export {
+  createFeedItemKeys,
+  createListHook,
+  createCreateHook,
+  createBookmarkHook,
+  createDeleteHook,
+  createPrefetchFn,
+} from './factories/feedItemHooks';

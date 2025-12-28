@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { CheckIcon, XIcon } from './icons';
-import { Card, Badge, SecondaryButton } from './ui';
+import { Card, Badge, Tag, TagGroup, SecondaryButton } from './ui';
 import ConfirmationModal from './ConfirmationModal';
 import { getTimeAgo } from '../utils';
 
@@ -64,11 +64,11 @@ export default function RequestCard({ request, onApprove, onReject, isProcessing
             <p className="text-foreground mt-1">{request.clubDescription}</p>
           </div>
           {request.clubTags?.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <TagGroup className="gap-1.5">
               {request.clubTags.map((tag, i) => (
-                <Badge key={i} variant="secondary" size="xs">{tag}</Badge>
+                <Tag key={i} variant="secondary" size="xs">{tag}</Tag>
               ))}
-            </div>
+            </TagGroup>
           )}
           <DetailRow label="Requester">
             {request.requesterFullName} ({request.requesterEmail})

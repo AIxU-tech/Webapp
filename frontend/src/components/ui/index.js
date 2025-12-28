@@ -32,6 +32,11 @@ export { default as UniversityCardSkeleton } from './UniversityCardSkeleton';
 // Generic UI Components
 export { default as Badge } from './Badge';
 export { default as Divider } from './Divider';
+export { default as Tag, ToggleTag, TagGroup, getTagVariant } from './Tag';
 export { default as TagSelector } from './TagSelector';
 export { default as Tooltip } from './Tooltip';
 export { default as UserListItem } from './UserListItem';
+
+// Feed Components
+export { default as FeedCard } from './FeedCard';
+export { default as FeedItemList } from './FeedItemList';
