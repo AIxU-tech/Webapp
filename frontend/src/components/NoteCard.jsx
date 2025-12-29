@@ -10,6 +10,7 @@ import {
   HeartIcon,
   MessageCircleIcon,
   ShareIcon,
+  BuildingIcon,
 } from './icons';
 import CommentSection from './CommentSection';
 
@@ -31,6 +32,13 @@ export default function NoteCard({
   const handleToggleComments = () => {
     setIsCommentsExpanded((prev) => !prev);
   };
+
+  const headerBadges = note.universityOnly ? (
+    <span className="flex items-center text-xs text-muted-foreground bg-muted px-2 py-1 rounded" title="Only visible to your university">
+      <BuildingIcon className="h-3 w-3 mr-1" />
+      University Only
+    </span>
+  ) : null;
 
   const primaryActions = (
     <>
@@ -82,6 +90,7 @@ export default function NoteCard({
       onBookmark={onBookmark}
       onDelete={onDelete}
       tags={note.tags || []}
+      headerBadges={headerBadges}
       primaryActions={primaryActions}
     >
       <h3 className="text-xl font-bold text-foreground mb-2">{note.title}</h3>

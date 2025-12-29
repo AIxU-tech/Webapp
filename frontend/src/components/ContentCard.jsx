@@ -35,7 +35,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { ExternalLinkIcon, ArrowLeftIcon, ChatBubbleIcon, SendIcon } from './icons';
 import { useStoryChatMutation, usePaperChatMutation } from '../hooks/useNews';
-import Tag, { TagGroup } from './ui/Tag';
 
 /**
  * Strip citation tags from text.
@@ -202,7 +201,6 @@ export default function ContentCard({
   const mutation = type === 'paper' ? paperMutation : storyMutation;
 
   const config = TYPE_CONFIG[type] || TYPE_CONFIG.story;
-  const categories = Array.isArray(item.categories) ? item.categories : [];
   const cleanSummary = stripCitations(item.summary);
 
   // Handle sending a message from chat interface
@@ -303,21 +301,6 @@ export default function ContentCard({
             {type === 'paper' && item.authors && (
               <p className="text-sm text-muted-foreground mb-2">{stripCitations(item.authors)}</p>
             )}
-
-            {/* Categories */}
-            <TagGroup className="items-center gap-1.5">
-              {/* Paper-specific: Source badge */}
-              {type === 'paper' && item.sourceName && (
-                <Tag variant="primary" size="xs" className="bg-primary/10 text-primary">
-                  {item.sourceName}
-                </Tag>
-              )}
-              {categories.map((category, idx) => (
-                <Tag key={idx} variant="default" size="xs">
-                  {category}
-                </Tag>
-              ))}
-            </TagGroup>
           </div>
         </div>
 
