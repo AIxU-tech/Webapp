@@ -28,6 +28,7 @@ import FormInput from '../components/FormInput';
 import FormButton from '../components/FormButton';
 import LoadingState from '../components/ui/LoadingState';
 import GradientButton from '../components/ui/GradientButton';
+import { useAuth } from '../contexts/AuthContext';
 
 /**
  * InvalidTokenMessage Component
@@ -96,6 +97,7 @@ export default function ResetPasswordPage() {
    * Hooks
    */
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
 
   // Set page title
   usePageTitle('Reset Password');
@@ -154,9 +156,11 @@ export default function ResetPasswordPage() {
       await resetPassword(token, password);
       setSuccess(true);
 
+      await refreshUser();
+
       // Redirect to login page after a short delay
       setTimeout(() => {
-        navigate('/login', { replace: true });
+        navigate('/community', { replace: true });
       }, 2000);
     } catch (err) {
       setError(err.message || 'Failed to reset password. Please try again.');
@@ -195,7 +199,7 @@ export default function ResetPasswordPage() {
     return (
       <AuthFormLayout
         title="Password Reset Successful"
-        subtitle="Redirecting to login..."
+        subtitle="Redirecting to dashboard..."
         showLogo={true}
       >
         <div className="text-center space-y-4 py-4">
@@ -209,7 +213,7 @@ export default function ResetPasswordPage() {
             Your password has been successfully reset.
           </p>
           <p className="text-sm text-muted-foreground">
-            You will be redirected to the login page shortly.
+            You will be redirected to the dashboard shortly.
           </p>
         </div>
       </AuthFormLayout>

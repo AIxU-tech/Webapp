@@ -59,11 +59,7 @@ export default function ForgotPasswordPage() {
           {/* Success message */}
           <div className="space-y-2">
             <p className="text-foreground">
-              If that email exists in our system, we've sent a password reset link to{' '}
-              <span className="font-medium">{formData.email}</span>.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Please check your inbox and follow the instructions to reset your password.
+              If that email exists in our system, we've sent a password reset link
             </p>
           </div>
 

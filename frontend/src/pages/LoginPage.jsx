@@ -26,6 +26,7 @@ import TermsLink from '../components/TermsLink';
 export default function LoginPage() {
   const navigate = useNavigate();
   const { loginUser } = useAuth();
+
   usePageTitle('Login');
 
   const { formData, error, loading, handleChange, handleSubmit } = useForm({

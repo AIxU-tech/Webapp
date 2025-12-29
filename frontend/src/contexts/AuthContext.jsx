@@ -17,6 +17,7 @@
 
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { getCurrentUser, devLogin } from '../api/auth';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Authentication context
@@ -137,6 +138,7 @@ export function AuthProvider({ children }) {
     logoutUser,  // Call after logout
     refreshUser, // Refresh user data from server
   };
+
 
   // Show loading spinner during initial auth check
   // This prevents flash of login screen if user is already logged in

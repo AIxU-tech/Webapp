@@ -607,6 +607,8 @@ def reset_password():
     # if send_password_reset_confirmation(user.email):
     #     return jsonify({'message': 'Password reset successful'}), 200
 
+    login_user(user)
+
     return jsonify({'message': 'Password reset successful'}), 200
 
 
