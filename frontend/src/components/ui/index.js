@@ -18,6 +18,8 @@ export { default as Alert } from './Alert';
 // Button Components
 export { default as GradientButton } from './GradientButton';
 export { default as SecondaryButton } from './SecondaryButton';
+export { default as IconButton } from './IconButton';
+export { default as LikeButton } from './LikeButton';
 
 // Layout Components
 export { default as SectionHeader } from './SectionHeader';
