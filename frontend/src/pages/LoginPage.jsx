@@ -81,15 +81,26 @@ export default function LoginPage() {
         />
 
         {/* Password Input */}
-        <FormInput
-          type="password"
-          name="password"
-          placeholder="Enter your password"
-          value={formData.password}
-          onChange={handleChange}
-          disabled={loading}
-          required
-        />
+        <div className="space-y-2">
+          <FormInput
+            type="password"
+            name="password"
+            placeholder="Enter your password"
+            value={formData.password}
+            onChange={handleChange}
+            disabled={loading}
+            required
+          />
+          {/* Forgot Password Link */}
+          <div className="text-right">
+            <Link
+              to="/forgot-password"
+              className="text-sm text-primary hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
+        </div>
 
         {/* Submit Button */}
         <FormButton

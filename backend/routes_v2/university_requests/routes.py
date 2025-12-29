@@ -27,7 +27,7 @@ from backend.utils.email import (
 )
 from backend.utils.validation import validate_edu_email, validate_required_fields
 from backend.constants import ADMIN
-from backend.routes_v2.api_auth.helpers import hash_verification_code
+from backend.routes_v2.api_auth.helpers import hash_text
 
 university_requests_bp = Blueprint('university_requests', __name__, url_prefix='/api/university-requests')
 
@@ -92,7 +92,7 @@ def start_request():
     # Generate and send code (reusing existing infrastructure)
     # Hash the code before storing - plain code only sent via email
     code = generate_verification_code()
-    session[SESSION_CODE_HASH] = hash_verification_code(code)
+    session[SESSION_CODE_HASH] = hash_text(code)
     session[SESSION_CODE_TIME] = time.time()
 
     if send_verification_email(email, code):
@@ -140,7 +140,7 @@ def verify_request():
     is_dev_mode = current_app.config.get('DEV_MODE', False)
     is_valid_dev_code = is_dev_mode and len(entered_code) == 6 and entered_code.isdigit()
 
-    entered_code_hash = hash_verification_code(entered_code)
+    entered_code_hash = hash_text(entered_code)
     if entered_code_hash != stored_code_hash and not is_valid_dev_code:
         return jsonify({'error': 'Invalid verification code. Please try again.'}), 401
 
@@ -168,7 +168,7 @@ def resend_code():
 
     # Generate new code and store hash (plain code only sent via email)
     code = generate_verification_code()
-    session[SESSION_CODE_HASH] = hash_verification_code(code)
+    session[SESSION_CODE_HASH] = hash_text(code)
     session[SESSION_CODE_TIME] = time.time()
 
     if send_verification_email(pending['email'], code):

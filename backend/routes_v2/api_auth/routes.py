@@ -540,7 +540,7 @@ def dev_login():
 @api_auth_bp.route('/forgot_password', methods=['POST'])
 def forgot_password():
 
-    data = request.json()
+    data = request.get_json()
 
     email = data.get('email')
 
@@ -579,8 +579,10 @@ def forgot_password():
 @api_auth_bp.route('/reset_password', methods=['POST'])
 def reset_password():
 
-    token = request.json['token']
-    new_password = request.json['password']
+    data = request.get_json()
+
+    token = data.get('token')
+    new_password = data.get('password')
 
     reset_token = PasswordResetToken.query.filter_by(
         token=token,
@@ -594,7 +596,8 @@ def reset_password():
         return jsonify({'error': 'Token has expired'}), 400
 
     user = reset_token.user
-    user.password_hash = hash_text(new_password)
+
+    user.set_password(new_password)
 
     reset_token.used = True
 
@@ -607,9 +610,10 @@ def reset_password():
     return jsonify({'message': 'Password reset successful'}), 200
 
 
-@api_auth_bp.route('/auth/validate-reset-token', methods=['POST'])
+@api_auth_bp.route('/validate-reset-token', methods=['POST'])
 def validate_reset_token():
-    token = request.json.get('token')
+    data = request.get_json()
+    token = data.get('token')
 
     if not token:
         return jsonify({'error': 'Token required'}), 400

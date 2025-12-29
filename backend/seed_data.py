@@ -408,6 +408,15 @@ def seed_users(universities):
             "skills": ["Python", "Security", "Adversarial ML"],
             "interests": ["ML Security", "Adversarial Examples", "Robustness"]
         },
+        {
+            "email": "alsa8624@colorado.edu",
+            "first_name": "Alex",
+            "last_name": "Savard",
+            "about_section": "Computer science student interested in AI and machine learning.",
+            "location": "Boulder, CO",
+            "skills": ["Python", "Java", "C++"],
+            "interests": ["AI", "Machine Learning", "Computer Science"]
+        }
     ]
 
     users = []
