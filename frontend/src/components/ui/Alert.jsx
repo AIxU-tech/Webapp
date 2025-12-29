@@ -30,31 +30,31 @@ import { XIcon, InfoIcon, AlertCircleIcon, AlertTriangleIcon, CheckCircleIcon } 
 const VARIANTS = {
   info: {
     icon: InfoIcon,
-    containerClass: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
-    iconClass: 'text-blue-600 dark:text-blue-400',
-    titleClass: 'text-blue-800 dark:text-blue-200',
-    textClass: 'text-blue-700 dark:text-blue-300',
+    containerClass: 'bg-blue-500/5 border-blue-500/20',
+    iconClass: 'text-blue-600',
+    titleClass: 'text-blue-800',
+    textClass: 'text-blue-700',
   },
   success: {
     icon: CheckCircleIcon,
-    containerClass: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
-    iconClass: 'text-green-600 dark:text-green-400',
-    titleClass: 'text-green-800 dark:text-green-200',
-    textClass: 'text-green-700 dark:text-green-300',
+    containerClass: 'bg-green-500/5 border-green-500/20',
+    iconClass: 'text-green-600',
+    titleClass: 'text-green-800',
+    textClass: 'text-green-700',
   },
   warning: {
     icon: AlertTriangleIcon,
-    containerClass: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
-    iconClass: 'text-yellow-600 dark:text-yellow-400',
-    titleClass: 'text-yellow-800 dark:text-yellow-200',
-    textClass: 'text-yellow-700 dark:text-yellow-300',
+    containerClass: 'bg-amber-500/5 border-amber-500/20',
+    iconClass: 'text-amber-600',
+    titleClass: 'text-amber-800',
+    textClass: 'text-amber-700',
   },
   error: {
     icon: AlertCircleIcon,
-    containerClass: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
-    iconClass: 'text-red-600 dark:text-red-400',
-    titleClass: 'text-red-800 dark:text-red-200',
-    textClass: 'text-red-700 dark:text-red-300',
+    containerClass: 'bg-red-500/5 border-red-500/20',
+    iconClass: 'text-red-600',
+    titleClass: 'text-red-800',
+    textClass: 'text-red-700',
   },
 };
 
@@ -71,7 +71,7 @@ export default function Alert({
 
   return (
     <div
-      className={`border rounded-lg p-4 ${config.containerClass} ${className}`}
+      className={`border rounded-lg px-4 py-3 ${config.containerClass} ${className}`}
       role="alert"
     >
       <div className="flex">
@@ -100,7 +100,7 @@ export default function Alert({
             <button
               type="button"
               onClick={onDismiss}
-              className={`inline-flex rounded-md p-1.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${config.iconClass}`}
+              className={`inline-flex rounded-md p-1.5 hover:bg-foreground/5 transition-colors ${config.iconClass}`}
               aria-label="Dismiss"
             >
               <XIcon className="h-4 w-4" />
