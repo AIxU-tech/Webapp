@@ -3,7 +3,6 @@
  * Displays an opportunity posting using the shared FeedCard layout.
  */
 
-import { useNavigate } from 'react-router-dom';
 import { FeedCard } from './ui';
 import { MessagesIcon, BuildingIcon } from './icons';
 
@@ -14,12 +13,11 @@ export default function OpportunityCard({
   opportunity,
   onBookmark,
   onDelete,
+  onMessageUser,
   currentUserId,
   isAuthenticated = false,
   isSiteAdmin = false,
 }) {
-  const navigate = useNavigate();
-
   const isOwner = isAuthenticated && currentUserId && opportunity.author.id === currentUserId;
   const canDelete = isOwner || isSiteAdmin;
   const isOwnPost = isAuthenticated && currentUserId === opportunity.author.id;
@@ -29,7 +27,8 @@ export default function OpportunityCard({
       alert('Please log in to message this poster');
       return;
     }
-    navigate(`/messages?startWith=${opportunity.author.id}`);
+    // Open chat modal inline instead of navigating away
+    onMessageUser?.(opportunity.author.id);
   }
 
   // Reorder tags: location first, then compensation, then others

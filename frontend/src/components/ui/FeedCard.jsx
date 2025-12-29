@@ -18,6 +18,7 @@ export default function FeedCard({
   tags = [],
   getTagVariant = () => 'default',
   primaryActions = null,
+  expandableContent = null,
   children,
 }) {
   return (
@@ -69,6 +70,9 @@ export default function FeedCard({
           ))}
         </TagGroup>
       )}
+
+      {/* Expandable Content (e.g., comments) - renders after tags */}
+      {expandableContent}
 
       {/* Actions Footer */}
       <div className="flex items-center justify-between pt-4 border-t border-border">
