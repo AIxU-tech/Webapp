@@ -22,12 +22,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { usePageTitle } from '../hooks';
 import { validateResetToken, resetPassword } from '../api/auth';
-import { AlertTriangleIcon } from '../components/icons';
+import { AlertTriangleIcon, CheckCircleIcon } from '../components/icons';
 import AuthFormLayout from '../components/AuthFormLayout';
 import FormInput from '../components/FormInput';
 import FormButton from '../components/FormButton';
 import LoadingState from '../components/ui/LoadingState';
-import Alert from '../components/ui/Alert';
 import GradientButton from '../components/ui/GradientButton';
 
 /**
@@ -199,9 +198,20 @@ export default function ResetPasswordPage() {
         subtitle="Redirecting to login..."
         showLogo={true}
       >
-        <Alert variant="success" className="mb-4">
-          Your password has been successfully reset. You will be redirected to the login page shortly.
-        </Alert>
+        <div className="text-center space-y-4 py-4">
+          {/* Success icon */}
+          <div className="flex justify-center mb-2">
+            <CheckCircleIcon className="h-12 w-12 text-primary" />
+          </div>
+
+          {/* Success message */}
+          <p className="text-foreground">
+            Your password has been successfully reset.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            You will be redirected to the login page shortly.
+          </p>
+        </div>
       </AuthFormLayout>
     );
   }

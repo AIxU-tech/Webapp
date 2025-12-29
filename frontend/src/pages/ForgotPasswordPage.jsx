@@ -20,7 +20,6 @@ import { usePageTitle, useForm } from '../hooks';
 import AuthFormLayout from '../components/AuthFormLayout';
 import FormInput from '../components/FormInput';
 import FormButton from '../components/FormButton';
-import Alert from '../components/ui/Alert';
 
 export default function ForgotPasswordPage() {
   usePageTitle('Forgot Password');
@@ -56,23 +55,31 @@ export default function ForgotPasswordPage() {
         footer={footer}
         cardRadius={0.35}
       >
-        <Alert variant="success" className="mb-4">
-          If that email exists in our system, we've sent a password reset link to{' '}
-          <strong>{formData.email}</strong>. Please check your inbox and follow the
-          instructions to reset your password.
-        </Alert>
+        <div className="text-center space-y-4">
+          {/* Success message */}
+          <div className="space-y-2">
+            <p className="text-foreground">
+              If that email exists in our system, we've sent a password reset link to{' '}
+              <span className="font-medium">{formData.email}</span>.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Please check your inbox and follow the instructions to reset your password.
+            </p>
+          </div>
 
-        <div className="text-center mt-6">
-          <p className="text-sm text-muted-foreground mb-4">
-            Didn't receive the email? Check your spam folder or try again.
-          </p>
-          <FormButton
-            type="button"
-            onClick={() => setSuccess(false)}
-            loading={false}
-          >
-            Send another email
-          </FormButton>
+          {/* Additional info */}
+          <div className="pt-4 border-t border-border">
+            <p className="text-sm text-muted-foreground mb-4">
+              Didn't receive the email? Check your spam folder or try again.
+            </p>
+            <FormButton
+              type="button"
+              onClick={() => setSuccess(false)}
+              loading={false}
+            >
+              Send another email
+            </FormButton>
+          </div>
         </div>
       </AuthFormLayout>
     );

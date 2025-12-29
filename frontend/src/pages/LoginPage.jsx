@@ -50,6 +50,17 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
+      {/* Forgot Password Link */}
+      <div className="text-center">
+        <p className="text-sm text-muted-foreground">
+          <Link
+            to="/forgot-password"
+            className="text-sm text-primary hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </p>
+      </div>
 
       {/* Legal Text */}
       <p className="text-xs text-muted-foreground mt-6 text-center leading-relaxed">
@@ -91,15 +102,6 @@ export default function LoginPage() {
             disabled={loading}
             required
           />
-          {/* Forgot Password Link */}
-          <div className="text-right">
-            <Link
-              to="/forgot-password"
-              className="text-sm text-primary hover:underline"
-            >
-              Forgot password?
-            </Link>
-          </div>
         </div>
 
         {/* Submit Button */}
