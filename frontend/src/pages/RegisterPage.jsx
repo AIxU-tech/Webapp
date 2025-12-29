@@ -65,7 +65,7 @@ function UniversityDetectionStatus({ detectedUniversity, isWhitelisted, onReques
       <button
         type="button"
         onClick={onRequestUniversity}
-        className="text-yellow-800 dark:text-yellow-200 font-medium underline hover:text-yellow-900 dark:hover:text-yellow-100"
+        className="font-medium underline text-amber-600 hover:text-amber-700"
       >
         Request to add your university
       </button>

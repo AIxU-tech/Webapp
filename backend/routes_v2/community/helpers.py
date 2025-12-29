@@ -13,17 +13,19 @@ from backend.models import Note, NoteComment, User, University, NoteLike, NoteBo
 def create_db_note(data):
     """
     Create a new note in the database.
-    
+
     Args:
-        data: Dictionary containing 'title', 'content', and optional 'tags'
-        
+        data: Dictionary containing 'title', 'content', optional 'tags',
+              and optional 'universityOnly'
+
     Returns:
         The newly created Note object
     """
     note = Note(
         title=data['title'].strip(),
         content=data['content'].strip(),
-        author_id=current_user.id
+        author_id=current_user.id,
+        university_only=data.get('universityOnly', False)
     )
 
     # Set tags if provided
@@ -116,34 +118,67 @@ def get_user_note_interactions(user_id: int, note_ids: list[int]) -> tuple[set[i
     return liked_note_ids, bookmarked_note_ids
 
 
+def check_note_visibility(note, user):
+    """
+    Check if a user can view a university_only note.
+
+    Args:
+        note: Note instance
+        user: User instance (or anonymous user proxy)
+
+    Returns:
+        bool: True if user can view, False otherwise
+    """
+    if not note.university_only:
+        return True
+
+    if hasattr(user, 'is_authenticated') and user.is_authenticated:
+        # Site admins can always see
+        if user.is_site_admin():
+            return True
+
+        # Same university users can see
+        if (user.university and
+            note.author.university and
+            user.university == note.author.university):
+            return True
+
+    return False
+
+
 def notes_to_dict(db_notes, current_user):
     """
     Convert a list of Note objects to dictionaries with user-specific data.
-    
+
     Enriches each note with isLiked and isBookmarked flags based on
     the current user's relationship with each note.
-    
+
+    Filters out university_only notes that the user cannot view.
+
     Uses batch queries to avoid N+1 query problem - fetches all like/bookmark
     status in 2 queries total regardless of number of notes.
-    
+
     Args:
         db_notes: List of Note objects
         current_user: The current authenticated user (or anonymous)
-        
+
     Returns:
         List of note dictionaries ready for JSON serialization
     """
+    # Filter notes by visibility first
+    visible_notes = [note for note in db_notes if check_note_visibility(note, current_user)]
+
     # Pre-fetch all interactions in 2 queries (instead of 2N queries)
     liked_ids = set()
     bookmarked_ids = set()
-    
-    if current_user.is_authenticated and db_notes:
-        note_ids = [note.id for note in db_notes]
+
+    if current_user.is_authenticated and visible_notes:
+        note_ids = [note.id for note in visible_notes]
         liked_ids, bookmarked_ids = get_user_note_interactions(current_user.id, note_ids)
-    
+
     # Build response with O(1) lookups
     notes = []
-    for note in db_notes:
+    for note in visible_notes:
         note_dict = note.to_dict()
 
         if current_user.is_authenticated:
