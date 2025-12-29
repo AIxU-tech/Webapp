@@ -99,6 +99,7 @@ def api_notes():
     Query parameters:
     - search: Search in title, content, or author name
     - user: Filter by specific user ID
+    - university_id: Filter by university (returns notes from all members)
 
     Returns array of note objects with author info, likes, bookmarks, etc.
     """
@@ -108,7 +109,10 @@ def api_notes():
     # Check if searching
     search_query = request.args.get('search', '').strip()
 
-    db_notes = get_db_notes(filter_user_id, search_query)
+    # Check if filtering by university
+    university_id = request.args.get('university_id', type=int)
+
+    db_notes = get_db_notes(filter_user_id, search_query, university_id)
 
     # Convert to dictionaries and update isLiked/isBookmarked for current user
     notes = notes_to_dict(db_notes, current_user)

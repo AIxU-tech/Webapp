@@ -76,6 +76,7 @@ def list_opportunities():
         - location: Filter by location tag (Remote, Hybrid, On-site)
         - paid: Filter by 'true' for Paid or 'false' for Unpaid
         - myUniversity: If 'true', only show opportunities from same university
+        - university_id: Filter by specific university (returns opportunities from members)
         - tags: Comma-separated list of tags to filter by
 
     Returns:
@@ -91,6 +92,7 @@ def list_opportunities():
     paid_filter = request.args.get('paid', '').strip() or None
     my_university = request.args.get('myUniversity', '').lower() == 'true'
     tags_filter = request.args.get('tags', '').strip() or None
+    university_id = request.args.get('university_id', type=int)
 
     # All filtering happens at database level
     db_opportunities = get_db_opportunities(
@@ -98,7 +100,8 @@ def list_opportunities():
         my_university=my_university,
         location_filter=location_filter,
         paid_filter=paid_filter,
-        tags_filter=tags_filter
+        tags_filter=tags_filter,
+        university_id=university_id
     )
 
     opportunities = opportunities_to_dict(db_opportunities, current_user)

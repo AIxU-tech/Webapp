@@ -40,18 +40,28 @@ def create_db_note(data):
     return note
 
 
-def get_db_notes(filter_user_id, search_query):
+def get_db_notes(filter_user_id=None, search_query=None, university_id=None):
     """
     Fetch notes from the database with optional filtering.
-    
+
     Args:
         filter_user_id: If provided, only return notes by this user
         search_query: If provided, search in title, content, and author name
-        
+        university_id: If provided, only return notes by members of this university
+
     Returns:
         List of Note objects, ordered by creation date (most recent first)
     """
-    if filter_user_id:
+    if university_id:
+        # Get member IDs for this university
+        from backend.models import UniversityRole
+        member_ids = [r.user_id for r in
+                      UniversityRole.query.filter_by(university_id=university_id).all()]
+        if not member_ids:
+            return []
+        db_notes = Note.query.filter(Note.author_id.in_(member_ids)).order_by(
+            Note.created_at.desc(), Note.id.desc()).all()
+    elif filter_user_id:
         # Fetch only notes from this user
         db_notes = Note.query.filter_by(author_id=filter_user_id).order_by(
             Note.created_at.desc(), Note.id.desc()).all()

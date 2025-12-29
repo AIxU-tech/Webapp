@@ -74,6 +74,7 @@ class University(db.Model):
     upcoming_events = db.Column(db.Integer, default=0)
     description = db.Column(db.Text, nullable=True)
     tags = db.Column(db.Text, nullable=True)
+    website_url = db.Column(db.String(500), nullable=True)
     
     # DEPRECATED: members column is no longer used. Membership is tracked via UniversityRole.
     # This column is kept for backwards compatibility during migration but should not be used.
@@ -253,6 +254,7 @@ class University(db.Model):
             'memberCount': self.member_count,
             'members': self.get_members_list(),
             'adminId': self.admin_id,
+            'websiteUrl': self.website_url,
         }
 
     # -------------------------------------------------------------------------
