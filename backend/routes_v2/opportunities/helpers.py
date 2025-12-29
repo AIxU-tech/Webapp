@@ -11,6 +11,7 @@ from sqlalchemy.orm import joinedload
 from backend.extensions import db
 from backend.models import Opportunity, User
 from backend.models.opportunity_tag import OpportunityTag
+from backend.models.relationships import OpportunityBookmark
 
 
 def create_db_opportunity(data):
@@ -137,7 +138,7 @@ def check_opportunity_visibility(opportunity, user):
         # Same university users can see
         if (user.university and
             opportunity.author.university and
-            user.university == opportunity.author.university):
+                user.university == opportunity.author.university):
             return True
 
     return False
@@ -159,11 +160,14 @@ def opportunities_to_dict(opportunities, user):
     # Pre-parse bookmarks for O(1) lookups
     bookmarked_set = set()
     if hasattr(user, 'is_authenticated') and user.is_authenticated:
-        if user.bookmarked_opportunities:
-            try:
-                bookmarked_set = set(json.loads(user.bookmarked_opportunities))
-            except (json.JSONDecodeError, TypeError):
-                pass
+        try:
+            bookmarked = OpportunityBookmark.get_bookmarked_opportunities(
+                user.id)
+            bookmarked_set = set(
+                [opportunity.opportunity_id for opportunity in bookmarked])
+            # bookmarked_set = set(json.loads(user.bookmarked_opportunities))
+        except Exception:
+            pass
 
     for opp in opportunities:
         # Skip if user can't view this opportunity
@@ -189,23 +193,8 @@ def toggle_bookmark_status(user, opportunity):
     Returns:
         bool: New bookmark status (True if now bookmarked)
     """
-    bookmarked_opps = user.bookmarked_opportunities
-    if bookmarked_opps:
-        try:
-            bookmarked_list = json.loads(bookmarked_opps)
-        except (json.JSONDecodeError, TypeError):
-            bookmarked_list = []
-    else:
-        bookmarked_list = []
 
-    if opportunity.id in bookmarked_list:
-        bookmarked_list.remove(opportunity.id)
-        is_bookmarked = False
-    else:
-        bookmarked_list.append(opportunity.id)
-        is_bookmarked = True
-
-    user.bookmarked_opportunities = json.dumps(bookmarked_list)
+    is_bookmarked = opportunity.toggle_bookmark(user.id)
     db.session.commit()
 
     return is_bookmarked

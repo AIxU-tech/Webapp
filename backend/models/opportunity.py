@@ -45,6 +45,16 @@ class Opportunity(db.Model):
     # Relationship to User - eager load to avoid N+1 queries
     author = db.relationship('User', backref='opportunities', lazy='joined')
 
+    def toggle_bookmark(self, user_id):
+        from backend.models.relationships import OpportunityBookmark
+
+        if OpportunityBookmark.exists(user_id, self.id):
+            OpportunityBookmark.delete(user_id, self.id)
+            return False
+        else:
+            OpportunityBookmark.create(user_id, self.id)
+            return True
+
     def get_tags_list(self):
         """
         Get tags as list from normalized table.
