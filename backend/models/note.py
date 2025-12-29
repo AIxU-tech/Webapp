@@ -14,6 +14,7 @@ class Note(db.Model):
     tags = db.Column(db.Text, nullable=True)  # Store as JSON string
     likes = db.Column(db.Integer, default=0)
     comments = db.Column(db.Integer, default=0)
+    university_only = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationship to User
@@ -52,6 +53,7 @@ class Note(db.Model):
             'likes': self.likes,
             'comments': self.comments,
             'timeAgo': self.get_time_ago(),
+            'universityOnly': self.university_only,
             'isLiked': False,  # Will be updated based on current user
             'isBookmarked': False  # Will be updated based on current user
         }

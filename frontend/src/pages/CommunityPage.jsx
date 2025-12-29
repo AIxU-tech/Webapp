@@ -131,6 +131,7 @@ export default function CommunityPage() {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [selectedCreateTags, setSelectedCreateTags] = useState([]);
+  const [universityOnly, setUniversityOnly] = useState(false);
 
   /**
    * Delete Confirmation Modal State
@@ -203,6 +204,7 @@ export default function CommunityPage() {
     setNoteTitle('');
     setNoteContent('');
     setSelectedCreateTags([]);
+    setUniversityOnly(false);
   }
 
   /**
@@ -223,6 +225,7 @@ export default function CommunityPage() {
         title: noteTitle.trim(),
         content: noteContent.trim(),
         tags: selectedCreateTags,
+        universityOnly,
       },
       {
         onSuccess: () => {
@@ -463,6 +466,23 @@ export default function CommunityPage() {
               multiple
             />
           </div>
+
+          {/* University Only Toggle */}
+          {user?.university && (
+            <div className="mb-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={universityOnly}
+                  onChange={(e) => setUniversityOnly(e.target.checked)}
+                  className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary"
+                />
+                <span className="ml-2 text-sm text-foreground">
+                  Only visible to members of my university
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* Submit Button Row */}
           <div className="flex items-center justify-between pt-4 border-t border-border">
