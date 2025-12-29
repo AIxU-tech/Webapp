@@ -77,9 +77,22 @@ export {
   useUniversity,
   useRemoveMember,
   useUpdateMemberRole,
+  useUpdateUniversity,
   universityKeys,
   prefetchUniversities,
 } from './useUniversities';
+
+// =============================================================================
+// Events Hooks
+// =============================================================================
+export {
+  useUniversityEvents,
+  useEvent,
+  useCreateEvent,
+  useDeleteEvent,
+  useToggleRsvp,
+  eventKeys,
+} from './useEvents';
 
 // =============================================================================
 // Notes/Community Hooks

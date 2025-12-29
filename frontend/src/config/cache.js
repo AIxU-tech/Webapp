@@ -39,6 +39,9 @@ export const STALE_TIMES = {
   // Opportunities change less frequently than notes
   OPPORTUNITIES: 3 * 60 * 1000, // 3 minutes
 
+  // Events change infrequently - can cache aggressively
+  EVENTS: 5 * 60 * 1000, // 5 minutes
+
   // Conversations - WebSocket handles real-time, this is a safety net
   CONVERSATIONS: 2 * 60 * 1000, // 2 minutes
 

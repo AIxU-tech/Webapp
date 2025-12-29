@@ -7,6 +7,7 @@ from backend.models.opportunity import Opportunity
 from backend.models.opportunity_tag import OpportunityTag
 from backend.models.note_comment import NoteComment
 from backend.models.message import Message
+from backend.models.event import Event, EventAttendee
 from backend.models.relationships import (
     UserFollows,
     UserLikedUniversity,
@@ -33,6 +34,8 @@ __all__ = [
     'OpportunityTag',
     'NoteComment',
     'Message',
+    'Event',
+    'EventAttendee',
     'UserFollows',
     'UserLikedUniversity',
     'NoteLike',

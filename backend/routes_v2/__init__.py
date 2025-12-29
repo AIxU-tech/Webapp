@@ -9,6 +9,7 @@ from backend.routes_v2.opportunities.routes import opportunities_bp
 from backend.routes_v2.messages.routes import messages_bp
 from backend.routes_v2.notifications.routes import notifications_bp
 from backend.routes_v2.news.routes import news_bp
+from backend.routes_v2.events.routes import events_bp
 
 __all__ = [
     'public_bp',
@@ -21,6 +22,7 @@ __all__ = [
     'opportunities_bp',
     'messages_bp',
     'notifications_bp',
-    'news_bp'
+    'news_bp',
+    'events_bp'
 ]
 
