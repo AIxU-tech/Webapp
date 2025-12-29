@@ -191,6 +191,13 @@ def seed_universities():
             "email_domain": "uw",
             "description": "UW's AI community fostering collaboration between students and the Seattle tech industry."
         },
+        {
+            "name": "University of Colorado Boulder",
+            "clubName": "CU Boulder AI",
+            "location": "Boulder, CO",
+            "email_domain": "colorado",
+            "description": "CU Boulder's AI community fostering collaboration between students and the Boulder tech industry."
+        }
     ]
 
     universities = []

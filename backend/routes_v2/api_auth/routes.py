@@ -550,7 +550,7 @@ def forgot_password():
     user = User.query.filter_by(email=email).first()
 
     if not user:
-        return jsonify({'message': 'If that email exists, reset link sent'}), 200
+        return jsonify({'error': 'No account found with that email'}), 400
 
     token = secrets.token_urlsafe(32)
 
@@ -562,7 +562,7 @@ def forgot_password():
     )
 
     # Delete old unused tokens for the user
-    PasswordResetToken.query.filter_by(user_id=user.id, used=False).delete()
+    PasswordResetToken.query.filter_by(user_id=user.id, used=False).delete(synchronize_session=False)
 
     db.session.add(reset_token)
     db.session.commit()
