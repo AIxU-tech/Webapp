@@ -5,9 +5,8 @@
  */
 
 import { useState } from 'react';
-import { FeedCard } from './ui';
+import { FeedCard, LikeButton } from './ui';
 import {
-  HeartIcon,
   MessageCircleIcon,
   ShareIcon,
   BuildingIcon,
@@ -42,19 +41,12 @@ export default function NoteCard({
 
   const primaryActions = (
     <>
-      {/* Like Button */}
-      <button
+      <LikeButton
+        isLiked={note.isLiked}
+        likes={note.likes}
         onClick={() => onLike(note.id)}
-        className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 ${
-          note.isLiked
-            ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-        }`}
-        aria-label={note.isLiked ? 'Unlike note' : 'Like note'}
-      >
-        <HeartIcon filled={note.isLiked} />
-        <span className="font-medium">{note.likes}</span>
-      </button>
+        size="lg"
+      />
 
       {/* Comment Button */}
       <button
@@ -92,12 +84,10 @@ export default function NoteCard({
       tags={note.tags || []}
       headerBadges={headerBadges}
       primaryActions={primaryActions}
+      expandableContent={<CommentSection noteId={note.id} isExpanded={isCommentsExpanded} />}
     >
       <h3 className="text-xl font-bold text-foreground mb-2">{note.title}</h3>
       <p className="text-muted-foreground mb-4">{note.content}</p>
-
-      {/* Comment Section */}
-      <CommentSection noteId={note.id} isExpanded={isCommentsExpanded} />
     </FeedCard>
   );
 }

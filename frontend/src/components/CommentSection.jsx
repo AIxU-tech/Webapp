@@ -24,7 +24,7 @@ import {
   useLikeComment,
 } from '../hooks';
 import CommentCard from './CommentCard';
-import { SpinnerIcon, SendIcon, XIcon } from './icons';
+import { SpinnerIcon, XIcon } from './icons';
 
 /**
  * Group comments into threaded structure.
@@ -166,7 +166,7 @@ export default function CommentSection({ noteId, isExpanded }) {
   if (!isExpanded) return null;
 
   return (
-    <div className="border-t border-border mt-4 pt-4">
+    <div className="border-t border-border mt-4 pt-4 pb-4">
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center py-4">
@@ -247,31 +247,17 @@ export default function CommentSection({ noteId, isExpanded }) {
                 className="w-8 h-8 rounded-full flex-shrink-0"
               />
 
-              {/* Input and Submit */}
-              <div className="flex-1 flex items-center space-x-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={replyingTo ? `Reply to @${replyingTo.author.name}...` : 'Write a comment...'}
-                  className="flex-1 px-3 py-2 bg-background border border-border rounded-full text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  disabled={createMutation.isPending}
-                />
-                <button
-                  type="submit"
-                  disabled={!newComment.trim() || createMutation.isPending}
-                  className="p-2 text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  aria-label="Send comment"
-                >
-                  {createMutation.isPending ? (
-                    <SpinnerIcon className="h-5 w-5" />
-                  ) : (
-                    <SendIcon className="h-5 w-5" />
-                  )}
-                </button>
-              </div>
+              {/* Input */}
+              <input
+                ref={inputRef}
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={replyingTo ? `Reply to @${replyingTo.author.name}...` : 'Write a comment...'}
+                className="flex-1 px-3 py-2 bg-background border border-border rounded-full text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled={createMutation.isPending}
+              />
             </form>
           </div>
         ) : (

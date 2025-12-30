@@ -49,7 +49,8 @@ def create_db_opportunity(data):
 
 
 def get_db_opportunities(search_query=None, my_university=False,
-                         location_filter=None, paid_filter=None, tags_filter=None):
+                         location_filter=None, paid_filter=None, tags_filter=None,
+                         university_id=None):
     """
     Get opportunities from the database with optional filtering.
 
@@ -59,11 +60,21 @@ def get_db_opportunities(search_query=None, my_university=False,
         location_filter: Optional location tag (Remote, Hybrid, On-site)
         paid_filter: Optional 'true' or 'false' for Paid/Unpaid
         tags_filter: Optional comma-separated list of additional tags
+        university_id: If provided, filter to members of this specific university
 
     Returns:
         list: List of Opportunity objects matching criteria
     """
     query = Opportunity.query.options(joinedload(Opportunity.author))
+
+    # Filter by specific university (by membership in UniversityRole)
+    if university_id:
+        from backend.models import UniversityRole
+        member_ids = [r.user_id for r in
+                      UniversityRole.query.filter_by(university_id=university_id).all()]
+        if not member_ids:
+            return []
+        query = query.filter(Opportunity.author_id.in_(member_ids))
 
     if search_query:
         matching_user_subquery = db.session.query(User.id).filter(
