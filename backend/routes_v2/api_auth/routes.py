@@ -537,7 +537,7 @@ def dev_login():
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
-@api_auth_bp.route('/forgot_password', methods=['POST'])
+@api_auth_bp.route('/forgot-password', methods=['POST'])
 def forgot_password():
 
     data = request.get_json()
@@ -569,20 +569,29 @@ def forgot_password():
 
     reset_url = f"{APP_URL}/app/reset-password?token={token}"
 
-    if send_reset_password_email(user.email, reset_url):
+    if send_reset_password_email(user.email, reset_url, user.first_name):
         return jsonify({'message': 'If that email exists, reset link sent'}), 200
 
     else:
         jsonify({'error': 'Failed to send reset password email'}), 500
 
 
-@api_auth_bp.route('/reset_password', methods=['POST'])
+@api_auth_bp.route('/reset-password', methods=['POST'])
 def reset_password():
-
     data = request.get_json()
 
     token = data.get('token')
     new_password = data.get('password')
+
+    # Validate required fields
+    if not token:
+        return jsonify({'error': 'Token is required'}), 400
+
+    if not new_password:
+        return jsonify({'error': 'Password is required'}), 400
+
+    if len(new_password) < REQUIRED_PASSWORD_LENGTH:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
 
     reset_token = PasswordResetToken.query.filter_by(
         token=token,
@@ -596,7 +605,6 @@ def reset_password():
         return jsonify({'error': 'Token has expired'}), 400
 
     user = reset_token.user
-
     user.set_password(new_password)
 
     reset_token.used = True

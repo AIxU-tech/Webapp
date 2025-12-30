@@ -758,11 +758,11 @@ class TestCompleteAccount:
 
 
 class TestForgotPassword:
-    """Tests for POST /api/auth/forgot_password"""
+    """Tests for POST /api/auth/forgot-password"""
 
     def test_forgot_password_missing_email(self, client):
         """Test forgot password fails without email"""
-        response = client.post('/api/auth/forgot_password', json={})
+        response = client.post('/api/auth/forgot-password', json={})
 
         assert response.status_code == 400
         data = response.get_json()
@@ -770,7 +770,7 @@ class TestForgotPassword:
 
     def test_forgot_password_nonexistent_email(self, client):
         """Test forgot password fails for non-existent email"""
-        response = client.post('/api/auth/forgot_password', json={
+        response = client.post('/api/auth/forgot-password', json={
             'email': 'nonexistent@example.edu'
         })
 
@@ -782,7 +782,7 @@ class TestForgotPassword:
     def test_forgot_password_success(self, client, test_user, app):
         """Test successful password reset request creates token and sends email"""
         with app.app_context():
-            response = client.post('/api/auth/forgot_password', json={
+            response = client.post('/api/auth/forgot-password', json={
                 'email': 'test@example.edu'
             })
 
@@ -808,11 +808,11 @@ class TestForgotPassword:
 
 
 class TestResetPassword:
-    """Tests for POST /api/auth/reset_password"""
+    """Tests for POST /api/auth/reset-password"""
 
     def test_reset_password_missing_token(self, client):
         """Test reset password fails without token"""
-        response = client.post('/api/auth/reset_password', json={
+        response = client.post('/api/auth/reset-password', json={
             'password': 'newpassword123'
         })
 
@@ -822,7 +822,7 @@ class TestResetPassword:
 
     def test_reset_password_missing_password(self, client):
         """Test reset password fails without password"""
-        response = client.post('/api/auth/reset_password', json={
+        response = client.post('/api/auth/reset-password', json={
             'token': 'some-token'
         })
 
@@ -831,7 +831,7 @@ class TestResetPassword:
 
     def test_reset_password_invalid_token(self, client):
         """Test reset password fails with invalid token"""
-        response = client.post('/api/auth/reset_password', json={
+        response = client.post('/api/auth/reset-password', json={
             'token': 'invalid-token-xyz',
             'password': 'newpassword123'
         })
@@ -855,7 +855,7 @@ class TestResetPassword:
             db.session.add(expired_token)
             db.session.commit()
 
-            response = client.post('/api/auth/reset_password', json={
+            response = client.post('/api/auth/reset-password', json={
                 'token': 'expired-token-123',
                 'password': 'newpassword123'
             })
@@ -879,7 +879,7 @@ class TestResetPassword:
             db.session.add(used_token)
             db.session.commit()
 
-            response = client.post('/api/auth/reset_password', json={
+            response = client.post('/api/auth/reset-password', json={
                 'token': 'used-token-123',
                 'password': 'newpassword123'
             })
@@ -905,7 +905,7 @@ class TestResetPassword:
             db.session.commit()
 
             # Reset password
-            response = client.post('/api/auth/reset_password', json={
+            response = client.post('/api/auth/reset-password', json={
                 'token': 'valid-token-123',
                 'password': 'newsecurepassword123'
             })

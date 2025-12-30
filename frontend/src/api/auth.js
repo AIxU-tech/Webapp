@@ -231,7 +231,7 @@ export async function devLogin() {
  * console.log(response.message); // "If that email exists, reset link sent"
  */
 export async function forgotPassword(email) {
-  return api.post('/auth/forgot_password', { email });
+  return api.post('/auth/forgot-password', { email });
 }
 
 /**
@@ -271,5 +271,5 @@ export async function validateResetToken(token) {
  * console.log(response.message); // "Password reset successful"
  */
 export async function resetPassword(token, password) {
-  return api.post('/auth/reset_password', { token, password });
+  return api.post('/auth/reset-password', { token, password });
 }

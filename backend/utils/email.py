@@ -186,10 +186,36 @@ The AIxU Team"""
     return send_email(subject, body, to_email_override=email)
 
 
-def send_reset_password_email(email: str, reset_url: str):
+def send_reset_password_email(email: str, reset_url: str, first_name: str = None) -> bool:
+    """
+    Send password reset email with secure reset link.
 
-    subject = "Password Reset Request"
-    body=f"Click here to reset your password: {reset_url}\n\nExpires in 1 hour."
+    Args:
+        email: Recipient's email address
+        reset_url: Full URL with secure token for password reset
+        first_name: Optional first name for personalization
+
+    Returns:
+        True if email sent successfully, False otherwise
+    """
+    greeting = f"Hi {first_name}" if first_name else "Hi"
+    subject = "Password Reset Request - AIxU"
+    body = f"""{greeting},
+
+We received a request to reset your password for your AIxU account.
+
+Click the link below to reset your password:
+{reset_url}
+
+Important:
+- This link will expire in 1 hour
+- If you didn't request this, you can safely ignore this email
+- Your password won't change unless you click the link above
+
+If you have any questions, feel free to reply to this email.
+
+Best regards,
+The AIxU Team"""
 
     return send_email(subject, body, to_email_override=email)
 

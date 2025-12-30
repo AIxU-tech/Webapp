@@ -51,31 +51,21 @@ export default function ForgotPasswordPage() {
     return (
       <AuthFormLayout
         title="Check your email"
-        subtitle="We've sent you a password reset link"
+        subtitle={<>We've sent a reset link to <span className="font-medium text-foreground">{formData.email}</span></>}
         footer={footer}
         cardRadius={0.35}
       >
         <div className="text-center space-y-4">
-          {/* Success message */}
-          <div className="space-y-2">
-            <p className="text-foreground">
-              If that email exists in our system, we've sent a password reset link
-            </p>
-          </div>
-
-          {/* Additional info */}
-          <div className="pt-4 border-t border-border">
-            <p className="text-sm text-muted-foreground mb-4">
-              Didn't receive the email? Check your spam folder or try again.
-            </p>
-            <FormButton
-              type="button"
-              onClick={() => setSuccess(false)}
-              loading={false}
-            >
-              Send another email
-            </FormButton>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Didn't receive it? Check your spam folder or try again.
+          </p>
+          <FormButton
+            type="button"
+            onClick={() => setSuccess(false)}
+            loading={false}
+          >
+            Send another email
+          </FormButton>
         </div>
       </AuthFormLayout>
     );
