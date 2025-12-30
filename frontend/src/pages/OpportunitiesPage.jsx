@@ -33,6 +33,7 @@ import {
 } from '../components/ui';
 import { ToggleTag, TagGroup } from '../components/ui/Tag';
 import ConfirmationModal from '../components/ConfirmationModal';
+import ConversationModal from '../components/messages/ConversationModal';
 import OpportunityCard from '../components/OpportunityCard';
 
 import {
@@ -100,6 +101,9 @@ export default function OpportunitiesPage() {
 
   // Delete modal state
   const [opportunityToDelete, setOpportunityToDelete] = useState(null);
+
+  // Message modal state - tracks which user to open chat with
+  const [messageUserId, setMessageUserId] = useState(null);
 
   // Search input state
   const [searchInput, setSearchInput] = useState(searchQuery);
@@ -362,6 +366,7 @@ export default function OpportunitiesPage() {
             opportunity={opp}
             onBookmark={handleBookmark}
             onDelete={handleDeleteClick}
+            onMessageUser={setMessageUserId}
             currentUserId={user?.id}
             isAuthenticated={isAuthenticated}
             isSiteAdmin={user?.permissionLevel >= 1}
@@ -511,6 +516,13 @@ export default function OpportunitiesPage() {
         message="Are you sure you want to delete this opportunity? This action cannot be undone."
         confirmText="Delete"
         variant="danger"
+      />
+
+      {/* Inline Message Modal - opens chat without leaving the page */}
+      <ConversationModal
+        userId={messageUserId}
+        isOpen={messageUserId !== null}
+        onClose={() => setMessageUserId(null)}
       />
     </div>
   );

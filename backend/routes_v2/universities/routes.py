@@ -69,13 +69,13 @@ def list_universities():
             'clubName': uni.clubName or f"{uni.name} AI Club",
             'location': uni.location or '',
             'description': uni.description or '',
-            'tags': json.loads(uni.tags) if uni.tags else [],
             'memberCount': uni.member_count or 0,
             'recentPosts': uni.recent_posts or 0,
             'upcomingEvents': uni.upcoming_events or 0,
             # Email domain for auto-matching users during registration
             # (e.g., "uoregon" for uoregon.edu emails)
             'emailDomain': uni.email_domain or '',
+            'websiteUrl': uni.website_url or '',
         })
 
     return jsonify({
@@ -151,11 +151,11 @@ def get_university(university_id: int):
         'recentPosts': uni.recent_posts or 0,
         'upcomingEvents': uni.upcoming_events or 0,
         'description': uni.description or '',
-        'tags': json.loads(uni.tags) if uni.tags else [],
         'members': members,
         'adminId': uni.admin_id,
         'isMember': is_member,
         'permissions': user_permissions,
+        'websiteUrl': uni.website_url or '',
     }
     return jsonify(detail)
 
@@ -423,5 +423,94 @@ def remove_user_role(university_id: int, user_id: int):
         'userId': user_id,
         'role': UniversityRoles.MEMBER,
         'roleName': 'Member',
+    })
+
+
+# =============================================================================
+# University Update Endpoint
+# =============================================================================
+
+@universities_bp.route('/api/universities/<int:university_id>', methods=['PATCH'])
+@login_required
+def update_university(university_id: int):
+    """
+    Update university details.
+
+    Authorization:
+        - Executive or President at THIS university
+        - Site admin
+
+    Updateable fields:
+        - clubName: Club/organization name
+        - description: Club description
+        - websiteUrl: Club website URL
+        - location: Physical location
+
+    Request body:
+        {
+            "clubName": "AI Club",
+            "description": "We explore AI topics...",
+            "websiteUrl": "https://example.com",
+            "location": "Portland, OR"
+        }
+
+    Returns:
+        JSON response with updated university details
+    """
+    uni = University.query.get(university_id)
+    if not uni:
+        return jsonify({'error': 'University not found'}), 404
+
+    # Check authorization: executive+ at THIS university, or site admin
+    if not can_manage_university_members(current_user, university_id):
+        return jsonify({'error': 'Not authorized to update this university'}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body is required'}), 400
+
+    # Define allowed fields and their mappings
+    allowed_fields = {
+        'clubName': 'clubName',
+        'description': 'description',
+        'location': 'location',
+        'websiteUrl': 'website_url',
+    }
+
+    # Update each provided field
+    for json_field, model_field in allowed_fields.items():
+        if json_field in data:
+            value = data[json_field]
+
+            if json_field == 'websiteUrl':
+                # Validate URL if provided
+                if value:
+                    value = value.strip()
+                    if value and not (value.startswith('http://') or value.startswith('https://')):
+                        return jsonify({'error': 'Website URL must start with http:// or https://'}), 400
+                uni.website_url = value or None
+            else:
+                # Standard string fields
+                if isinstance(value, str):
+                    setattr(uni, model_field, value.strip() or None)
+                elif value is None:
+                    setattr(uni, model_field, None)
+                else:
+                    return jsonify({'error': f'{json_field} must be a string'}), 400
+
+    db.session.commit()
+
+    # Return updated university data
+    return jsonify({
+        'success': True,
+        'university': {
+            'id': uni.id,
+            'name': uni.name,
+            'clubName': uni.clubName or f"{uni.name} AI Club",
+            'location': uni.location or '',
+            'description': uni.description or '',
+            'websiteUrl': uni.website_url or '',
+            'memberCount': uni.member_count or 0,
+        }
     })
 

@@ -75,7 +75,7 @@ export async function getUniversity(id) {
  * });
  */
 export async function updateUniversity(id, updates) {
-  return api.post(`/universities/${id}/edit`, updates);
+  return api.patch(`/universities/${id}`, updates);
 }
 
 /**
