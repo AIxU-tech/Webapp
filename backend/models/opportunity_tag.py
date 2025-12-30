@@ -25,13 +25,15 @@ class OpportunityTag(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (
-        db.UniqueConstraint('opportunity_id', 'tag', name='unique_opportunity_tag'),
+        db.UniqueConstraint('opportunity_id', 'tag',
+                            name='unique_opportunity_tag'),
         db.Index('idx_opportunity_tags_tag', 'tag'),
     )
 
     opportunity = db.relationship(
         'Opportunity',
-        backref=db.backref('tag_records', cascade='all, delete-orphan', passive_deletes=True)
+        backref=db.backref(
+            'tag_records', cascade='all, delete-orphan', passive_deletes=True)
     )
 
     def __repr__(self):

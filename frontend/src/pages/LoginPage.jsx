@@ -26,6 +26,7 @@ import TermsLink from '../components/TermsLink';
 export default function LoginPage() {
   const navigate = useNavigate();
   const { loginUser } = useAuth();
+
   usePageTitle('Login');
 
   const { formData, error, loading, handleChange, handleSubmit } = useForm({
@@ -47,6 +48,17 @@ export default function LoginPage() {
           Don't have an account?{' '}
           <Link to="/register" className="text-primary hover:underline font-medium">
             Sign up
+          </Link>
+        </p>
+      </div>
+      {/* Forgot Password Link */}
+      <div className="text-center">
+        <p className="text-sm text-muted-foreground">
+          <Link
+            to="/forgot-password"
+            className="text-sm text-primary hover:underline"
+          >
+            Forgot password?
           </Link>
         </p>
       </div>
@@ -81,15 +93,17 @@ export default function LoginPage() {
         />
 
         {/* Password Input */}
-        <FormInput
-          type="password"
-          name="password"
-          placeholder="Enter your password"
-          value={formData.password}
-          onChange={handleChange}
-          disabled={loading}
-          required
-        />
+        <div className="space-y-2">
+          <FormInput
+            type="password"
+            name="password"
+            placeholder="Enter your password"
+            value={formData.password}
+            onChange={handleChange}
+            disabled={loading}
+            required
+          />
+        </div>
 
         {/* Submit Button */}
         <FormButton

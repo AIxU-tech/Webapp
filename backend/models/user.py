@@ -38,18 +38,12 @@ class User(UserMixin, db.Model):
     skills = db.Column(db.Text, nullable=True)  # Store as JSON string
     interests = db.Column(db.Text, nullable=True)  # Store as JSON string
 
-    # DEPRECATED: These JSON columns are replaced by proper relationship tables.
+    # DEPRECATED: These JSON columns have been replaced by proper relationship tables.
     # - liked_universities -> UserLikedUniversity table
     # - liked_notes -> NoteLike table
     # - bookmarked_notes -> NoteBookmark table
-    # These columns are kept temporarily for backwards compatibility during migration.
-    # TODO: Remove these columns after data migration is complete.
-    # liked_universities = db.Column(db.Text, nullable=True)
-    # liked_notes = db.Column(db.Text, nullable=True)
-    # bookmarked_notes = db.Column(db.Text, nullable=True)
-
-    # Opportunity bookmarks - TODO: Consider migrating to OpportunityBookmark relationship table
-    bookmarked_opportunities = db.Column(db.Text, nullable=True)
+    # - bookmarked_opportunities -> OpportunityBookmark table
+    # The columns may still exist in the database but are no longer used by the application.
 
     #Profile pics
     # Add these new fields for profile picture

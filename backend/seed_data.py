@@ -191,6 +191,13 @@ def seed_universities():
             "email_domain": "uw",
             "description": "UW's AI community fostering collaboration between students and the Seattle tech industry."
         },
+        {
+            "name": "University of Colorado Boulder",
+            "clubName": "CU Boulder AI",
+            "location": "Boulder, CO",
+            "email_domain": "colorado",
+            "description": "CU Boulder's AI community fostering collaboration between students and the Boulder tech industry."
+        }
     ]
 
     universities = []
@@ -408,6 +415,15 @@ def seed_users(universities):
             "skills": ["Python", "Security", "Adversarial ML"],
             "interests": ["ML Security", "Adversarial Examples", "Robustness"]
         },
+        {
+            "email": "alsa8624@colorado.edu",
+            "first_name": "Alex",
+            "last_name": "Savard",
+            "about_section": "Computer science student interested in AI and machine learning.",
+            "location": "Boulder, CO",
+            "skills": ["Python", "Java", "C++"],
+            "interests": ["AI", "Machine Learning", "Computer Science"]
+        }
     ]
 
     users = []

@@ -29,9 +29,9 @@ def validate_registration_data(data):
     }, None
 
 
-def hash_verification_code(code):
+def hash_text(code):
     """Hash a verification code using SHA-256.
-    
+
     This prevents the plain code from being exposed in the session cookie,
     which is readable (though not modifiable) by the client.
     """
@@ -40,7 +40,7 @@ def hash_verification_code(code):
 
 def setup_registration_session(email, password, first_name, last_name, university, verification_code):
     """Store registration data and hashed verification code in session.
-    
+
     Note: The verification code is hashed before storage to prevent
     users from reading it by decoding the session cookie.
     """
@@ -53,13 +53,14 @@ def setup_registration_session(email, password, first_name, last_name, universit
         'timestamp': time.time()
     }
     # Store hashed code - the plain code is only sent via email
-    session['verification_code_hash'] = hash_verification_code(verification_code)
+    session['verification_code_hash'] = hash_text(
+        verification_code)
     session['verification_timestamp'] = time.time()
 
 
 def create_db_user(reg_data):
     """Create a new user from registration data and enroll in university.
-    
+
     Returns:
         User: The newly created user object
     """

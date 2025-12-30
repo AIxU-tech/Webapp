@@ -18,19 +18,29 @@ from flask import Blueprint, request, jsonify, session, current_app
 from flask_login import login_user, logout_user, login_required
 import time
 from backend.extensions import db
-from backend.models import User, University, UniversityRequest
-from backend.utils.email import generate_verification_code, send_verification_email
+from backend.models import User, University, UniversityRequest, PasswordResetToken
+from backend.utils.email import generate_verification_code, send_verification_email, send_reset_password_email, send_password_reset_confirmation
 from backend.utils.validation import is_whitelisted_domain
 from backend.routes_v2.api_auth.helpers import (
     setup_registration_session,
     validate_registration_data,
     create_db_user,
-    hash_verification_code
+    hash_text
 )
+import secrets
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
+import os
+load_dotenv()
+
 
 api_auth_bp = Blueprint('api_auth', __name__, url_prefix='/api/auth')
 
 REQUIRED_PASSWORD_LENGTH = 6
+
+DEV_MODE = os.environ.get('DEV_MODE')
+
+APP_URL = "http://localhost:8000" if DEV_MODE else "https://aixu.tech/"
 
 
 # API endpoint for login (used by React frontend)
@@ -220,7 +230,7 @@ def api_verify_email():
         is_valid_dev_code = is_dev_mode and len(
             entered_code) == 6 and entered_code.isdigit()
 
-        entered_code_hash = hash_verification_code(entered_code)
+        entered_code_hash = hash_text(entered_code)
         if entered_code_hash == session.get('verification_code_hash') or is_valid_dev_code:
             reg_data = session['pending_registration']
 
@@ -274,7 +284,8 @@ def api_resend_verification():
 
         # Generate new verification code and store hash
         verification_code = generate_verification_code()
-        session['verification_code_hash'] = hash_verification_code(verification_code)
+        session['verification_code_hash'] = hash_text(
+            verification_code)
         session['verification_timestamp'] = time.time()
 
         # Send verification email (plain code goes to email only)
@@ -524,3 +535,108 @@ def dev_login():
     except Exception as e:
         current_app.logger.exception('Dev login failed: %s', e)
         return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+
+@api_auth_bp.route('/forgot-password', methods=['POST'])
+def forgot_password():
+
+    data = request.get_json()
+
+    email = data.get('email')
+
+    if not email:
+        return jsonify({'error': 'An email is required for resetting your password'}), 400
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return jsonify({'error': 'No account found with that email'}), 400
+
+    token = secrets.token_urlsafe(32)
+
+    # Create reset token with 1 hour expiry
+    reset_token = PasswordResetToken(
+        user_id=user.id,
+        token=token,
+        expires_at=datetime.utcnow() + timedelta(hours=1)
+    )
+
+    # Delete old unused tokens for the user
+    PasswordResetToken.query.filter_by(user_id=user.id, used=False).delete(synchronize_session=False)
+
+    db.session.add(reset_token)
+    db.session.commit()
+
+    reset_url = f"{APP_URL}/app/reset-password?token={token}"
+
+    if send_reset_password_email(user.email, reset_url, user.first_name):
+        return jsonify({'message': 'If that email exists, reset link sent'}), 200
+
+    else:
+        jsonify({'error': 'Failed to send reset password email'}), 500
+
+
+@api_auth_bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    data = request.get_json()
+
+    token = data.get('token')
+    new_password = data.get('password')
+
+    # Validate required fields
+    if not token:
+        return jsonify({'error': 'Token is required'}), 400
+
+    if not new_password:
+        return jsonify({'error': 'Password is required'}), 400
+
+    if len(new_password) < REQUIRED_PASSWORD_LENGTH:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+
+    reset_token = PasswordResetToken.query.filter_by(
+        token=token,
+        used=False
+    ).first()
+
+    if not reset_token:
+        return jsonify({'error': 'Invalid or expired token'}), 400
+
+    if reset_token.expires_at < datetime.utcnow():
+        return jsonify({'error': 'Token has expired'}), 400
+
+    user = reset_token.user
+    user.set_password(new_password)
+
+    reset_token.used = True
+
+    db.session.commit()
+
+    # Optionally send a reset password email if need be
+    # if send_password_reset_confirmation(user.email):
+    #     return jsonify({'message': 'Password reset successful'}), 200
+
+    login_user(user)
+
+    return jsonify({'message': 'Password reset successful'}), 200
+
+
+@api_auth_bp.route('/validate-reset-token', methods=['POST'])
+def validate_reset_token():
+    data = request.get_json()
+    token = data.get('token')
+
+    if not token:
+        return jsonify({'error': 'Token required'}), 400
+
+    reset_token = PasswordResetToken.query.filter_by(
+        token=token,
+        used=False
+    ).first()
+
+    if not reset_token:
+        return jsonify({'error': 'Invalid or already used token'}), 400
+
+    if reset_token.expires_at < datetime.utcnow():
+        return jsonify({'error': 'Token has expired'}), 400
+
+    return jsonify({'message': 'Token is valid'}), 200

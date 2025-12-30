@@ -210,3 +210,66 @@ export async function completeAccount(token, password) {
 export async function devLogin() {
   return api.post('/auth/dev-login');
 }
+
+
+// =============================================================================
+// Password Reset
+// =============================================================================
+
+/**
+ * Request a password reset email
+ *
+ * Sends a password reset link to the provided email address if an account exists.
+ * For security, always returns success even if the email doesn't exist.
+ *
+ * @param {string} email - User's email address
+ * @returns {Promise<object>} Response with success message
+ * @throws {ApiError} On server error
+ *
+ * @example
+ * const response = await forgotPassword('user@example.com');
+ * console.log(response.message); // "If that email exists, reset link sent"
+ */
+export async function forgotPassword(email) {
+  return api.post('/auth/forgot-password', { email });
+}
+
+/**
+ * Validate a password reset token
+ *
+ * Checks if a reset token is valid and not expired before showing the reset form.
+ *
+ * @param {string} token - The password reset token from the email link
+ * @returns {Promise<object>} Response with success message
+ * @throws {ApiError} If token is invalid, expired, or already used
+ *
+ * @example
+ * try {
+ *   await validateResetToken('abc123...');
+ *   // Token is valid, show reset form
+ * } catch (error) {
+ *   // Token is invalid or expired
+ * }
+ */
+export async function validateResetToken(token) {
+  return api.post('/auth/validate-reset-token', { token });
+}
+
+/**
+ * Reset password using a reset token
+ *
+ * Updates the user's password using a valid reset token from the email link.
+ * The token must be valid, not expired, and not already used.
+ *
+ * @param {string} token - The password reset token from the email link
+ * @param {string} password - The new password
+ * @returns {Promise<object>} Response with success message
+ * @throws {ApiError} If token is invalid, expired, or password is too short
+ *
+ * @example
+ * const response = await resetPassword('abc123...', 'newSecurePassword');
+ * console.log(response.message); // "Password reset successful"
+ */
+export async function resetPassword(token, password) {
+  return api.post('/auth/reset-password', { token, password });
+}

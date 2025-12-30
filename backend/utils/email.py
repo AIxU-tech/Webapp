@@ -27,22 +27,24 @@ def send_email(subject: str, body: str, reply_to: str = None, to_email_override:
     if not smtp_host or not smtp_user or not smtp_pass:
         # In testing mode, skip email sending and return success
         if current_app.config.get('TESTING'):
-            current_app.logger.info('SMTP not configured - skipping email in test mode')
+            current_app.logger.info(
+                'SMTP not configured - skipping email in test mode')
             return True
         current_app.logger.error('SMTP configuration is missing')
         return False
 
     msg = MIMEText(body, 'plain', 'utf-8')
     msg['Subject'] = subject
-    msg['From'] = formataddr(('AIxU Website', smtp_user))  # must match Zoho login
+    msg['From'] = formataddr(('AIxU Website', smtp_user)
+                             )  # must match Zoho login
     msg['To'] = to_email
 
     if reply_to:
         msg['Reply-To'] = reply_to  # lets admin reply to sender
 
     current_app.logger.info(f"SMTP_USER: {smtp_user}")
-    current_app.logger.info(f"From header: {formataddr(('AIxU Website', smtp_user))}")
-
+    current_app.logger.info(
+        f"From header: {formataddr(('AIxU Website', smtp_user))}")
 
     try:
         with smtplib.SMTP(smtp_host, smtp_port) as server:
@@ -180,5 +182,46 @@ If you have any questions or didn't request this, please contact us.
 
 Best regards,
 The AIxU Team"""
+
+    return send_email(subject, body, to_email_override=email)
+
+
+def send_reset_password_email(email: str, reset_url: str, first_name: str = None) -> bool:
+    """
+    Send password reset email with secure reset link.
+
+    Args:
+        email: Recipient's email address
+        reset_url: Full URL with secure token for password reset
+        first_name: Optional first name for personalization
+
+    Returns:
+        True if email sent successfully, False otherwise
+    """
+    greeting = f"Hi {first_name}" if first_name else "Hi"
+    subject = "Password Reset Request - AIxU"
+    body = f"""{greeting},
+
+We received a request to reset your password for your AIxU account.
+
+Click the link below to reset your password:
+{reset_url}
+
+Important:
+- This link will expire in 1 hour
+- If you didn't request this, you can safely ignore this email
+- Your password won't change unless you click the link above
+
+If you have any questions, feel free to reply to this email.
+
+Best regards,
+The AIxU Team"""
+
+    return send_email(subject, body, to_email_override=email)
+
+def send_password_reset_confirmation(email: str):
+
+    subject = "Password Changed"
+    body = "Your password was successfully reset."
 
     return send_email(subject, body, to_email_override=email)
