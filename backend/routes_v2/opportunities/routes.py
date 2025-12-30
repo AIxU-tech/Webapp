@@ -111,8 +111,6 @@ def toggle_bookmark(opportunity_id):
     """
     Toggle bookmark status for an opportunity.
 
-    Updates the user's bookmarked_opportunities list.
-
     Returns:
         200: Success with updated bookmark status
         404: Opportunity not found

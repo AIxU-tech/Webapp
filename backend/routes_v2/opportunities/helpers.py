@@ -161,11 +161,8 @@ def opportunities_to_dict(opportunities, user):
     bookmarked_set = set()
     if hasattr(user, 'is_authenticated') and user.is_authenticated:
         try:
-            bookmarked = OpportunityBookmark.get_bookmarked_opportunities(
-                user.id)
-            bookmarked_set = set(
-                [opportunity.opportunity_id for opportunity in bookmarked])
-            # bookmarked_set = set(json.loads(user.bookmarked_opportunities))
+            bookmarked = OpportunityBookmark.get_bookmarked_opportunities(user.id)
+            bookmarked_set = {b.opportunity_id for b in bookmarked}
         except Exception:
             pass
 
