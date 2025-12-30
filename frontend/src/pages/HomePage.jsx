@@ -9,6 +9,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePageTitle } from '../hooks';
 import NavBar from '../components/NavBar';
+import Footer from '../components/Footer';
 import FeatureCard from '../components/FeatureCard';
 import { GradientButton, StatItem } from '../components/ui';
 import { GRADIENT_PRIMARY } from '../config/styles';
@@ -79,7 +80,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <NavBar />
 
       {/* Navbar spacer (navbar is fixed positioned) */}
@@ -156,6 +157,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }

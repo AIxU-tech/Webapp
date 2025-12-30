@@ -9,20 +9,21 @@
  *
  * Props:
  * - children: Custom link text (default: "Terms of Service and Privacy Policy")
+ * - className: Optional className to override default styling
  *
  * @component
  */
 
 import { useTerms } from '../contexts/TermsContext';
 
-export default function TermsLink({ children }) {
+export default function TermsLink({ children, className }) {
   const { openTermsModal } = useTerms();
 
   return (
     <button
       type="button"
       onClick={openTermsModal}
-      className="text-primary hover:underline font-medium cursor-pointer"
+      className={className || "text-primary hover:underline font-medium cursor-pointer"}
     >
       {children || 'Terms of Service and Privacy Policy'}
     </button>
