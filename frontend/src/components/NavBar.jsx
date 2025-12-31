@@ -150,27 +150,11 @@ export default function NavBar() {
             <span>Opportunities</span>
           </NavLink>
 
-          {isAuthenticated ? (
+          {isAuthenticated && (
             <NavLink to="/messages" currentPath={currentPath}>
               <MessagesIcon />
               <span>Messages</span>
             </NavLink>
-          ) : (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                openAuthModal();
-              }}
-              className={`
-                px-3 py-2 rounded-md text-sm font-medium
-                flex items-center gap-2
-                transition-all duration-150
-                text-gray-700 hover:text-foreground hover:bg-gray-100
-              `}
-            >
-              <MessagesIcon />
-              <span>Messages</span>
-            </button>
           )}
 
           <NavLink to="/news" currentPath={currentPath}>

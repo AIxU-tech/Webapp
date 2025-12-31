@@ -9,7 +9,7 @@
  * - University detection based on .edu email domain
  * - Form validation and error handling
  * - Link to login modal
- * - Closes modal on successful registration
+ * - Navigates to email verification page after successful registration
  * - Uses BaseModal for backdrop blur and standard modal behaviors
  *
  * @component
@@ -25,7 +25,7 @@ import FormButton from './FormButton';
 import NameInputPair from './NameInputPair';
 import TermsLink from './TermsLink';
 import { Alert, Divider } from './ui';
-import { BrainCircuitIcon } from './icons';
+import { BrainCircuitIcon, XIcon } from './icons';
 import {
   extractEduSubdomain,
   isValidRegistrationEmail,
@@ -152,9 +152,15 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }) {
         lastName: data.lastName.trim(),
       });
 
-      // After registration, user needs to verify email
-      // Close modal - user can log in after verification
+      // Close modal and navigate to verification page
       onClose();
+      navigate('/verify-email', {
+        replace: true,
+        state: {
+          email: response.email || data.email,
+          university: response.university || detectedUniversity,
+        },
+      });
     },
   });
 
@@ -189,9 +195,18 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }) {
       isOpen={isOpen}
       onClose={onClose}
       size="lg"
-      showCloseButton={true}
+      showCloseButton={false}
     >
-      <div className="p-8">
+      <div className="p-8 relative">
+        {/* Close button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 hover:bg-accent rounded-md transition-colors z-10"
+          aria-label="Close modal"
+        >
+          <XIcon className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+        </button>
         {/* Logo and header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-6">

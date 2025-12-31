@@ -48,7 +48,7 @@ export default function Footer() {
           >
             {/* Logo icon with gradient background */}
             <div className="w-8 h-8 bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] rounded-lg flex items-center justify-center">
-              <BrainCircuitIcon className="h-5 w-5" />
+              <BrainCircuitIcon className="h-5 w-5 text-white" />
             </div>
             {/* Brand text */}
             <span className="font-bold text-lg text-foreground">AIxU</span>

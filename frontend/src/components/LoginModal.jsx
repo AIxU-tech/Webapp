@@ -23,7 +23,7 @@ import FormInput from './FormInput';
 import FormButton from './FormButton';
 import TermsLink from './TermsLink';
 import { Alert } from './ui';
-import { BrainCircuitIcon } from './icons';
+import { BrainCircuitIcon, XIcon } from './icons';
 
 /**
  * LoginModal Component
@@ -56,9 +56,18 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }) {
       isOpen={isOpen}
       onClose={onClose}
       size="md"
-      showCloseButton={true}
+      showCloseButton={false}
     >
-      <div className="p-8">
+      <div className="p-8 relative">
+        {/* Close button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 hover:bg-accent rounded-md transition-colors z-10"
+          aria-label="Close modal"
+        >
+          <XIcon className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+        </button>
         {/* Logo and header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-6">
@@ -69,7 +78,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }) {
           </div>
 
           <h2 className="text-2xl font-bold text-foreground mb-2">
-            Welcome back
+            Your ideas, amplified
           </h2>
           <p className="text-muted-foreground text-sm">
             Sign in to continue
