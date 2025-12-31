@@ -35,6 +35,8 @@
 import { useState, useCallback, useRef } from 'react';
 import { ExternalLinkIcon, ArrowLeftIcon, ChatBubbleIcon, SendIcon } from './icons';
 import { useStoryChatMutation, usePaperChatMutation } from '../hooks/useNews';
+import { useAuth } from '../contexts/AuthContext';
+import { useAuthModal } from '../contexts/AuthModalContext';
 
 /**
  * Strip citation tags from text.
@@ -189,6 +191,8 @@ export default function ContentCard({
   rank,
   type = 'story', // 'story' or 'paper'
 }) {
+  const { isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const [isChatMode, setIsChatMode] = useState(false);
   const [messages, setMessages] = useState([]);
   const [sessionId, setSessionId] = useState(null);
@@ -206,6 +210,10 @@ export default function ContentCard({
   // Handle sending a message from chat interface
   const handleSendMessage = useCallback(
     (message) => {
+      if (!isAuthenticated) {
+        openAuthModal();
+        return;
+      }
       setMessages((prev) => [...prev, { role: 'user', content: message }]);
       const payload = { message, sessionId };
       payload[config.idField] = item.id;
@@ -222,13 +230,17 @@ export default function ContentCard({
         }
       });
     },
-    [mutation, item.id, sessionId, config.idField]
+    [mutation, item.id, sessionId, config.idField, isAuthenticated, openAuthModal]
   );
 
   // Handle starting a chat from summary view
   const handleStartChat = useCallback(
     (e) => {
       e.preventDefault();
+      if (!isAuthenticated) {
+        openAuthModal();
+        return;
+      }
       const message = summaryInput.trim();
       if (message) {
         const newSessionId = generateSessionId();
@@ -253,7 +265,7 @@ export default function ContentCard({
         });
       }
     },
-    [summaryInput, mutation, item.id, config.idField]
+    [summaryInput, mutation, item.id, config.idField, isAuthenticated, openAuthModal]
   );
 
   const handleBackToSummary = useCallback(() => {

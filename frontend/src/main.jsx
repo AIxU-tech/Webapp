@@ -35,6 +35,7 @@ import { QueryProvider } from './contexts/QueryProvider';
 import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
 import { TermsProvider } from './contexts/TermsContext';
+import { AuthModalProvider } from './contexts/AuthModalContext';
 import AppPrefetcher from './components/AppPrefetcher';
 import App from './App';
 import './styles.css';
@@ -52,15 +53,18 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <TermsProvider>
           {/* AuthProvider checks login status and provides user state */}
           <AuthProvider>
-            {/* AppPrefetcher loads all main page data in the background */}
-            {/* Runs once after auth check, doesn't block initial render */}
-            <AppPrefetcher />
+            {/* AuthModalProvider enables Auth modal to be opened from any page */}
+            <AuthModalProvider>
+              {/* AppPrefetcher loads all main page data in the background */}
+              {/* Runs once after auth check, doesn't block initial render */}
+              <AppPrefetcher />
 
-            {/* SocketProvider manages WebSocket connection for real-time features */}
-            {/* Must be inside AuthProvider to access user state */}
-            <SocketProvider>
-              <App />
-            </SocketProvider>
+              {/* SocketProvider manages WebSocket connection for real-time features */}
+              {/* Must be inside AuthProvider to access user state */}
+              <SocketProvider>
+                <App />
+              </SocketProvider>
+            </AuthModalProvider>
           </AuthProvider>
         </TermsProvider>
       </BrowserRouter>

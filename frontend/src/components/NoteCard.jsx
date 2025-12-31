@@ -12,6 +12,7 @@ import {
   BuildingIcon,
 } from './icons';
 import CommentSection from './CommentSection';
+import { useAuthModal } from '../contexts/AuthModalContext';
 
 export default function NoteCard({
   note,
@@ -21,6 +22,7 @@ export default function NoteCard({
   currentUserId,
   isAuthenticated = false,
 }) {
+  const { openAuthModal } = useAuthModal();
   // Local state for comment section expansion
   const [isCommentsExpanded, setIsCommentsExpanded] = useState(false);
 
@@ -29,6 +31,10 @@ export default function NoteCard({
 
   // Toggle comment section
   const handleToggleComments = () => {
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
     setIsCommentsExpanded((prev) => !prev);
   };
 

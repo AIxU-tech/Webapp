@@ -16,6 +16,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useAuthModal } from '../contexts/AuthModalContext';
 import {
   useComments,
   useCreateComment,
@@ -65,6 +66,7 @@ function groupCommentsByParent(comments) {
  */
 export default function CommentSection({ noteId, isExpanded }) {
   const { user, isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState(null); // Comment being replied to
   const inputRef = useRef(null);
@@ -105,7 +107,10 @@ export default function CommentSection({ noteId, isExpanded }) {
 
   // Handle starting a reply
   const handleReply = (comment) => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
     setReplyingTo(comment);
   };
 
@@ -149,7 +154,10 @@ export default function CommentSection({ noteId, isExpanded }) {
 
   // Handle liking a comment
   const handleLike = (noteId, commentId) => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
     likeMutation.mutate({ noteId, commentId });
   };
 
@@ -262,9 +270,12 @@ export default function CommentSection({ noteId, isExpanded }) {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground text-center py-2">
-            <a href="/login" className="text-primary hover:underline">
+            <button
+              onClick={openAuthModal}
+              className="text-primary hover:underline"
+            >
               Log in
-            </a>{' '}
+            </button>{' '}
             to leave a comment
           </p>
         )}

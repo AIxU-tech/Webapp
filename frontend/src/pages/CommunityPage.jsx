@@ -24,6 +24,7 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useAuthModal } from '../contexts/AuthModalContext';
 import {
   useNotes,
   useCreateNote,
@@ -76,6 +77,7 @@ export default function CommunityPage() {
    * Authentication and URL State
    */
   const { user, isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const [searchParams, setSearchParams] = useSearchParams();
 
   /**
@@ -188,7 +190,7 @@ export default function CommunityPage() {
    */
   function openModal() {
     if (!isAuthenticated) {
-      alert('Please log in to create notes');
+      openAuthModal();
       return;
     }
     setIsModalOpen(true);
@@ -248,7 +250,7 @@ export default function CommunityPage() {
    */
   function handleLike(noteId) {
     if (!isAuthenticated) {
-      alert('Please log in to like notes');
+      openAuthModal();
       return;
     }
 
