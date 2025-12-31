@@ -44,8 +44,8 @@ class UniversityRole(db.Model):
     __tablename__ = 'university_roles'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    university_id = db.Column(db.Integer, db.ForeignKey('universities.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    university_id = db.Column(db.Integer, db.ForeignKey('universities.id', ondelete='CASCADE'), nullable=False)
     role = db.Column(db.Integer, default=UniversityRoles.MEMBER, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -57,8 +57,9 @@ class UniversityRole(db.Model):
     )
 
     # Relationships
-    user = db.relationship('User', foreign_keys=[user_id], backref='university_roles')
-    university = db.relationship('University', backref='roles')
+    # passive_deletes=True tells SQLAlchemy to let the database handle CASCADE deletes
+    user = db.relationship('User', foreign_keys=[user_id], backref='university_roles', passive_deletes=True)
+    university = db.relationship('University', backref=db.backref('roles', passive_deletes=True))
     updated_by = db.relationship('User', foreign_keys=[updated_by_id])
 
     def __repr__(self):

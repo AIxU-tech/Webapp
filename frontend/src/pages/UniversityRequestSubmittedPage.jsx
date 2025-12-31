@@ -10,7 +10,9 @@
 
 import { useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import PlasmaBackground from '../components/PlasmaBackground';
+import { usePageTitle } from '../hooks';
+import { GradientButton, Alert } from '../components/ui';
+import VerificationPageLayout from '../components/VerificationPageLayout';
 
 export default function UniversityRequestSubmittedPage() {
   const location = useLocation();
@@ -19,6 +21,9 @@ export default function UniversityRequestSubmittedPage() {
   // Get data from previous step
   const { universityName, email } = location.state || {};
 
+  // Set page title
+  usePageTitle('Request Submitted');
+
   // Redirect if accessed directly without state
   useEffect(() => {
     if (!universityName) {
@@ -26,70 +31,47 @@ export default function UniversityRequestSubmittedPage() {
     }
   }, [universityName, navigate]);
 
-  // Set page title
-  useEffect(() => {
-    document.title = 'Request Submitted - AIxU';
-  }, []);
-
+  // Don't render until we've confirmed we have required state
   if (!universityName) {
     return null;
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden no-scrollbar">
-      <PlasmaBackground
-        variant="fullscreen"
-        radialWhitecast={true}
-        cardRadius={0.35}
-      />
+    <VerificationPageLayout>
+      <div className="bg-card border border-border rounded-xl shadow-card p-8 text-center">
+        {/* Success Icon */}
+        <div className="text-5xl mb-4">🎉</div>
 
-      <div className="relative z-10 w-full max-w-lg px-6 py-12">
-        <div className="bg-card border border-border rounded-xl shadow-card p-8 text-center">
-          {/* Success Icon */}
-          <div className="text-5xl mb-4">🎉</div>
+        {/* Title */}
+        <h1 className="text-2xl font-semibold text-foreground mb-4">
+          Request Submitted!
+        </h1>
 
-          {/* Title */}
-          <h1 className="text-2xl font-semibold text-foreground mb-4">
-            Request Submitted!
-          </h1>
+        {/* Description */}
+        <div className="text-muted-foreground mb-6 space-y-4">
+          <p>
+            Your request to add <strong className="text-foreground">{universityName}</strong> has been submitted successfully.
+          </p>
 
-          {/* Description */}
-          <div className="text-muted-foreground mb-8 space-y-4">
-            <p>
-              Your request to add <strong className="text-foreground">{universityName}</strong> has been submitted successfully.
-            </p>
+          {/* Next Steps Info Box */}
+          <Alert variant="info" title="What happens next?">
+            <ol className="text-left space-y-2 list-decimal list-inside mt-2">
+              <li>An admin will review your request</li>
+              <li>Once approved, the university will be added to AIxU</li>
+              <li>You'll be able to register with your <strong>{email}</strong> email</li>
+            </ol>
+          </Alert>
 
-            <div className="bg-muted rounded-lg p-4 text-sm">
-              <p className="font-medium text-foreground mb-2">What happens next?</p>
-              <ol className="text-left space-y-2 list-decimal list-inside">
-                <li>An admin will review your request</li>
-                <li>Once approved, the university will be added to AIxU</li>
-                <li>You'll be able to register with your <strong>{email}</strong> email</li>
-              </ol>
-            </div>
-
-            <p className="text-sm">
-              This usually takes 1-2 business days. You'll receive an email notification when your university is approved.
-            </p>
-          </div>
-
-          {/* Action Button */}
-          <Link
-            to="/register"
-            className="inline-block w-full bg-gradient-primary text-white px-6 py-3 rounded-lg font-semibold hover:shadow-hover transition-all duration-200"
-          >
-            Return to Registration
-          </Link>
-
-          {/* Secondary Link */}
-          <Link
-            to="/"
-            className="mt-4 inline-block text-sm text-primary hover:underline"
-          >
-            Go to Homepage
-          </Link>
+          <p className="text-sm">
+            This usually takes 1-2 business days. You'll receive an email notification when your university is approved.
+          </p>
         </div>
+
+        {/* Action Button */}
+        <GradientButton as={Link} to="/" className="w-full">
+          Go to Homepage
+        </GradientButton>
       </div>
-    </div>
+    </VerificationPageLayout>
   );
 }

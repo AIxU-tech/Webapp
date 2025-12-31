@@ -12,7 +12,8 @@ Tests for the /api/auth/* endpoints:
 
 import pytest
 import time
-from backend.models import User, University
+from datetime import datetime, timedelta
+from backend.models import User, University, PasswordResetToken
 from backend.extensions import db
 
 
@@ -79,7 +80,7 @@ class TestLogin:
 
         assert response.status_code == 200
         # Check that we can access authenticated endpoint
-        me_response = client.get('/api/user/profile')
+        me_response = client.get('/api/profile')
         assert me_response.status_code == 200
 
 
@@ -344,7 +345,7 @@ class TestLogout:
         authenticated_client.post('/api/auth/logout')
 
         # Try to access protected route
-        response = authenticated_client.get('/api/user/profile')
+        response = authenticated_client.get('/api/profile')
         assert response.status_code == 401
 
 
@@ -361,14 +362,14 @@ class TestSessionSecurity:
             })
 
             # Access protected route
-            response = client.get('/api/user/profile')
+            response = client.get('/api/profile')
             assert response.status_code == 200
             data = response.get_json()
             assert data['email'] == 'test@example.edu'
 
     def test_protected_route_without_login(self, client):
         """Test accessing protected route without login"""
-        response = client.get('/api/user/profile')
+        response = client.get('/api/profile')
         assert response.status_code == 401
 
     def test_multiple_login_sessions(self, app, test_user):
@@ -378,7 +379,7 @@ class TestSessionSecurity:
 
         # First, verify that an unauthenticated client cannot access profile
         fresh_client = app.test_client()
-        response_unauth = fresh_client.get('/api/user/profile')
+        response_unauth = fresh_client.get('/api/profile')
         assert response_unauth.status_code == 401
 
         # Now login and verify we can access profile
@@ -391,12 +392,12 @@ class TestSessionSecurity:
             assert response_login.status_code == 200
 
             # Should be able to access profile after login
-            response_profile = client.get('/api/user/profile')
+            response_profile = client.get('/api/profile')
             assert response_profile.status_code == 200
 
         # After exiting the context, a new client should be unauthenticated
         another_fresh_client = app.test_client()
-        response_new = another_fresh_client.get('/api/user/profile')
+        response_new = another_fresh_client.get('/api/profile')
         assert response_new.status_code == 401
 
 
@@ -752,5 +753,253 @@ class TestCompleteAccount:
             })
 
             # Should be able to access protected route
-            profile_response = client.get('/api/user/profile')
+            profile_response = client.get('/api/profile')
             assert profile_response.status_code == 200
+
+
+class TestForgotPassword:
+    """Tests for POST /api/auth/forgot-password"""
+
+    def test_forgot_password_missing_email(self, client):
+        """Test forgot password fails without email"""
+        response = client.post('/api/auth/forgot-password', json={})
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'email' in data['error'].lower()
+
+    def test_forgot_password_nonexistent_email(self, client):
+        """Test forgot password fails for non-existent email"""
+        response = client.post('/api/auth/forgot-password', json={
+            'email': 'nonexistent@example.edu'
+        })
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+        assert 'account' in data['error'].lower() or 'email' in data['error'].lower()
+
+    def test_forgot_password_success(self, client, test_user, app):
+        """Test successful password reset request creates token and sends email"""
+        with app.app_context():
+            response = client.post('/api/auth/forgot-password', json={
+                'email': 'test@example.edu'
+            })
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert 'message' in data
+
+            # Verify token was created
+            user = db.session.get(User, test_user.id)
+            token = PasswordResetToken.query.filter_by(
+                user_id=user.id,
+                used=False
+            ).first()
+
+            assert token is not None
+            assert token.user_id == user.id
+            assert token.used is False
+            # Token should expire in about 1 hour
+            expected_expiry = datetime.utcnow() + timedelta(hours=1)
+            time_diff = abs((token.expires_at - expected_expiry).total_seconds())
+            assert time_diff < 60  # Within 1 minute
+
+
+
+class TestResetPassword:
+    """Tests for POST /api/auth/reset-password"""
+
+    def test_reset_password_missing_token(self, client):
+        """Test reset password fails without token"""
+        response = client.post('/api/auth/reset-password', json={
+            'password': 'newpassword123'
+        })
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'token' in data['error'].lower() or 'invalid' in data['error'].lower()
+
+    def test_reset_password_missing_password(self, client):
+        """Test reset password fails without password"""
+        response = client.post('/api/auth/reset-password', json={
+            'token': 'some-token'
+        })
+
+        assert response.status_code == 400
+        # May fail on token validation or password missing - both are valid
+
+    def test_reset_password_invalid_token(self, client):
+        """Test reset password fails with invalid token"""
+        response = client.post('/api/auth/reset-password', json={
+            'token': 'invalid-token-xyz',
+            'password': 'newpassword123'
+        })
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'invalid' in data['error'].lower() or 'expired' in data['error'].lower()
+
+    def test_reset_password_expired_token(self, client, test_user, app):
+        """Test reset password fails with expired token"""
+        with app.app_context():
+            user = db.session.get(User, test_user.id)
+
+            # Create expired token
+            expired_token = PasswordResetToken(
+                user_id=user.id,
+                token='expired-token-123',
+                expires_at=datetime.utcnow() - timedelta(hours=1),
+                used=False
+            )
+            db.session.add(expired_token)
+            db.session.commit()
+
+            response = client.post('/api/auth/reset-password', json={
+                'token': 'expired-token-123',
+                'password': 'newpassword123'
+            })
+
+            assert response.status_code == 400
+            data = response.get_json()
+            assert 'expired' in data['error'].lower()
+
+    def test_reset_password_used_token(self, client, test_user, app):
+        """Test reset password fails with already used token"""
+        with app.app_context():
+            user = db.session.get(User, test_user.id)
+
+            # Create used token
+            used_token = PasswordResetToken(
+                user_id=user.id,
+                token='used-token-123',
+                expires_at=datetime.utcnow() + timedelta(hours=1),
+                used=True
+            )
+            db.session.add(used_token)
+            db.session.commit()
+
+            response = client.post('/api/auth/reset-password', json={
+                'token': 'used-token-123',
+                'password': 'newpassword123'
+            })
+
+            assert response.status_code == 400
+            data = response.get_json()
+            assert 'invalid' in data['error'].lower() or 'expired' in data['error'].lower()
+
+    def test_reset_password_success(self, client, test_user, app):
+        """Test successful password reset updates password and logs user in"""
+        with app.app_context():
+            user = db.session.get(User, test_user.id)
+            old_password_hash = user.password_hash
+
+            # Create valid token
+            reset_token = PasswordResetToken(
+                user_id=user.id,
+                token='valid-token-123',
+                expires_at=datetime.utcnow() + timedelta(hours=1),
+                used=False
+            )
+            db.session.add(reset_token)
+            db.session.commit()
+
+            # Reset password
+            response = client.post('/api/auth/reset-password', json={
+                'token': 'valid-token-123',
+                'password': 'newsecurepassword123'
+            })
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert 'success' in data['message'].lower()
+
+            # Verify password was changed
+            db.session.refresh(user)
+            assert user.password_hash != old_password_hash
+            assert user.check_password('newsecurepassword123')
+            assert not user.check_password('testpassword123')  # Old password doesn't work
+
+            # Verify token is marked as used
+            db.session.refresh(reset_token)
+            assert reset_token.used is True
+
+            # Verify user is logged in (can access protected route)
+            profile_response = client.get('/api/profile')
+            assert profile_response.status_code == 200
+            profile_data = profile_response.get_json()
+            assert profile_data['email'] == 'test@example.edu'
+
+
+class TestValidateResetToken:
+    """Tests for POST /api/auth/validate-reset-token"""
+
+    def test_validate_reset_token_missing_token(self, client):
+        """Test validation fails without token"""
+        response = client.post('/api/auth/validate-reset-token', json={})
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'token' in data['error'].lower() or 'required' in data['error'].lower()
+
+    def test_validate_reset_token_invalid_token(self, client):
+        """Test validation fails with invalid token"""
+        response = client.post('/api/auth/validate-reset-token', json={
+            'token': 'invalid-token-xyz'
+        })
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'invalid' in data['error'].lower() or 'used' in data['error'].lower()
+
+    def test_validate_reset_token_expired_token(self, client, test_user, app):
+        """Test validation fails with expired token"""
+        with app.app_context():
+            user = db.session.get(User, test_user.id)
+
+            # Create expired token
+            expired_token = PasswordResetToken(
+                user_id=user.id,
+                token='expired-validation-token',
+                expires_at=datetime.utcnow() - timedelta(hours=1),
+                used=False
+            )
+            db.session.add(expired_token)
+            db.session.commit()
+
+            response = client.post('/api/auth/validate-reset-token', json={
+                'token': 'expired-validation-token'
+            })
+
+            assert response.status_code == 400
+            data = response.get_json()
+            assert 'expired' in data['error'].lower()
+
+
+    def test_validate_reset_token_success(self, client, test_user, app):
+        """Test validation succeeds with valid unused token"""
+        with app.app_context():
+            user = db.session.get(User, test_user.id)
+
+            # Create valid token
+            valid_token = PasswordResetToken(
+                user_id=user.id,
+                token='valid-validation-token',
+                expires_at=datetime.utcnow() + timedelta(hours=1),
+                used=False
+            )
+            db.session.add(valid_token)
+            db.session.commit()
+
+            response = client.post('/api/auth/validate-reset-token', json={
+                'token': 'valid-validation-token'
+            })
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert 'message' in data
+            assert 'valid' in data['message'].lower()
+
+            # Verify token is still unused (validation doesn't consume it)
+            db.session.refresh(valid_token)
+            assert valid_token.used is False

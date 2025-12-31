@@ -12,7 +12,7 @@
  * - Skills and Interests display
  * - Recent activity feed
  * - Edit profile modal (own profile only)
- * - Profile picture upload with cropping (own profile only)
+ * - Profile picture upload with auto-cropping (own profile only)
  *
  * University Affiliation:
  * Users are automatically enrolled in a university based on their .edu email
@@ -22,165 +22,139 @@
  * @component
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { logout } from '../api/auth';
-import { updateProfile, uploadProfilePicture, deleteProfilePicture } from '../api/users';
-import { useUser, userKeys, usePageTitle } from '../hooks';
-import { useQueryClient } from '@tanstack/react-query';
-import ConfirmationModal from '../components/ConfirmationModal';
 import {
-  EditIcon,
-  LogOutIcon,
-  XIcon,
-  CameraIcon,
-  UploadIcon,
-  TrashIcon,
-  CheckIcon,
-  FileTextIcon,
-  MessageCircleIcon,
-  HeartIcon,
-  ActivityIcon,
-} from '../components/icons';
+  useUser,
+  usePageTitle,
+  useUpdateProfile,
+  useUploadProfilePicture,
+} from '../hooks';
+
+// UI Components
+import {
+  BaseModal,
+  LoadingState,
+  ErrorState,
+  GradientButton,
+  SecondaryButton,
+  Badge,
+  EmptyState,
+} from '../components/ui';
+import ConfirmationModal from '../components/ConfirmationModal';
+import FormInput from '../components/FormInput';
+
+// Profile Components
+import {
+  ProfileCard,
+  ActivityItem,
+  ProfilePictureSection,
+} from '../components/profile';
+
+// Icons
+import { EditIcon, LogOutIcon } from '../components/icons';
+
+// Styles
+import { GRADIENT_PRIMARY } from '../config/styles';
 
 export default function ProfilePage() {
-  /**
-   * Component State
-   *
-   * Manages user data, loading states, modal visibility, and form data.
-   */
-  const { userId } = useParams(); // Get userId from URL params if viewing another user
+  const { userId } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { user: currentUser, setUser: setCurrentUser, logoutUser } = useAuth();
 
   // Determine if viewing own profile
   const isOwnProfile = !userId || (currentUser && currentUser.id === parseInt(userId));
-
-  // ---------------------------------------------------------------------------
-  // Data Fetching with React Query
-  // ---------------------------------------------------------------------------
-  // Use the useUser hook to leverage caching and prefetching.
-  // For own profile, use currentUser.id; for others, use userId from URL.
   const targetUserId = isOwnProfile ? currentUser?.id : parseInt(userId);
 
+  // ---------------------------------------------------------------------------
+  // Data Fetching
+  // ---------------------------------------------------------------------------
+
   const {
-    data: fetchedUser,
-    isLoading: loading,
+    data: user,
+    isLoading,
     error: fetchError,
   } = useUser(targetUserId);
 
-  // User data from the hook (no need for local updates - cache handles it)
-  const user = fetchedUser || null;
   const error = fetchError?.message || null;
 
-  // Modal states
+  // ---------------------------------------------------------------------------
+  // Mutations
+  // ---------------------------------------------------------------------------
+
+  const updateProfileMutation = useUpdateProfile();
+  const uploadPictureMutation = useUploadProfilePicture();
+
+  // ---------------------------------------------------------------------------
+  // Modal States
+  // ---------------------------------------------------------------------------
+
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showCropModal, setShowCropModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // Form states
+  // ---------------------------------------------------------------------------
+  // Form State
+  // ---------------------------------------------------------------------------
+
   const [formData, setFormData] = useState({});
-
-  // Image cropping states
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [cropImageSrc, setCropImageSrc] = useState('');
-  const [imageState, setImageState] = useState({
-    scale: 1,
-    offsetX: 0,
-    offsetY: 0,
-    isDragging: false,
-    startX: 0,
-    startY: 0,
-  });
-
-  // Refs
-  const fileInputRef = useRef(null);
-  const cropImageRef = useRef(null);
-  const cropContainerRef = useRef(null);
-
-  // Track if form has been initialized to prevent resetting on background refetch
   const [formInitialized, setFormInitialized] = useState(false);
 
-  // Set page title based on whose profile is being viewed
+  // Set page title
   usePageTitle(user ? (isOwnProfile ? 'Profile' : user.full_name) : 'Profile');
 
-  /**
-   * Initialize Form Data
-   *
-   * Sets up form data when the edit modal opens.
-   * Only runs once per modal open to prevent losing unsaved changes
-   * if a background refetch occurs while the user is editing.
-   *
-   * Note: University affiliation is not editable - it's determined by
-   * the user's email domain at registration time.
-   */
+  // ---------------------------------------------------------------------------
+  // Form Initialization
+  // ---------------------------------------------------------------------------
+
   useEffect(() => {
-    // Only initialize when modal opens and we have user data
-    // Reset formInitialized when modal closes so it re-initializes next time
+    // Reset form initialization when modal closes
     if (!showEditModal) {
       setFormInitialized(false);
       return;
     }
 
-    // Don't re-initialize if already done for this modal session
-    if (formInitialized) {
-      return;
-    }
+    // Don't re-initialize if already done
+    if (formInitialized || !user || !isOwnProfile) return;
 
-    if (user && isOwnProfile) {
-      // Initialize form data - university is read-only (not included)
-      setFormData({
-        first_name: user.first_name || '',
-        last_name: user.last_name || '',
-        location: user.location || '',
-        avatar_url: user.avatar_url || '',
-        about_section: user.about_section || '',
-        skills: user.skills?.join(', ') || '',
-        interests: user.interests?.join(', ') || '',
-      });
-
-      setFormInitialized(true);
-    }
+    setFormData({
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      location: user.location || '',
+      about_section: user.about_section || '',
+      skills: user.skills?.join(', ') || '',
+      interests: user.interests?.join(', ') || '',
+    });
+    setFormInitialized(true);
   }, [showEditModal, user, isOwnProfile, formInitialized]);
 
-  /**
-   * Handle Edit Profile
-   *
-   * Opens the edit profile modal.
-   */
-  const handleEditProfile = () => {
-    setShowEditModal(true);
-  };
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
 
   /**
-   * Handle Profile Update
-   *
-   * Submits profile changes to the API and updates local state.
+   * Handle profile form submission
    */
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
 
     try {
-      // Convert comma-separated strings to arrays for skills and interests
       const updates = {
         ...formData,
-        skills: formData.skills ? formData.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
-        interests: formData.interests ? formData.interests.split(',').map((i) => i.trim()).filter(Boolean) : [],
+        skills: formData.skills
+          ? formData.skills.split(',').map((s) => s.trim()).filter(Boolean)
+          : [],
+        interests: formData.interests
+          ? formData.interests.split(',').map((i) => i.trim()).filter(Boolean)
+          : [],
       };
 
-      const response = await updateProfile(updates);
+      const response = await updateProfileMutation.mutateAsync(updates);
 
-      // Update user data - invalidate cache to trigger refetch
-      if (response.user) {
-        // Invalidate the user query to refetch fresh data
-        queryClient.invalidateQueries({ queryKey: userKeys.all });
-
-        // Also update AuthContext for navbar, etc.
-        if (isOwnProfile) {
-          setCurrentUser({ ...currentUser, ...response.user });
-        }
+      // Update AuthContext for navbar
+      if (response.user && isOwnProfile) {
+        setCurrentUser({ ...currentUser, ...response.user });
       }
 
       setShowEditModal(false);
@@ -192,332 +166,81 @@ export default function ProfilePage() {
   };
 
   /**
-   * Handle Logout Confirmation
-   *
-   * Called when user confirms logout in the modal.
-   * Logs out the user and redirects to home page.
+   * Handle profile picture upload
+   */
+  const handleUploadPicture = async (blob) => {
+    try {
+      const response = await uploadPictureMutation.mutateAsync(blob);
+
+      // Update AuthContext for navbar avatar
+      if (response.profile_picture_url && isOwnProfile && currentUser) {
+        setCurrentUser({ ...currentUser, profile_picture_url: response.profile_picture_url });
+      }
+    } catch (err) {
+      console.error('Error uploading picture:', err);
+      alert('Failed to upload profile picture');
+    }
+  };
+
+  /**
+   * Handle logout confirmation
    */
   const handleLogoutConfirm = async () => {
     try {
-      // Call backend logout API to clear Flask session
       await logout();
-      // Clear user state in React context
       logoutUser();
-      // Redirect to home page
       navigate('/');
     } catch (err) {
       console.error('Logout error:', err);
-      // Even if API call fails, clear local state and redirect
       logoutUser();
       navigate('/');
     }
   };
 
   /**
-   * Handle Profile Picture Upload
-   *
-   * Opens file picker for profile picture upload.
+   * Update form field
    */
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
+  const updateField = (field) => (e) => {
+    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
-  /**
-   * Handle File Selection
-   *
-   * Processes selected image file and opens crop modal.
-   */
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // ---------------------------------------------------------------------------
+  // Render States
+  // ---------------------------------------------------------------------------
 
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
-      e.target.value = '';
-      return;
-    }
-
-    // Validate file type
-    if (!file.type.match('image.*')) {
-      alert('Please select an image file');
-      e.target.value = '';
-      return;
-    }
-
-    setSelectedFile(file);
-
-    // Read file and show crop modal
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setCropImageSrc(event.target.result);
-      setShowCropModal(true);
-
-      // Reset image state
-      setImageState({
-        scale: 1,
-        offsetX: 0,
-        offsetY: 0,
-        isDragging: false,
-        startX: 0,
-        startY: 0,
-      });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  /**
-   * Initialize Crop Image
-   *
-   * Sets up initial scale for crop image when it loads.
-   */
-  useEffect(() => {
-    if (!showCropModal || !cropImageRef.current) return;
-
-    const img = cropImageRef.current;
-    const handleImageLoad = () => {
-      const containerSize = 300;
-      const imgWidth = img.naturalWidth;
-      const imgHeight = img.naturalHeight;
-
-      // Scale so the smaller dimension fills the container
-      const scaleX = containerSize / imgWidth;
-      const scaleY = containerSize / imgHeight;
-      const initialScale = Math.max(scaleX, scaleY);
-
-      setImageState((prev) => ({ ...prev, scale: initialScale }));
-    };
-
-    img.addEventListener('load', handleImageLoad);
-    return () => img.removeEventListener('load', handleImageLoad);
-  }, [showCropModal, cropImageSrc]);
-
-  /**
-   * Handle Mouse/Touch Drag
-   *
-   * Allows user to pan the image within the crop circle.
-   */
-  const handleMouseDown = (e) => {
-    e.preventDefault();
-    setImageState((prev) => ({
-      ...prev,
-      isDragging: true,
-      startX: e.clientX - prev.offsetX,
-      startY: e.clientY - prev.offsetY,
-    }));
-  };
-
-  const handleMouseMove = (e) => {
-    if (!imageState.isDragging) return;
-    e.preventDefault();
-    setImageState((prev) => ({
-      ...prev,
-      offsetX: e.clientX - prev.startX,
-      offsetY: e.clientY - prev.startY,
-    }));
-  };
-
-  const handleMouseUp = () => {
-    setImageState((prev) => ({ ...prev, isDragging: false }));
-  };
-
-  const handleTouchStart = (e) => {
-    const touch = e.touches[0];
-    setImageState((prev) => ({
-      ...prev,
-      isDragging: true,
-      startX: touch.clientX - prev.offsetX,
-      startY: touch.clientY - prev.offsetY,
-    }));
-  };
-
-  const handleTouchMove = (e) => {
-    if (!imageState.isDragging) return;
-    e.preventDefault();
-    const touch = e.touches[0];
-    setImageState((prev) => ({
-      ...prev,
-      offsetX: touch.clientX - prev.startX,
-      offsetY: touch.clientY - prev.startY,
-    }));
-  };
-
-  const handleTouchEnd = () => {
-    setImageState((prev) => ({ ...prev, isDragging: false }));
-  };
-
-  /**
-   * Handle Wheel Zoom
-   *
-   * Allows user to zoom in/out using mouse wheel.
-   */
-  const handleWheel = (e) => {
-    e.preventDefault();
-    const delta = e.deltaY * -0.001;
-    setImageState((prev) => ({
-      ...prev,
-      scale: Math.max(0.5, Math.min(5, prev.scale + delta)),
-    }));
-  };
-
-  /**
-   * Get Image Transform Style
-   *
-   * Calculates CSS transform for the crop image based on current state.
-   */
-  const getImageTransform = () => {
-    if (!cropImageRef.current) return {};
-
-    const img = cropImageRef.current;
-    const renderedWidth = img.naturalWidth * imageState.scale;
-    const renderedHeight = img.naturalHeight * imageState.scale;
-
-    const left = 150 - renderedWidth / 2 + imageState.offsetX;
-    const top = 150 - renderedHeight / 2 + imageState.offsetY;
-
-    return {
-      width: `${renderedWidth}px`,
-      height: `${renderedHeight}px`,
-      left: `${left}px`,
-      top: `${top}px`,
-      position: 'absolute',
-      cursor: imageState.isDragging ? 'grabbing' : 'move',
-      userSelect: 'none',
-      WebkitUserDrag: 'none',
-    };
-  };
-
-  /**
-   * Handle Crop Confirm
-   *
-   * Crops the image based on current position/zoom and uploads to server.
-   */
-  const handleCropConfirm = async () => {
-    if (!cropImageRef.current || !selectedFile) return;
-
-    try {
-      // Create canvas to crop the image
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const outputSize = 400;
-      const containerSize = 300;
-
-      canvas.width = outputSize;
-      canvas.height = outputSize;
-
-      const img = cropImageRef.current;
-      const renderedWidth = img.naturalWidth * imageState.scale;
-      const renderedHeight = img.naturalHeight * imageState.scale;
-
-      const imageLeft = 150 - renderedWidth / 2 + imageState.offsetX;
-      const imageTop = 150 - renderedHeight / 2 + imageState.offsetY;
-
-      const visibleLeft = 0 - imageLeft;
-      const visibleTop = 0 - imageTop;
-
-      const sourceX = visibleLeft / imageState.scale;
-      const sourceY = visibleTop / imageState.scale;
-      const sourceWidth = containerSize / imageState.scale;
-      const sourceHeight = containerSize / imageState.scale;
-
-      ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, outputSize, outputSize);
-
-      // Convert canvas to blob
-      canvas.toBlob(async (blob) => {
-        try {
-          const response = await uploadProfilePicture(blob);
-
-          // Update user's profile picture URL - invalidate cache to refetch
-          if (response.profile_picture_url) {
-            // Invalidate user cache to show new picture
-            queryClient.invalidateQueries({ queryKey: userKeys.all });
-
-            // Update AuthContext for navbar avatar
-            if (isOwnProfile && currentUser) {
-              setCurrentUser({ ...currentUser, profile_picture_url: response.profile_picture_url });
-            }
-          }
-
-          setShowCropModal(false);
-          setSelectedFile(null);
-          setCropImageSrc('');
-          if (fileInputRef.current) fileInputRef.current.value = '';
-        } catch (err) {
-          console.error('Error uploading picture:', err);
-          alert('Failed to upload profile picture');
-        }
-      }, 'image/jpeg', 0.9);
-    } catch (err) {
-      console.error('Error processing image:', err);
-      alert('Error processing image');
-    }
-  };
-
-  /**
-   * Handle Delete Profile Picture
-   *
-   * Removes current profile picture and reverts to default avatar.
-   */
-  const handleDeletePicture = async () => {
-    if (!confirm('Are you sure you want to remove your profile picture?')) return;
-
-    try {
-      const response = await deleteProfilePicture();
-      if (response.profile_picture_url) {
-        // Invalidate user cache to refetch without picture
-        queryClient.invalidateQueries({ queryKey: userKeys.all });
-
-        // Update AuthContext for navbar avatar
-        if (isOwnProfile && currentUser) {
-          setCurrentUser({ ...currentUser, profile_picture_url: response.profile_picture_url });
-        }
-      }
-    } catch (err) {
-      console.error('Error deleting picture:', err);
-      alert('Failed to delete profile picture');
-    }
-  };
-
-  /**
-   * Render Loading State
-   */
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Loading profile...</div>
-      </div>
-    );
+  if (isLoading) {
+    return <LoadingState fullPage text="Loading profile..." />;
   }
 
-  /**
-   * Render Error State
-   */
   if (error || !user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error || 'User not found'}</p>
-          <Link to="/community" className="text-academic-blue hover:underline">
-            Return to Community
-          </Link>
-        </div>
-      </div>
+      <ErrorState
+        fullPage
+        message={error || 'User not found'}
+        backLink={{ to: '/community', label: 'Return to Community' }}
+      />
     );
   }
 
-  /**
-   * Main Render
-   */
+  // ---------------------------------------------------------------------------
+  // Main Render
+  // ---------------------------------------------------------------------------
+
+  const avatarUrl =
+    user.profile_picture_url ||
+    user.avatar_url ||
+    `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Profile Header */}
-      <section className="bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white">
+      <section className={`${GRADIENT_PRIMARY} text-white`}>
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col lg:flex-row items-center gap-6">
             {/* Avatar */}
             <div className="flex-shrink-0">
               <img
-                src={user.profile_picture_url || user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`}
+                src={avatarUrl}
                 alt={`Avatar of ${user.full_name}`}
                 className="w-24 h-24 rounded-full border-4 border-white shadow-lg object-cover"
               />
@@ -525,9 +248,15 @@ export default function ProfilePage() {
 
             {/* User Info */}
             <div className="flex-1 text-center lg:text-left">
-              <h1 className="text-3xl font-bold mb-1 leading-tight">{user.full_name}</h1>
-              <p className="text-lg opacity-90 mb-1">{user.university || 'No university'}</p>
-              <p className="text-sm opacity-75 mb-3">Joined {user.joined_formatted}</p>
+              <h1 className="text-3xl font-bold mb-1 leading-tight">
+                {user.full_name}
+              </h1>
+              <p className="text-lg opacity-90 mb-1">
+                {user.university || 'No university'}
+              </p>
+              <p className="text-sm opacity-75 mb-3">
+                Joined {user.joined_formatted}
+              </p>
 
               {/* Stats */}
               <div className="flex flex-wrap gap-6 text-sm justify-center lg:justify-start">
@@ -549,22 +278,22 @@ export default function ProfilePage() {
             {/* Action Buttons */}
             {isOwnProfile && (
               <div className="flex gap-3 mt-4 lg:mt-0">
-                <button
-                  type="button"
-                  onClick={handleEditProfile}
-                  className="flex items-center bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg font-semibold transition-colors shadow-sm"
+                <SecondaryButton
+                  variant="ghost"
+                  icon={<EditIcon />}
+                  onClick={() => setShowEditModal(true)}
+                  className="bg-white/20 hover:bg-white/30 text-white border-0"
                 >
-                  <EditIcon />
-                  <span className="ml-2">Edit Profile</span>
-                </button>
-                <button
-                  type="button"
+                  Edit Profile
+                </SecondaryButton>
+                <SecondaryButton
+                  variant="ghost"
+                  icon={<LogOutIcon />}
                   onClick={() => setShowLogoutModal(true)}
-                  className="flex items-center bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg font-semibold transition-colors shadow-sm"
+                  className="bg-white/20 hover:bg-white/30 text-white border-0"
                 >
-                  <LogOutIcon />
-                  <span className="ml-2">Log out</span>
-                </button>
+                  Log out
+                </SecondaryButton>
               </div>
             )}
           </div>
@@ -577,396 +306,194 @@ export default function ProfilePage() {
           {/* Left Column - Bio & Skills */}
           <aside className="lg:col-span-1 space-y-6">
             {/* About */}
-            <div className="bg-card border border-border rounded-lg p-6 shadow-card">
-              <h2 className="text-xl font-semibold text-foreground mb-4">About</h2>
+            <ProfileCard title="About">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 {user.about_section || 'No bio provided.'}
               </p>
-            </div>
+            </ProfileCard>
 
             {/* Skills */}
-            <div className="bg-card border border-border rounded-lg p-6 shadow-card">
-              <h2 className="text-xl font-semibold text-foreground mb-4">Skills</h2>
-              <div className="flex flex-wrap gap-2">
-                {user.skills && user.skills.length > 0 ? (
-                  user.skills.map((skill, index) => (
-                    <span
-                      key={index}
-                      className="bg-muted text-foreground px-3 py-1 rounded-full text-sm font-medium"
-                    >
+            <ProfileCard title="Skills">
+              {user.skills?.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {user.skills.map((skill, index) => (
+                    <Badge key={index} variant="secondary">
                       {skill}
-                    </span>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">No skills listed.</p>
-                )}
-              </div>
-            </div>
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No skills listed.</p>
+              )}
+            </ProfileCard>
 
             {/* Interests */}
-            <div className="bg-card border border-border rounded-lg p-6 shadow-card">
-              <h2 className="text-xl font-semibold text-foreground mb-4">Interests</h2>
-              <div className="flex flex-wrap gap-2">
-                {user.interests && user.interests.length > 0 ? (
-                  user.interests.map((interest, index) => (
-                    <span
-                      key={index}
-                      className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium"
-                    >
+            <ProfileCard title="Interests">
+              {user.interests?.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {user.interests.map((interest, index) => (
+                    <Badge key={index} variant="info">
                       {interest}
-                    </span>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">No interests listed.</p>
-                )}
-              </div>
-            </div>
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No interests listed.</p>
+              )}
+            </ProfileCard>
           </aside>
 
           {/* Right Column - Activity */}
           <section className="lg:col-span-2">
-            <div className="bg-card border border-border rounded-lg p-6 shadow-card">
-              <h2 className="text-xl font-semibold text-foreground mb-6">Recent Activity</h2>
-
-              {user.recent_activity && user.recent_activity.length > 0 ? (
+            <ProfileCard title="Recent Activity">
+              {user.recent_activity?.length > 0 ? (
                 <div className="space-y-4">
                   {user.recent_activity.map((activity, index) => (
-                    <div key={index} className="flex items-start space-x-4 p-4 bg-muted/30 rounded-lg">
-                      {/* Icon */}
-                      <div className="flex-shrink-0">
-                        {activity.type === 'post' && (
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <FileTextIcon />
-                          </div>
-                        )}
-                        {activity.type === 'comment' && (
-                          <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                            <MessageCircleIcon />
-                          </div>
-                        )}
-                        {activity.type === 'like' && (
-                          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                            <HeartIcon />
-                          </div>
-                        )}
-                        {activity.type === 'join' && (
-                          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                            <ActivityIcon />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center justify-between mb-1 gap-2">
-                          <p className="text-sm text-muted-foreground flex-1">
-                            {activity.type === 'post' && 'Created a post'}
-                            {activity.type === 'comment' && 'Commented on'}
-                            {activity.type === 'like' && 'Liked'}
-                            {activity.type === 'join' && 'Activity'}
-                          </p>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {activity.time}
-                          </span>
-                        </div>
-
-                        {activity.type === 'post' && (
-                          <>
-                            <h3 className="font-semibold text-foreground mb-1 truncate">
-                              {activity.title}
-                            </h3>
-                            <div className="flex items-center text-sm text-muted-foreground gap-1">
-                              <HeartIcon />
-                              <span>{activity.likes} likes</span>
-                            </div>
-                          </>
-                        )}
-                        {activity.type === 'comment' && (
-                          <>
-                            <p className="text-foreground mb-1">{activity.content}</p>
-                            <p className="text-sm text-muted-foreground">on "{activity.post}"</p>
-                          </>
-                        )}
-                        {activity.type === 'like' && (
-                          <p className="text-foreground">"{activity.post}"</p>
-                        )}
-                        {activity.type === 'join' && (
-                          <p className="text-foreground">{activity.content}</p>
-                        )}
-                      </div>
-                    </div>
+                    <ActivityItem key={index} activity={activity} />
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No recent activity to show.</p>
+                <EmptyState
+                  title="No recent activity"
+                  description="Activity will appear here once you start posting."
+                  className="py-8"
+                />
               )}
 
               {/* View All Activity */}
               <div className="mt-6 text-center">
-                <Link
-                  to="/community"
-                  className="inline-flex items-center bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-200"
-                >
+                <GradientButton as={Link} to="/community">
                   View All Activity
-                </Link>
+                </GradientButton>
               </div>
-            </div>
+            </ProfileCard>
           </section>
         </div>
-
       </main>
 
       {/* Edit Profile Modal */}
-      {showEditModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={(e) => e.target === e.currentTarget && setShowEditModal(false)}
-        >
-          <div className="bg-card border border-border rounded-xl shadow-card w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">Edit Profile</h3>
-              <button
-                type="button"
-                onClick={() => setShowEditModal(false)}
-                className="p-2 hover:bg-accent rounded-md"
-              >
-                <XIcon />
-              </button>
-            </div>
+      <BaseModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Profile"
+        size="2xl"
+      >
+        <div className="p-6">
+          {/* Profile Picture Section */}
+          <ProfilePictureSection
+            user={user}
+            onUpload={handleUploadPicture}
+            isUploading={uploadPictureMutation.isPending}
+          />
 
-            {/* Profile Picture Section */}
-            <div className="mb-6 p-4 bg-muted/30 rounded-lg">
-              <h4 className="text-md font-semibold text-foreground mb-3">Profile Picture</h4>
-              <div className="flex items-center gap-4">
-                <div className="relative group">
-                  <img
-                    src={user.profile_picture_url || user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`}
-                    alt="Profile picture"
-                    className="w-24 h-24 rounded-full border-2 border-border object-cover"
-                  />
-                  <div
-                    className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-                    onClick={handleUploadClick}
-                  >
-                    <CameraIcon />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-foreground font-medium mb-1">Upload a new photo</p>
-                  <p className="text-xs text-muted-foreground mb-3">JPG, PNG or GIF. Max size 5MB.</p>
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={handleUploadClick}
-                      className="px-4 py-2 bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white rounded-lg text-sm hover:shadow-lg transition-all duration-200 inline-flex items-center"
-                    >
-                      <UploadIcon />
-                      <span className="ml-2">Choose File</span>
-                    </button>
-                    {user.profile_picture_url && (
-                      <button
-                        type="button"
-                        onClick={handleDeletePicture}
-                        className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg text-sm hover:shadow-lg transition-all duration-200 inline-flex items-center"
-                      >
-                        <TrashIcon />
-                        <span className="ml-2">Remove</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Hidden File Input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </div>
-
-            {/* Profile Form */}
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-muted-foreground mb-1">First name</label>
-                  <input
-                    type="text"
-                    value={formData.first_name || ''}
-                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                    className="w-full px-3 py-2 bg-muted border border-border rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-muted-foreground mb-1">Last name</label>
-                  <input
-                    type="text"
-                    value={formData.last_name || ''}
-                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                    className="w-full px-3 py-2 bg-muted border border-border rounded-md"
-                  />
-                </div>
-              </div>
-              {/*
-                University Display (Read-only)
-
-                University affiliation is determined by the user's .edu email
-                domain at registration. It cannot be changed manually.
-              */}
+          {/* Profile Form */}
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
+            {/* Name Fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-muted-foreground mb-1">University</label>
-                <div className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-foreground">
-                  {user?.university || 'No university affiliated'}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  University is determined by your .edu email domain and cannot be changed.
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm text-muted-foreground mb-1">Location</label>
-                <input
-                  type="text"
-                  value={formData.location || ''}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full px-3 py-2 bg-muted border border-border rounded-md"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-muted-foreground mb-1">Avatar URL (fallback)</label>
-                <input
-                  type="text"
-                  value={formData.avatar_url || ''}
-                  onChange={(e) => setFormData({ ...formData, avatar_url: e.target.value })}
-                  className="w-full px-3 py-2 bg-muted border border-border rounded-md"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-muted-foreground mb-1">About</label>
-                <textarea
-                  rows="4"
-                  value={formData.about_section || ''}
-                  onChange={(e) => setFormData({ ...formData, about_section: e.target.value })}
-                  className="w-full px-3 py-2 bg-muted border border-border rounded-md"
-                ></textarea>
-              </div>
-              <div>
-                <label className="block text-sm text-muted-foreground mb-1">Skills (comma-separated)</label>
-                <input
-                  type="text"
-                  value={formData.skills || ''}
-                  onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                  className="w-full px-3 py-2 bg-muted border border-border rounded-md"
+                <label className="block text-sm text-muted-foreground mb-1">
+                  First name
+                </label>
+                <FormInput
+                  value={formData.first_name || ''}
+                  onChange={updateField('first_name')}
+                  placeholder="First name"
                 />
               </div>
               <div>
                 <label className="block text-sm text-muted-foreground mb-1">
-                  Interests (comma-separated)
+                  Last name
                 </label>
-                <input
-                  type="text"
-                  value={formData.interests || ''}
-                  onChange={(e) => setFormData({ ...formData, interests: e.target.value })}
-                  className="w-full px-3 py-2 bg-muted border border-border rounded-md"
+                <FormInput
+                  value={formData.last_name || ''}
+                  onChange={updateField('last_name')}
+                  placeholder="Last name"
                 />
               </div>
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 border border-input bg-background rounded-md hover:bg-accent"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white rounded-md hover:shadow-lg"
-                >
-                  Save Changes
-                </button>
+            </div>
+
+            {/* University (Read-only) */}
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">
+                University
+              </label>
+              <div className="w-full px-4 py-3 bg-muted/50 border border-border rounded-lg text-foreground">
+                {user?.university || 'No university affiliated'}
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Image Crop Modal */}
-      {showCropModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
-          onClick={(e) => e.target === e.currentTarget && setShowCropModal(false)}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          <div className="bg-card border border-border rounded-xl shadow-card w-full max-w-md mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">Position Your Photo</h3>
-              <button
-                type="button"
-                onClick={() => setShowCropModal(false)}
-                className="p-2 hover:bg-accent rounded-md"
-              >
-                <XIcon />
-              </button>
+              <p className="text-xs text-muted-foreground mt-1">
+                University is determined by your .edu email domain and cannot be changed.
+              </p>
             </div>
 
-            <div className="mb-4">
-              <div
-                className="relative flex items-center justify-center bg-muted/50"
-                style={{ height: '350px', width: '100%', margin: '0 auto' }}
-              >
-                <div
-                  ref={cropContainerRef}
-                  style={{
-                    position: 'relative',
-                    width: '300px',
-                    height: '300px',
-                    borderRadius: '50%',
-                    overflow: 'hidden',
-                    border: '4px solid #e5e7eb',
-                    background: '#fff',
-                  }}
-                  onMouseDown={handleMouseDown}
-                  onTouchStart={handleTouchStart}
-                  onWheel={handleWheel}
-                >
-                  <img
-                    ref={cropImageRef}
-                    src={cropImageSrc}
-                    alt="Image to crop"
-                    style={getImageTransform()}
-                  />
-                </div>
-              </div>
+            {/* Location */}
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">
+                Location
+              </label>
+              <FormInput
+                value={formData.location || ''}
+                onChange={updateField('location')}
+                placeholder="City, Country"
+              />
             </div>
 
-            <div className="mb-4 text-sm text-muted-foreground text-center">
-              Drag to move • Scroll to zoom
+            {/* About */}
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">
+                About
+              </label>
+              <textarea
+                rows="4"
+                value={formData.about_section || ''}
+                onChange={updateField('about_section')}
+                placeholder="Tell us about yourself..."
+                className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground"
+              />
             </div>
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowCropModal(false)}
-                className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+            {/* Skills */}
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">
+                Skills (comma-separated)
+              </label>
+              <FormInput
+                value={formData.skills || ''}
+                onChange={updateField('skills')}
+                placeholder="Python, Machine Learning, Data Analysis"
+              />
+            </div>
+
+            {/* Interests */}
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">
+                Interests (comma-separated)
+              </label>
+              <FormInput
+                value={formData.interests || ''}
+                onChange={updateField('interests')}
+                placeholder="NLP, Computer Vision, Robotics"
+              />
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <SecondaryButton
+                variant="outline"
+                onClick={() => setShowEditModal(false)}
               >
                 Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleCropConfirm}
-                className="flex-1 px-4 py-2 bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white rounded-lg hover:shadow-lg transition-colors inline-flex items-center justify-center"
+              </SecondaryButton>
+              <GradientButton
+                type="submit"
+                loading={updateProfileMutation.isPending}
+                loadingText="Saving..."
               >
-                <CheckIcon />
-                <span className="ml-2">Save</span>
-              </button>
+                Save Changes
+              </GradientButton>
             </div>
-          </div>
+          </form>
         </div>
-      )}
+      </BaseModal>
 
       {/* Logout Confirmation Modal */}
       <ConfirmationModal

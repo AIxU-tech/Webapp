@@ -38,16 +38,22 @@ class User(UserMixin, db.Model):
     skills = db.Column(db.Text, nullable=True)  # Store as JSON string
     interests = db.Column(db.Text, nullable=True)  # Store as JSON string
 
-    # University fields
-    liked_universities = db.Column(db.Text, nullable=True)
-    liked_notes = db.Column(db.Text, nullable=True)
-    bookmarked_notes = db.Column(db.Text, nullable=True)
+    # DEPRECATED: These JSON columns have been replaced by proper relationship tables.
+    # - liked_universities -> UserLikedUniversity table
+    # - liked_notes -> NoteLike table
+    # - bookmarked_notes -> NoteBookmark table
+    # - bookmarked_opportunities -> OpportunityBookmark table
+    # The columns may still exist in the database but are no longer used by the application.
 
     #Profile pics
     # Add these new fields for profile picture
     profile_picture = db.Column(db.LargeBinary, nullable=True)  # Store image as binary data
     profile_picture_filename = db.Column(db.String(100), nullable=True)  # Original filename
     profile_picture_mimetype = db.Column(db.String(50), nullable=True)  # MIME type (image/jpeg, image/png, etc.)
+
+    def get_university(self):
+        from backend.models.university import University
+        return University.query.filter_by(name=self.university).first()
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
@@ -167,6 +173,52 @@ class User(UserMixin, db.Model):
         self.profile_picture = None
         self.profile_picture_filename = None
         self.profile_picture_mimetype = None
+
+    # -------------------------------------------------------------------------
+    # Note Like/Bookmark Methods
+    # -------------------------------------------------------------------------
+
+    def has_liked_note(self, note_id: int) -> bool:
+        """Check if this user has liked a specific note."""
+        from backend.models.relationships import NoteLike
+        return NoteLike.exists(self.id, note_id)
+
+    def has_bookmarked_note(self, note_id: int) -> bool:
+        """Check if this user has bookmarked a specific note."""
+        from backend.models.relationships import NoteBookmark
+        return NoteBookmark.exists(self.id, note_id)
+
+    def get_liked_notes(self):
+        """
+        Get all notes this user has liked.
+        
+        Returns:
+            List of Note objects, ordered by when they were liked (most recent first)
+        """
+        from backend.models.note import Note
+        from backend.models.relationships import NoteLike
+        
+        return db.session.query(Note).join(
+            NoteLike, Note.id == NoteLike.note_id
+        ).filter(
+            NoteLike.user_id == self.id
+        ).order_by(NoteLike.created_at.desc()).all()
+
+    def get_bookmarked_notes(self):
+        """
+        Get all notes this user has bookmarked.
+        
+        Returns:
+            List of Note objects, ordered by when they were bookmarked (most recent first)
+        """
+        from backend.models.note import Note
+        from backend.models.relationships import NoteBookmark
+        
+        return db.session.query(Note).join(
+            NoteBookmark, Note.id == NoteBookmark.note_id
+        ).filter(
+            NoteBookmark.user_id == self.id
+        ).order_by(NoteBookmark.created_at.desc()).all()
 
     # -------------------------------------------------------------------------
     # Permission Methods

@@ -2,10 +2,10 @@
 Universities API Tests
 
 Tests for university-related endpoints:
-- GET /api/universities/list - List all universities
+- GET /api/universities - List all universities
 - GET /api/universities/<id> - Get university details
-- POST /api/universities/<id>/remove_member/<user_id> - Remove member
-- POST /api/universities/<id>/delete - Delete university
+- DELETE /api/universities/<id>/members/<user_id> - Remove member
+- DELETE /api/universities/<id> - Delete university
 """
 
 import pytest
@@ -20,7 +20,7 @@ class TestUniversityListing:
     def test_list_universities_returns_all(self, client, test_university, second_university, app):
         """Test that list endpoint returns all universities"""
         with app.app_context():
-            response = client.get('/api/universities/list')
+            response = client.get('/api/universities')
 
             assert response.status_code == 200
             data = response.get_json()
@@ -44,7 +44,7 @@ class TestUniversityListing:
             db.session.add_all([uni_z, uni_a])
             db.session.commit()
 
-            response = client.get('/api/universities/list')
+            response = client.get('/api/universities')
             data = response.get_json()
 
             names = [u['name'] for u in data['universities']]
@@ -53,7 +53,7 @@ class TestUniversityListing:
     def test_list_universities_includes_stats(self, client, test_university, app):
         """Test that university list includes member count and stats"""
         with app.app_context():
-            response = client.get('/api/universities/list')
+            response = client.get('/api/universities')
             data = response.get_json()
 
             uni = data['universities'][0]
@@ -148,8 +148,8 @@ class TestMemberManagement:
             # Verify member is in university
             assert member.id in university.get_members_list()
 
-            response = authenticated_admin_client.post(
-                f'/api/universities/{university.id}/remove_member/{member.id}'
+            response = authenticated_admin_client.delete(
+                f'/api/universities/{university.id}/members/{member.id}'
             )
 
             assert response.status_code == 200
@@ -168,8 +168,8 @@ class TestMemberManagement:
             university = db.session.get(University, test_university.id)
             member = db.session.get(User, member_user.id)
 
-            response = authenticated_executive_client.post(
-                f'/api/universities/{university.id}/remove_member/{member.id}'
+            response = authenticated_executive_client.delete(
+                f'/api/universities/{university.id}/members/{member.id}'
             )
 
             assert response.status_code == 200
@@ -184,8 +184,8 @@ class TestMemberManagement:
             university = db.session.get(University, test_university.id)
             member = db.session.get(User, member_user.id)
 
-            response = authenticated_president_client.post(
-                f'/api/universities/{university.id}/remove_member/{member.id}'
+            response = authenticated_president_client.delete(
+                f'/api/universities/{university.id}/members/{member.id}'
             )
 
             assert response.status_code == 200
@@ -212,8 +212,8 @@ class TestMemberManagement:
             university.add_member(other_user.id)
             db.session.commit()
 
-            response = authenticated_member_client.post(
-                f'/api/universities/{university.id}/remove_member/{other_user.id}'
+            response = authenticated_member_client.delete(
+                f'/api/universities/{university.id}/members/{other_user.id}'
             )
 
             assert response.status_code == 403
@@ -235,8 +235,8 @@ class TestMemberManagement:
             # Verify user is NOT in university
             assert user.id not in university.get_members_list()
 
-            response = authenticated_admin_client.post(
-                f'/api/universities/{university.id}/remove_member/{user.id}'
+            response = authenticated_admin_client.delete(
+                f'/api/universities/{university.id}/members/{user.id}'
             )
 
             assert response.status_code == 404
@@ -251,8 +251,8 @@ class TestMemberManagement:
             university = db.session.get(University, test_university.id)
             president = db.session.get(User, president_user.id)
 
-            response = authenticated_admin_client.post(
-                f'/api/universities/{university.id}/remove_member/{president.id}'
+            response = authenticated_admin_client.delete(
+                f'/api/universities/{university.id}/members/{president.id}'
             )
 
             assert response.status_code == 400
@@ -275,8 +275,8 @@ class TestUniversityDeletion:
             university = db.session.get(University, test_university.id)
             uni_id = university.id
 
-            response = authenticated_admin_client.post(
-                f'/api/universities/{uni_id}/delete'
+            response = authenticated_admin_client.delete(
+                f'/api/universities/{uni_id}'
             )
 
             assert response.status_code == 200
@@ -295,8 +295,8 @@ class TestUniversityDeletion:
             university = db.session.get(University, test_university.id)
             uni_id = university.id
 
-            response = authenticated_president_client.post(
-                f'/api/universities/{uni_id}/delete'
+            response = authenticated_president_client.delete(
+                f'/api/universities/{uni_id}'
             )
 
             assert response.status_code == 403
@@ -315,8 +315,8 @@ class TestUniversityDeletion:
             university = db.session.get(University, test_university.id)
             uni_id = university.id
 
-            response = authenticated_client.post(
-                f'/api/universities/{uni_id}/delete'
+            response = authenticated_client.delete(
+                f'/api/universities/{uni_id}'
             )
 
             assert response.status_code == 403
@@ -340,7 +340,7 @@ class TestUniversityDeletion:
             assert roles_before > 0
 
             # Delete university
-            response = authenticated_admin_client.post(f'/api/universities/{uni_id}/delete')
+            response = authenticated_admin_client.delete(f'/api/universities/{uni_id}')
             assert response.status_code == 200
 
             # Verify roles are deleted
@@ -351,7 +351,7 @@ class TestUniversityDeletion:
         self, authenticated_admin_client, admin_user, app
     ):
         """Test deleting non-existent university"""
-        response = authenticated_admin_client.post('/api/universities/99999/delete')
+        response = authenticated_admin_client.delete('/api/universities/99999')
 
         assert response.status_code == 404
         data = response.get_json()
@@ -362,7 +362,7 @@ class TestUniversityDeletion:
         with app.app_context():
             university = db.session.get(University, test_university.id)
 
-            response = client.post(f'/api/universities/{university.id}/delete')
+            response = client.delete(f'/api/universities/{university.id}')
 
             # Should redirect to login or return 401
             assert response.status_code in [302, 401]

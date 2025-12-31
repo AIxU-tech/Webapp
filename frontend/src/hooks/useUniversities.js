@@ -16,6 +16,7 @@ import {
   getUniversity,
   removeMember,
   updateMemberRole,
+  updateUniversity,
 } from '../api/universities';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
 
@@ -216,6 +217,37 @@ export function useUpdateMemberRole() {
     onSuccess: (_data, { universityId }) => {
       // Invalidate the specific university's cache to refresh member roles
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
+    },
+  });
+}
+
+/**
+ * useUpdateUniversity Hook
+ *
+ * Mutation hook for updating university details (name, description, websiteUrl, etc.).
+ * Handles cache invalidation after successful update.
+ *
+ * @returns {object} React Query mutation result
+ *
+ * @example
+ * const updateMutation = useUpdateUniversity();
+ * updateMutation.mutate(
+ *   { universityId: 5, updates: { clubName: 'New Name', websiteUrl: 'https://...' } },
+ *   { onSuccess: () => toast.success('Updated!') }
+ * );
+ */
+export function useUpdateUniversity() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ universityId, updates }) => updateUniversity(universityId, updates),
+
+    onSuccess: (_, { universityId }) => {
+      // Invalidate the specific university's cache
+      queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
+
+      // Invalidate the universities list to reflect any changes
+      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
     },
   });
 }

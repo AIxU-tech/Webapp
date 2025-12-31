@@ -23,7 +23,7 @@ import { api } from './client';
  * Returns list of all universities with basic info.
  * Each university includes emailDomain for display purposes.
  *
- * Note: Flask endpoint is /api/universities/list
+ * Note: Flask endpoint is /api/universities
  * The api client adds /api prefix automatically.
  *
  * @returns {Promise<Array>} Array of university objects
@@ -33,7 +33,7 @@ import { api } from './client';
  * universities.forEach(uni => console.log(uni.name, uni.emailDomain));
  */
 export async function getUniversities() {
-  const data = await api.get('/universities/list');
+  const data = await api.get('/universities');
   // Return just the universities array for easier use
   return data.universities || [];
 }
@@ -55,39 +55,8 @@ export async function getUniversity(id) {
   return api.get(`/universities/${id}`);
 }
 
-/**
- * Create a new university
- *
- * Requires authentication. User becomes the admin of created university.
- * The admin's email domain is used to determine which users can be
- * auto-enrolled in this university.
- *
- * @param {object} universityData - University data
- * @param {string} universityData.name - University name
- * @param {string} universityData.location - University location
- * @param {string} universityData.clubName - AI club name
- * @param {string} universityData.description - Description
- * @param {Array<string>} universityData.tags - Tags/topics
- * @returns {Promise<object>} Created university object
- * @throws {ApiError} If user is not authenticated or validation fails
- *
- * @example
- * const newUni = await createUniversity({
- *   name: 'MIT',
- *   location: 'Cambridge, MA',
- *   clubName: 'MIT AI Club',
- *   description: 'AI research and learning at MIT',
- *   tags: ['machine-learning', 'research', 'robotics']
- * });
- */
-export async function createUniversity(universityData) {
-  return api.post('/universities/new', universityData);
-}
-
-// NOTE: joinUniversity and leaveUniversity functions have been removed.
-// Users are now automatically enrolled in a university based on their
-// .edu email domain during registration. See the registration flow in
-// api/auth.js for details.
+// NOTE: University creation is handled through the university request flow.
+// See universityRequests.js for the request/approval process.
 
 /**
  * Update university details (admin only)
@@ -106,7 +75,7 @@ export async function createUniversity(universityData) {
  * });
  */
 export async function updateUniversity(id, updates) {
-  return api.post(`/universities/${id}/edit`, updates);
+  return api.patch(`/universities/${id}`, updates);
 }
 
 /**
@@ -122,7 +91,7 @@ export async function updateUniversity(id, updates) {
  * await deleteUniversity(1);
  */
 export async function deleteUniversity(id) {
-  return api.post(`/universities/${id}/delete`);
+  return api.delete(`/universities/${id}`);
 }
 
 /**
@@ -138,7 +107,7 @@ export async function deleteUniversity(id) {
  * @throws {ApiError} If not admin or not authenticated (403)
  */
 export async function removeMember(universityId, userId) {
-  return api.post(`/universities/${universityId}/remove_member/${userId}`);
+  return api.delete(`/universities/${universityId}/members/${userId}`);
 }
 
 // =============================================================================

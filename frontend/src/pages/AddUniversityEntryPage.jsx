@@ -13,105 +13,44 @@
  * @component
  */
 
-import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { usePageTitle, useForm } from '../hooks';
+import { Alert, Divider } from '../components/ui';
 import AuthFormLayout from '../components/AuthFormLayout';
 import FormInput from '../components/FormInput';
 import FormButton from '../components/FormButton';
-
-/**
- * Validate email is a .edu email
- * @param {string} email - Email to validate
- * @returns {boolean} True if valid .edu email
- */
-const isValidEduEmail = (email) => {
-  if (!email || !email.includes('@')) return false;
-  const domain = email.split('@')[1]?.toLowerCase();
-  return domain?.endsWith('.edu');
-};
+import NameInputPair from '../components/NameInputPair';
+import { isEduEmail } from '../utils/email';
 
 export default function AddUniversityEntryPage() {
   const navigate = useNavigate();
+  usePageTitle('Add Your University');
 
-  // Form state
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
+  const { formData, error, loading, handleChange, handleSubmit } = useForm({
+    initialValues: { firstName: '', lastName: '', email: '' },
+
+    validate: (data) => {
+      if (!isEduEmail(data.email)) {
+        return 'Please use your university .edu email address';
+      }
+      return null;
+    },
+
+    onSubmit: async (data) => {
+      navigate('/request-university', {
+        state: {
+          email: data.email.trim().toLowerCase(),
+          firstName: data.firstName.trim(),
+          lastName: data.lastName.trim(),
+        },
+      });
+    },
   });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  // Set page title
-  useEffect(() => {
-    document.title = 'Add Your University - AIxU';
-  }, []);
-
-  /**
-   * Handle form input changes
-   */
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  /**
-   * Handle form submission
-   * Validates input and navigates to verification page
-   */
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setError('');
-
-    // Validate first name
-    if (!formData.firstName.trim()) {
-      setError('Please enter your first name');
-      return;
-    }
-
-    // Validate last name
-    if (!formData.lastName.trim()) {
-      setError('Please enter your last name');
-      return;
-    }
-
-    // Validate email
-    if (!formData.email.trim()) {
-      setError('Please enter your email address');
-      return;
-    }
-
-    // Validate .edu email
-    if (!isValidEduEmail(formData.email)) {
-      setError('Please use your university .edu email address');
-      return;
-    }
-
-    // Set loading briefly for UI feedback
-    setLoading(true);
-
-    // Navigate to verification page with form data
-    navigate('/request-university', {
-      state: {
-        email: formData.email.trim().toLowerCase(),
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-      },
-    });
-  };
 
   // Footer with navigation links
   const footer = (
     <>
-      {/* Divider */}
-      <div className="flex items-center my-6">
-        <div className="flex-1 border-t border-border"></div>
-        <span className="px-3 text-sm text-muted-foreground">or</span>
-        <div className="flex-1 border-t border-border"></div>
-      </div>
+      <Divider>or</Divider>
 
       {/* Registration link */}
       <div className="text-center">
@@ -122,57 +61,31 @@ export default function AddUniversityEntryPage() {
           </Link>
         </p>
       </div>
-
-      {/* Login link */}
-      <div className="text-center mt-4">
-        <p className="text-muted-foreground text-sm">
-          Already have an account?{' '}
-          <Link to="/login" className="text-primary hover:underline font-medium">
-            Log in
-          </Link>
-        </p>
-      </div>
     </>
   );
 
   return (
     <AuthFormLayout
       title="Add Your University"
-      subtitle="Help us grow the AIxU community by requesting your school"
+      subtitle="Help us grow the AIxU community by adding your school"
       error={error}
       footer={footer}
       cardRadius={0.38}
       maxWidth="max-w-lg"
     >
-      {/* President Notice */}
-      <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-        <p className="text-sm text-amber-800 text-center font-medium">
-          You must be the president of your AI club to create a university page
-        </p>
-      </div>
+      {/* President requirement notice */}
+      <Alert variant="warning" className="mb-6 text-center">
+        You must be the president of your AI club to create a university page
+      </Alert>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         {/* Name inputs (side by side) */}
-        <div className="grid grid-cols-2 gap-4">
-          <FormInput
-            type="text"
-            name="firstName"
-            placeholder="First name *"
-            value={formData.firstName}
-            onChange={handleChange}
-            disabled={loading}
-            required
-          />
-          <FormInput
-            type="text"
-            name="lastName"
-            placeholder="Last name *"
-            value={formData.lastName}
-            onChange={handleChange}
-            disabled={loading}
-            required
-          />
-        </div>
+        <NameInputPair
+          firstName={formData.firstName}
+          lastName={formData.lastName}
+          onChange={handleChange}
+          disabled={loading}
+        />
 
         {/* Email input */}
         <FormInput
@@ -185,12 +98,10 @@ export default function AddUniversityEntryPage() {
           required
         />
 
-        {/* Info box */}
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-700 text-center">
-            We'll verify your email to confirm your university affiliation
-          </p>
-        </div>
+        {/* Email verification info */}
+        <Alert variant="info" className="text-center">
+          We'll verify your email to confirm your university affiliation
+        </Alert>
 
         {/* Submit button */}
         <FormButton

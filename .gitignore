@@ -28,6 +28,9 @@ output.css
 instance
 user.db
 
+# React build output (built during deployment)
+static/app/
+
 .env
 __pycache__
 

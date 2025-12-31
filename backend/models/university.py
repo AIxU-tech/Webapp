@@ -6,7 +6,7 @@ enrolled in a university based on their email domain during registration.
 
 Key Features:
 - Automatic enrollment: Users with matching .edu email domains are auto-enrolled
-- Member management: Tracks university members via JSON list of user IDs
+- Member management: Tracks university members via UniversityRole table
 - Role-based permissions: President, Executives, and Members with different access levels
 - Post tracking: Aggregates post counts from all university members
 
@@ -20,9 +20,14 @@ Role Hierarchy:
 - PRESIDENT: Full control over club, can manage executives
 - EXECUTIVE: Can manage members (remove, etc.)
 - MEMBER: Standard member access
+
+Member Management:
+Members are tracked via the UniversityRole table, which serves as the source
+of truth for university membership. Every member has a role (MEMBER, EXECUTIVE,
+or PRESIDENT). The member_count column is cached for performance and updated
+whenever members are added or removed.
 """
 
-import json
 from sqlalchemy import func
 from backend.extensions import db
 from backend.constants import UniversityRoles
@@ -43,8 +48,11 @@ class University(db.Model):
         upcoming_events: Count of upcoming events
         description: Description of the AI club
         tags: JSON array of topic tags
-        members: JSON array of user IDs who are members
         admin_id: User ID of the university admin
+        
+    Member Management:
+        Members are tracked via the UniversityRole table (not stored directly).
+        Use get_members_list() to get member IDs, get_members() to get User objects.
     """
     __tablename__ = 'universities'
 
@@ -59,52 +67,174 @@ class University(db.Model):
     # they are automatically enrolled in this university.
     email_domain = db.Column(db.String(100), nullable=True)
 
+    # Cached member count - updated by add_member() and remove_member()
+    # Use refresh_member_count() to recalculate from UniversityRole if needed
     member_count = db.Column(db.Integer, default=0)
     recent_posts = db.Column(db.Integer, default=0)
     upcoming_events = db.Column(db.Integer, default=0)
     description = db.Column(db.Text, nullable=True)
     tags = db.Column(db.Text, nullable=True)
-    members = db.Column(db.Text, nullable=True)  # JSON list of user IDs
+    website_url = db.Column(db.String(500), nullable=True)
+    
+    # DEPRECATED: members column is no longer used. Membership is tracked via UniversityRole.
+    # This column is kept for backwards compatibility during migration but should not be used.
+    members = db.Column(db.Text, nullable=True)
+    
     admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
     admin = db.relationship('User', backref='administered_universities')
 
-    def get_members_list(self):
-        if self.members:
-            try:
-                return json.loads(self.members)
-            except:
-                return []
-        return []
+    # -------------------------------------------------------------------------
+    # Member Management Methods
+    # -------------------------------------------------------------------------
+    # Members are tracked via UniversityRole table. These methods provide
+    # a clean API for managing membership while using UniversityRole as
+    # the source of truth.
 
-    def set_members_list(self, member_ids):
-        self.members = json.dumps(member_ids or [])
-        self.member_count = len(member_ids or [])
+    def get_members_list(self) -> list[int]:
+        """
+        Get list of all member user IDs for this university.
+        
+        Queries the UniversityRole table to get all users who have any role
+        at this university (MEMBER, EXECUTIVE, or PRESIDENT).
+        
+        Returns:
+            List of user IDs who are members of this university
+        """
+        from backend.models.university_role import UniversityRole
+        roles = UniversityRole.query.filter_by(university_id=self.id).all()
+        return [role.user_id for role in roles]
 
-    def add_member(self, user_id):
-        members = self.get_members_list()
-        if user_id not in members:
-            members.append(user_id)
-            self.set_members_list(members)
-
-    def remove_member(self, user_id):
-        members = self.get_members_list()
-        if user_id in members:
-            members.remove(user_id)
-            self.set_members_list(members)
-
-    def calculate_post_count(self):
-        """Calculate total posts from all university members"""
-        # Import here to avoid circular imports
+    def get_members(self) -> list:
+        """
+        Get all members as User objects with their role information.
+        
+        This is more efficient than get_members_list() when you need User
+        objects, as it performs a single JOIN query instead of N+1 queries.
+        
+        Returns:
+            List of dicts with 'user' (User object) and 'role' (UniversityRole object)
+        """
+        from backend.models.university_role import UniversityRole
         from backend.models.user import User
+        
+        results = db.session.query(User, UniversityRole).join(
+            UniversityRole, User.id == UniversityRole.user_id
+        ).filter(
+            UniversityRole.university_id == self.id
+        ).all()
+        
+        return [{'user': user, 'role': role} for user, role in results]
 
-        member_ids = self.get_members_list()
-        if not member_ids:
-            return 0
+    def add_member(self, user_id: int, role: int = None) -> bool:
+        """
+        Add a user as a member of this university.
+        
+        Creates a UniversityRole record for the user with MEMBER role (default).
+        If the user is already a member, this is a no-op (idempotent).
+        
+        Args:
+            user_id: The user's ID to add
+            role: Optional role level (defaults to MEMBER)
+            
+        Returns:
+            True if member was added, False if already a member
+        """
+        from backend.models.university_role import UniversityRole
+        
+        if role is None:
+            role = UniversityRoles.MEMBER
+        
+        # Check if already a member
+        existing = UniversityRole.get_role(user_id, self.id)
+        if existing:
+            return False  # Already a member
+        
+        # Create new role record
+        new_role = UniversityRole(
+            user_id=user_id,
+            university_id=self.id,
+            role=role
+        )
+        db.session.add(new_role)
+        
+        # Update cached member count
+        self.member_count = (self.member_count or 0) + 1
+        
+        return True
 
-        # Sum up post counts from all members
-        total_posts = db.session.query(func.sum(User.post_count)).filter(
-            User.id.in_(member_ids)
+    def remove_member(self, user_id: int) -> bool:
+        """
+        Remove a user from this university.
+        
+        Deletes the UniversityRole record for the user at this university.
+        If the user is not a member, this is a no-op.
+        
+        Args:
+            user_id: The user's ID to remove
+            
+        Returns:
+            True if member was removed, False if not a member
+        """
+        from backend.models.university_role import UniversityRole
+        
+        existing = UniversityRole.get_role(user_id, self.id)
+        if not existing:
+            return False  # Not a member
+        
+        db.session.delete(existing)
+        
+        # Update cached member count
+        if self.member_count and self.member_count > 0:
+            self.member_count -= 1
+        
+        return True
+
+    def is_member(self, user_id: int) -> bool:
+        """
+        Check if a user is a member of this university.
+        
+        Args:
+            user_id: The user's ID to check
+            
+        Returns:
+            True if user is a member, False otherwise
+        """
+        from backend.models.university_role import UniversityRole
+        return UniversityRole.get_role(user_id, self.id) is not None
+
+    def refresh_member_count(self) -> int:
+        """
+        Recalculate and update the cached member_count from UniversityRole.
+        
+        Use this method to fix any sync issues between the cached count
+        and the actual number of members in UniversityRole.
+        
+        Returns:
+            The updated member count
+        """
+        from backend.models.university_role import UniversityRole
+        count = UniversityRole.query.filter_by(university_id=self.id).count()
+        self.member_count = count
+        return count
+
+    def calculate_post_count(self) -> int:
+        """
+        Calculate total posts from all university members.
+        
+        Uses a JOIN with UniversityRole for efficiency instead of
+        fetching member IDs first.
+        
+        Returns:
+            Total post count from all members
+        """
+        from backend.models.user import User
+        from backend.models.university_role import UniversityRole
+
+        total_posts = db.session.query(func.sum(User.post_count)).join(
+            UniversityRole, User.id == UniversityRole.user_id
+        ).filter(
+            UniversityRole.university_id == self.id
         ).scalar() or 0
 
         return total_posts
@@ -124,6 +254,7 @@ class University(db.Model):
             'memberCount': self.member_count,
             'members': self.get_members_list(),
             'adminId': self.admin_id,
+            'websiteUrl': self.website_url,
         }
 
     # -------------------------------------------------------------------------

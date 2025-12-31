@@ -79,7 +79,7 @@ export async function getConversation(userId) {
  * await sendMessage(existingUserId, 'That sounds great!');
  */
 export async function sendMessage(recipientId, content) {
-  return api.post('/messages/send', {
+  return api.post('/messages', {
     recipient_id: recipientId,
     content,
   });

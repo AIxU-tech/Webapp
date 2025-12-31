@@ -14,15 +14,17 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import AppLayout from './components/AppLayout';
 import HomePage from './pages/HomePage';
-import AddUniversityPage from './pages/AddUniversityPage';
 import AddUniversityEntryPage from './pages/AddUniversityEntryPage';
 import UniversitiesPage from './pages/UniversitiesPage';
 import UniversityDetailPage from './pages/UniversityDetailPage';
 import CommunityPage from './pages/CommunityPage';
+import OpportunitiesPage from './pages/OpportunitiesPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import CompleteAccountPage from './pages/CompleteAccountPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import RequestUniversityVerifyPage from './pages/RequestUniversityVerifyPage';
 import UniversityRequestDetailsPage from './pages/UniversityRequestDetailsPage';
 import UniversityRequestSubmittedPage from './pages/UniversityRequestSubmittedPage';
@@ -37,13 +39,15 @@ function App() {
       {/*
         Authentication Routes
 
-        Login, Register, Verify Email, and Complete Account pages don't use
+        Login, Register, Verify Email, Complete Account, and Password Reset pages don't use
         AppLayout because they have full-screen plasma backgrounds and custom layouts.
       */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/complete-account" element={<CompleteAccountPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/*
         University Request Routes
@@ -77,8 +81,8 @@ function App() {
       <Route element={<AppLayout />}>
         <Route path="/community" element={<CommunityPage />} />
         <Route path="/universities" element={<UniversitiesPage />} />
-        <Route path="/universities/new" element={<AddUniversityPage />} />
         <Route path="/universities/:id" element={<UniversityDetailPage />} />
+        <Route path="/opportunities" element={<OpportunitiesPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/users/:userId" element={<ProfilePage />} />
         <Route path="/messages" element={<MessagesPage />} />

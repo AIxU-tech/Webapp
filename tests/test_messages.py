@@ -21,7 +21,7 @@ class TestSendMessage:
         with app.app_context():
             recipient = db.session.get(User, second_user.id)
 
-            response = authenticated_client.post('/api/messages/send', json={
+            response = authenticated_client.post('/api/messages', json={
                 'recipient_id': recipient.id,
                 'content': 'Hello, this is a test message!'
             })
@@ -33,7 +33,7 @@ class TestSendMessage:
 
     def test_send_message_missing_recipient(self, authenticated_client, app):
         """Test sending message without recipient_id"""
-        response = authenticated_client.post('/api/messages/send', json={
+        response = authenticated_client.post('/api/messages', json={
             'content': 'Message without recipient'
         })
 
@@ -46,7 +46,7 @@ class TestSendMessage:
         with app.app_context():
             recipient = db.session.get(User, second_user.id)
 
-            response = authenticated_client.post('/api/messages/send', json={
+            response = authenticated_client.post('/api/messages', json={
                 'recipient_id': recipient.id
             })
 
@@ -56,7 +56,7 @@ class TestSendMessage:
 
     def test_send_message_recipient_not_found(self, authenticated_client, app):
         """Test sending message to non-existent recipient"""
-        response = authenticated_client.post('/api/messages/send', json={
+        response = authenticated_client.post('/api/messages', json={
             'recipient_id': 99999,
             'content': 'Message to nobody'
         })
@@ -70,7 +70,7 @@ class TestSendMessage:
         with app.app_context():
             recipient = db.session.get(User, second_user.id)
 
-            response = authenticated_client.post('/api/messages/send', json={
+            response = authenticated_client.post('/api/messages', json={
                 'recipient_id': recipient.id,
                 'content': '   '  # Only whitespace
             })
@@ -82,7 +82,7 @@ class TestSendMessage:
         with app.app_context():
             recipient = db.session.get(User, second_user.id)
 
-            response = client.post('/api/messages/send', json={
+            response = client.post('/api/messages', json={
                 'recipient_id': recipient.id,
                 'content': 'Unauthorized message'
             })
@@ -99,7 +99,7 @@ class TestSendMessage:
 
             initial_count = Message.query.count()
 
-            authenticated_client.post('/api/messages/send', json={
+            authenticated_client.post('/api/messages', json={
                 'recipient_id': recipient.id,
                 'content': 'Test message'
             })

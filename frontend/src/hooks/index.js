@@ -10,6 +10,7 @@
  * - useUniversities() - Get all universities
  * - useUniversity(id) - Get single university
  * - useRemoveMember() - Remove member mutation (admin only)
+ * - useUpdateMemberRole() - Update member role mutation (admin only)
  * - prefetchUniversities() - Prefetch universities list
  *
  * Notes/Community:
@@ -19,6 +20,13 @@
  * - useBookmarkNote() - Bookmark mutation
  * - useDeleteNote() - Delete mutation
  * - prefetchNotes() - Prefetch notes list
+ *
+ * Opportunities:
+ * - useOpportunities(params) - Get opportunities with filters
+ * - useCreateOpportunity() - Create mutation
+ * - useBookmarkOpportunity() - Bookmark mutation
+ * - useDeleteOpportunity() - Delete mutation
+ * - prefetchOpportunities() - Prefetch opportunities list
  *
  * Messages:
  * - useConversations() - Get conversations with real-time updates
@@ -51,6 +59,12 @@
  * - useApproveRequest() - Approve a request mutation
  * - useRejectRequest() - Reject a request mutation
  *
+ * Email Verification:
+ * - useEmailVerification(config) - Common logic for email verification pages
+ *
+ * Form Management:
+ * - useForm(config) - Form state, validation, and submission handling
+ *
  * Usage:
  *   import { useUniversities, useNotes, useAIContent } from '../hooks';
  */
@@ -62,9 +76,23 @@ export {
   useUniversities,
   useUniversity,
   useRemoveMember,
+  useUpdateMemberRole,
+  useUpdateUniversity,
   universityKeys,
   prefetchUniversities,
 } from './useUniversities';
+
+// =============================================================================
+// Events Hooks
+// =============================================================================
+export {
+  useUniversityEvents,
+  useEvent,
+  useCreateEvent,
+  useDeleteEvent,
+  useToggleRsvp,
+  eventKeys,
+} from './useEvents';
 
 // =============================================================================
 // Notes/Community Hooks
@@ -75,9 +103,26 @@ export {
   useLikeNote,
   useBookmarkNote,
   useDeleteNote,
+  useComments,
+  useCreateComment,
+  useUpdateComment,
+  useDeleteComment,
+  useLikeComment,
   noteKeys,
   prefetchNotes,
 } from './useNotes';
+
+// =============================================================================
+// Opportunities Hooks
+// =============================================================================
+export {
+  useOpportunities,
+  useCreateOpportunity,
+  useBookmarkOpportunity,
+  useDeleteOpportunity,
+  opportunityKeys,
+  prefetchOpportunities,
+} from './useOpportunities';
 
 // =============================================================================
 // Messages Hooks
@@ -143,3 +188,30 @@ export {
   useCountdown,
   useModal,
 } from './useUI';
+
+// =============================================================================
+// Email Verification Hook
+// =============================================================================
+export { useEmailVerification } from './useEmailVerification.jsx';
+
+// =============================================================================
+// Form Hooks
+// =============================================================================
+export { useForm } from './useForm';
+
+// =============================================================================
+// Feed Page Hooks
+// =============================================================================
+export { default as useFeedPageState } from './useFeedPageState';
+
+// =============================================================================
+// Hook Factories
+// =============================================================================
+export {
+  createFeedItemKeys,
+  createListHook,
+  createCreateHook,
+  createBookmarkHook,
+  createDeleteHook,
+  createPrefetchFn,
+} from './factories/feedItemHooks';
