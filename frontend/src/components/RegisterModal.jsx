@@ -219,7 +219,7 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }) {
           <h2 className="text-2xl font-bold text-foreground mb-2">
             Join our community
           </h2>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-md">
             Create your account and start connecting
           </p>
         </div>
@@ -300,7 +300,7 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }) {
           </div>
 
           <p className="text-xs text-muted-foreground text-center leading-relaxed">
-            By creating an account, you agree to AIxU's <TermsLink />.
+            By creating an account, you agree to AIxU's <TermsLink parentModalType="register" />.
           </p>
         </div>
       </div>

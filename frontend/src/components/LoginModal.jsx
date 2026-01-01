@@ -14,6 +14,7 @@
  * @component
  */
 
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { login } from '../api/auth';
@@ -42,6 +43,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }) {
     loading,
     handleChange,
     handleSubmit,
+    reset,
   } = useForm({
     initialValues: { email: '', password: '' },
     onSubmit: async (data) => {
@@ -50,6 +52,16 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }) {
       onClose(); // Close modal on successful login
     },
   });
+
+  // Track previous open state to reset only when modal transitions from closed to open
+  const prevIsOpenRef = useRef(isOpen);
+  useEffect(() => {
+    // Only reset when modal transitions from closed to open
+    if (isOpen && !prevIsOpenRef.current) {
+      reset();
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, reset]);
 
   return (
     <BaseModal
@@ -80,7 +92,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }) {
           <h2 className="text-2xl font-bold text-foreground mb-2">
             Your ideas, amplified
           </h2>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-md">
             Sign in to continue
           </p>
         </div>
@@ -148,7 +160,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }) {
           </div>
 
           <p className="text-xs text-muted-foreground text-center leading-relaxed">
-            By continuing, you agree to AIxU's <TermsLink />.
+            By continuing, you agree to AIxU's <TermsLink parentModalType="login" />.
           </p>
         </div>
       </div>

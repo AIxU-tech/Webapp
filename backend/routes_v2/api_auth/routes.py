@@ -40,7 +40,7 @@ REQUIRED_PASSWORD_LENGTH = 6
 
 DEV_MODE = os.environ.get('DEV_MODE')
 
-APP_URL = "http://localhost:8000" if DEV_MODE else "https://aixu.tech/"
+APP_URL = "http://localhost:8000" if DEV_MODE else "https://aixu.tech"
 
 
 # API endpoint for login (used by React frontend)

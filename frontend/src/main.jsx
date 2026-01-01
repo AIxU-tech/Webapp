@@ -36,6 +36,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
 import { TermsProvider } from './contexts/TermsContext';
 import { AuthModalProvider } from './contexts/AuthModalContext';
+import TermsModalWrapper from './components/TermsModalWrapper';
 import AppPrefetcher from './components/AppPrefetcher';
 import App from './App';
 import './styles.css';
@@ -50,11 +51,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       {/* basename="/app" means all routes are under /app/ path */}
       <BrowserRouter basename="/app">
         {/* TermsProvider enables Terms modal to be opened from any page */}
+        {/* Must wrap everything so TermsLink works everywhere */}
         <TermsProvider>
           {/* AuthProvider checks login status and provides user state */}
           <AuthProvider>
             {/* AuthModalProvider enables Auth modal to be opened from any page */}
             <AuthModalProvider>
+              {/* TermsModalWrapper renders TermsModal with access to both contexts */}
+              <TermsModalWrapper />
+              
               {/* AppPrefetcher loads all main page data in the background */}
               {/* Runs once after auth check, doesn't block initial render */}
               <AppPrefetcher />

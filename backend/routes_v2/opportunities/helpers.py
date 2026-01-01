@@ -8,6 +8,7 @@ Keeps route handlers clean by extracting reusable logic.
 import json
 from flask_login import current_user
 from sqlalchemy.orm import joinedload
+from sqlalchemy import select
 from backend.extensions import db
 from backend.models import Opportunity, User
 from backend.models.opportunity_tag import OpportunityTag
@@ -77,13 +78,13 @@ def get_db_opportunities(search_query=None, my_university=False,
         query = query.filter(Opportunity.author_id.in_(member_ids))
 
     if search_query:
-        matching_user_subquery = db.session.query(User.id).filter(
+        matching_user_subquery = select(User.id).filter(
             db.or_(
                 User.first_name.ilike(f'%{search_query}%'),
                 User.last_name.ilike(f'%{search_query}%'),
                 User.email.ilike(f'%{search_query}%')
             )
-        ).subquery()
+        )
 
         query = query.filter(
             db.or_(
@@ -94,31 +95,31 @@ def get_db_opportunities(search_query=None, my_university=False,
         )
 
     if my_university and current_user.is_authenticated and current_user.university:
-        same_uni_subquery = db.session.query(User.id).filter(
+        same_uni_subquery = select(User.id).filter(
             User.university == current_user.university
-        ).subquery()
+        )
         query = query.filter(Opportunity.author_id.in_(same_uni_subquery))
 
     # Tag filtering at database level using subqueries
     if location_filter:
-        location_subquery = db.session.query(OpportunityTag.opportunity_id).filter(
+        location_subquery = select(OpportunityTag.opportunity_id).filter(
             OpportunityTag.tag == location_filter
-        ).subquery()
+        )
         query = query.filter(Opportunity.id.in_(location_subquery))
 
     if paid_filter:
         tag_to_match = 'Paid' if paid_filter.lower() == 'true' else 'Unpaid'
-        paid_subquery = db.session.query(OpportunityTag.opportunity_id).filter(
+        paid_subquery = select(OpportunityTag.opportunity_id).filter(
             OpportunityTag.tag == tag_to_match
-        ).subquery()
+        )
         query = query.filter(Opportunity.id.in_(paid_subquery))
 
     if tags_filter:
         filter_tags = [t.strip() for t in tags_filter.split(',') if t.strip()]
         for tag in filter_tags:
-            tag_subquery = db.session.query(OpportunityTag.opportunity_id).filter(
+            tag_subquery = select(OpportunityTag.opportunity_id).filter(
                 OpportunityTag.tag == tag
-            ).subquery()
+            )
             query = query.filter(Opportunity.id.in_(tag_subquery))
 
     return query.order_by(
