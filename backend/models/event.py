@@ -133,6 +133,7 @@ class EventAttendee(db.Model):
     # Relationships
     user = db.relationship('User', backref='event_rsvps')
 
+
     def to_dict(self):
         """Serialize attendee to dictionary."""
         return {

@@ -17,6 +17,7 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useAuthModal } from '../contexts/AuthModalContext';
 import {
   useOpportunities,
   useCreateOpportunity,
@@ -55,6 +56,7 @@ const CATEGORY_TAGS = ['Project', 'Research', 'Startup', 'Hackathon'];
 
 export default function OpportunitiesPage() {
   const { user, isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // URL-derived state
@@ -168,7 +170,7 @@ export default function OpportunitiesPage() {
 
   function openModal() {
     if (!isAuthenticated) {
-      alert('Please log in to post opportunities');
+      openAuthModal();
       return;
     }
     setIsModalOpen(true);
@@ -226,7 +228,7 @@ export default function OpportunitiesPage() {
 
   function handleBookmark(opportunityId) {
     if (!isAuthenticated) {
-      alert('Please log in to bookmark opportunities');
+      openAuthModal();
       return;
     }
     bookmarkOpportunityMutation.mutate(opportunityId);
@@ -314,13 +316,14 @@ export default function OpportunitiesPage() {
           <div className="h-6 w-px bg-border" />
 
           {/* My University Toggle */}
-          <ToggleTag
-            selected={myUniversity}
-            onClick={toggleMyUniversity}
-          >
-            My University
-          </ToggleTag>
-
+          {isAuthenticated && (
+            <ToggleTag
+              selected={myUniversity}
+              onClick={toggleMyUniversity}
+            >
+              My University
+            </ToggleTag>
+          )}
           {/* Clear Filters */}
           {hasActiveFilters && (
             <button

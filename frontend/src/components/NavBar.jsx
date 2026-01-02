@@ -20,6 +20,7 @@
 
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useAuthModal } from '../contexts/AuthModalContext';
 import {
   BrainCircuitIcon,
   CommunityIcon,
@@ -96,6 +97,7 @@ export default function NavBar() {
 
   // Get authentication state and user from context
   const { isAuthenticated, user } = useAuth();
+  const { openAuthModal } = useAuthModal();
 
   // Check if user is an admin (permission level >= 1)
   const isAdmin = user && user.permissionLevel >= ADMIN_PERMISSION_LEVEL;
@@ -132,34 +134,35 @@ export default function NavBar() {
             Uses absolute positioning to achieve true center alignment
             regardless of the widths of left/right sections.
             ================================================================= */}
-        {isAuthenticated && (
-          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1">
-            <NavLink to="/community" currentPath={currentPath}>
-              <CommunityIcon />
-              <span>Community</span>
-            </NavLink>
+        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1">
+          <NavLink to="/community" currentPath={currentPath}>
+            <CommunityIcon />
+            <span>Community</span>
+          </NavLink>
 
-            <NavLink to="/universities" currentPath={currentPath}>
-              <UniversitiesIcon />
-              <span>Universities</span>
-            </NavLink>
+          <NavLink to="/universities" currentPath={currentPath}>
+            <UniversitiesIcon />
+            <span>Universities</span>
+          </NavLink>
 
-            <NavLink to="/opportunities" currentPath={currentPath}>
-              <OpportunitiesIcon />
-              <span>Opportunities</span>
-            </NavLink>
+          <NavLink to="/opportunities" currentPath={currentPath}>
+            <OpportunitiesIcon />
+            <span>Opportunities</span>
+          </NavLink>
 
+          {isAuthenticated && (
             <NavLink to="/messages" currentPath={currentPath}>
               <MessagesIcon />
               <span>Messages</span>
             </NavLink>
+          )}
 
-            <NavLink to="/news" currentPath={currentPath}>
-              <NewsIcon />
-              <span>News</span>
-            </NavLink>
-          </div>
-        )}
+          <NavLink to="/news" currentPath={currentPath}>
+            <NewsIcon />
+            <span>News</span>
+          </NavLink>
+        </div>
+
 
         {/* =================================================================
             ACTION SECTION (Right)
