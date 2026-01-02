@@ -38,6 +38,24 @@ export async function fetchNotes(params = {}) {
 }
 
 /**
+ * Get a single note by ID
+ *
+ * Returns a single note object with author info, likes, bookmarks, etc.
+ *
+ * @param {number} noteId - Note ID
+ * @returns {Promise<object>} Note object
+ * @throws {ApiError} If note not found (404) or not authenticated
+ *
+ * @example
+ * const note = await fetchNote(123);
+ */
+export async function fetchNote(noteId) {
+  const response = await api.get(`/notes/${noteId}`);
+  // Backend returns { success: true, note: {...} }
+  return response.note;
+}
+
+/**
  * Get sample notes (deprecated - use fetchNotes instead)
  *
  * @deprecated Use fetchNotes() instead

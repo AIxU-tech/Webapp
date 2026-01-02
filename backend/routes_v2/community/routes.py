@@ -119,6 +119,22 @@ def api_notes():
 
     return jsonify(notes)
 
+@community_bp.route('/api/notes/<int:note_id>', methods=['GET'])
+@login_required
+def get_note(note_id):
+    try:
+        note = Note.query.get(note_id)
+        if not note:
+            return jsonify({'success': False, 'error': 'Note not found'}), 404
+        else:
+            notes_dict = notes_to_dict([note], current_user)
+            return jsonify({
+                'success': True,
+                'note': notes_dict[0]
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # Route to toggle like on a note
 @community_bp.route('/api/notes/<int:note_id>/like', methods=['POST'])

@@ -6,6 +6,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchNotes,
+  fetchNote,
   createNote,
   toggleLikeNote,
   toggleBookmarkNote,
@@ -21,15 +22,14 @@ import {
   createFeedItemKeys,
   createListHook,
   createCreateHook,
-  createBookmarkHook,
-  createDeleteHook,
   createPrefetchFn,
 } from './factories/feedItemHooks';
 
-// Query Keys - extend factory keys with comments key
+// Query Keys - extend factory keys with comments and detail keys
 const baseKeys = createFeedItemKeys('notes');
 export const noteKeys = {
   ...baseKeys,
+  detail: (noteId) => [...baseKeys.all, 'detail', noteId],
   comments: (noteId) => [...baseKeys.all, noteId, 'comments'],
 };
 
@@ -40,23 +40,122 @@ export const useNotes = createListHook({
   staleTime: STALE_TIMES.NOTES,
 });
 
+// Detail hook
+export function useNote(noteId) {
+  return useQuery({
+    queryKey: noteKeys.detail(noteId),
+    queryFn: () => fetchNote(noteId),
+    enabled: !!noteId,
+    staleTime: STALE_TIMES.NOTES,
+  });
+}
+
 // Create mutation
 export const useCreateNote = createCreateHook({
   keys: noteKeys,
   createFn: createNote,
 });
 
-// Bookmark mutation
-export const useBookmarkNote = createBookmarkHook({
-  keys: noteKeys,
-  toggleFn: toggleBookmarkNote,
-});
+// Bookmark mutation - custom implementation to update both list and detail caches
+export function useBookmarkNote() {
+  const queryClient = useQueryClient();
 
-// Delete mutation
-export const useDeleteNote = createDeleteHook({
-  keys: noteKeys,
-  deleteFn: deleteNote,
-});
+  return useMutation({
+    mutationFn: toggleBookmarkNote,
+
+    onMutate: async (noteId) => {
+      await queryClient.cancelQueries({ queryKey: noteKeys.all });
+      const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
+      const previousDetail = queryClient.getQueryData(noteKeys.detail(noteId));
+
+      // Update list cache
+      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.map((note) => {
+          if (note.id === noteId) {
+            return { ...note, isBookmarked: !note.isBookmarked };
+          }
+          return note;
+        });
+      });
+
+      // Update detail cache
+      queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
+        if (!oldData) return oldData;
+        return { ...oldData, isBookmarked: !oldData.isBookmarked };
+      });
+
+      return { previousQueries, previousDetail, noteId };
+    },
+
+    onError: (err, noteId, context) => {
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.previousDetail !== undefined) {
+        queryClient.setQueryData(noteKeys.detail(noteId), context.previousDetail);
+      }
+    },
+
+    onSuccess: (result, noteId) => {
+      // Update list cache with server response
+      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.map((note) => {
+          if (note.id === noteId) {
+            return { ...note, isBookmarked: result.isBookmarked };
+          }
+          return note;
+        });
+      });
+
+      // Update detail cache with server response
+      queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
+        if (!oldData) return oldData;
+        return { ...oldData, isBookmarked: result.isBookmarked };
+      });
+    },
+  });
+}
+
+// Delete mutation - custom implementation to update both list and detail caches
+export function useDeleteNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteNote,
+
+    onMutate: async (noteId) => {
+      await queryClient.cancelQueries({ queryKey: noteKeys.all });
+      const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
+      const previousDetail = queryClient.getQueryData(noteKeys.detail(noteId));
+
+      // Remove from list cache
+      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.filter((note) => note.id !== noteId);
+      });
+
+      // Remove detail cache
+      queryClient.removeQueries({ queryKey: noteKeys.detail(noteId) });
+
+      return { previousQueries, previousDetail, noteId };
+    },
+
+    onError: (err, noteId, context) => {
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.previousDetail !== undefined) {
+        queryClient.setQueryData(noteKeys.detail(noteId), context.previousDetail);
+      }
+    },
+  });
+}
 
 // Prefetch utility
 export const prefetchNotes = createPrefetchFn({
@@ -67,7 +166,7 @@ export const prefetchNotes = createPrefetchFn({
 
 /**
  * useLikeNote Hook
- * Unique to notes - includes like count tracking with optimistic updates.
+ * Includes like count tracking with optimistic updates for both list and detail views.
  */
 export function useLikeNote() {
   const queryClient = useQueryClient();
@@ -78,7 +177,9 @@ export function useLikeNote() {
     onMutate: async (noteId) => {
       await queryClient.cancelQueries({ queryKey: noteKeys.all });
       const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
+      const previousDetail = queryClient.getQueryData(noteKeys.detail(noteId));
 
+      // Update list cache
       queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
         if (!Array.isArray(oldData)) return oldData;
         return oldData.map((note) => {
@@ -93,7 +194,17 @@ export function useLikeNote() {
         });
       });
 
-      return { previousQueries };
+      // Update detail cache
+      queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          isLiked: !oldData.isLiked,
+          likes: oldData.isLiked ? oldData.likes - 1 : oldData.likes + 1,
+        };
+      });
+
+      return { previousQueries, previousDetail, noteId };
     },
 
     onError: (err, noteId, context) => {
@@ -102,9 +213,13 @@ export function useLikeNote() {
           queryClient.setQueryData(queryKey, data);
         });
       }
+      if (context?.previousDetail !== undefined) {
+        queryClient.setQueryData(noteKeys.detail(noteId), context.previousDetail);
+      }
     },
 
     onSuccess: (result, noteId) => {
+      // Update list cache with server response
       queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
         if (!Array.isArray(oldData)) return oldData;
         return oldData.map((note) => {
@@ -117,6 +232,16 @@ export function useLikeNote() {
           }
           return note;
         });
+      });
+
+      // Update detail cache with server response
+      queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          isLiked: result.isLiked,
+          likes: result.likes,
+        };
       });
     },
   });

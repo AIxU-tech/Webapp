@@ -15,6 +15,7 @@
  *
  * Notes/Community:
  * - useNotes(params) - Get notes with filters
+ * - useNote(noteId) - Get single note by ID
  * - useCreateNote() - Create mutation
  * - useLikeNote() - Like/unlike mutation
  * - useBookmarkNote() - Bookmark mutation
@@ -99,6 +100,7 @@ export {
 // =============================================================================
 export {
   useNotes,
+  useNote,
   useCreateNote,
   useLikeNote,
   useBookmarkNote,
@@ -188,6 +190,11 @@ export {
   useCountdown,
   useModal,
 } from './useUI';
+
+// =============================================================================
+// Clipboard Hook
+// =============================================================================
+export { useClipboard } from './useClipboard';
 
 // =============================================================================
 // Email Verification Hook

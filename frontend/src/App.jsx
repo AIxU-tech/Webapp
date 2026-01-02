@@ -20,6 +20,7 @@ import AddUniversityEntryPage from './pages/AddUniversityEntryPage';
 import UniversitiesPage from './pages/UniversitiesPage';
 import UniversityDetailPage from './pages/UniversityDetailPage';
 import CommunityPage from './pages/CommunityPage';
+import NoteDetailPage from './pages/NoteDetailPage';
 import OpportunitiesPage from './pages/OpportunitiesPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -97,6 +98,7 @@ function App() {
       */}
       <Route element={<AppLayout />}>
         <Route path="/community" element={<CommunityPage />} />
+        <Route path="/notes/:noteId" element={<NoteDetailPage />} />
         <Route path="/universities" element={<UniversitiesPage />} />
         <Route path="/universities/:id" element={<UniversityDetailPage />} />
         <Route path="/opportunities" element={<OpportunitiesPage />} />
