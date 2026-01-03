@@ -6,6 +6,7 @@ Helper functions for community-related routes (notes, comments, likes, bookmarks
 
 from datetime import datetime
 from flask_login import current_user
+from sqlalchemy.orm import Query
 from backend.extensions import db
 from backend.models import Note, NoteComment, User, University, NoteLike, NoteBookmark, NoteCommentLike
 
@@ -92,6 +93,228 @@ def get_db_notes(filter_user_id=None, search_query=None, university_id=None):
 
     return db_notes
 
+def _apply_visibility_filter(query: Query, user) -> Query:
+    """
+    Apply visibility rules based on user authentication status.
+    
+    Visibility rules:
+    - Public notes (university_only=False): visible to everyone
+    - University-only notes (university_only=True): 
+      * Visible to site admins
+      * Visible to authenticated users from the same university
+      * Not visible to anonymous users
+    
+    Args:
+        query: SQLAlchemy query object
+        user: Current user (authenticated or anonymous)
+    
+    Returns:
+        Query with visibility filters applied
+    """
+    if hasattr(user, 'is_authenticated') and user.is_authenticated:
+        if user.is_site_admin():
+            # Site admins see everything - no filter needed
+            return query
+        else:
+            # Authenticated users: public OR same university
+            return query.filter(
+                db.or_(
+                    Note.university_only == False,
+                    db.and_(
+                        Note.university_only == True,
+                        Note.author.has(User.university == user.university)
+                    )
+                )
+            )
+    else:
+        # Anonymous users: only public notes
+        return query.filter(Note.university_only == False)
+
+
+def _apply_search_filter(query: Query, search_query: str) -> Query:
+    """
+    Apply search filter to query.
+    
+    Searches in:
+    - Note title
+    - Note content
+    - Author name (first_name, last_name, email)
+    
+    Args:
+        query: SQLAlchemy query object
+        search_query: Search string
+    
+    Returns:
+        Query with search filters applied
+    """
+    if not search_query:
+        return query
+    
+    # Find users matching the search query
+    matching_users = User.query.filter(
+        db.or_(
+            User.first_name.ilike(f'%{search_query}%'),
+            User.last_name.ilike(f'%{search_query}%'),
+            User.email.ilike(f'%{search_query}%')
+        )
+    ).with_entities(User.id).all()
+    matching_user_ids = [user.id for user in matching_users]
+    
+    # Search in note title, content, or author
+    conditions = [
+        Note.title.ilike(f'%{search_query}%'),
+        Note.content.ilike(f'%{search_query}%')
+    ]
+    
+    if matching_user_ids:
+        conditions.append(Note.author_id.in_(matching_user_ids))
+    
+    return query.filter(db.or_(*conditions))
+
+
+def _apply_university_filter(query: Query, university_id: int) -> Query:
+    """
+    Apply university filter to query.
+    
+    Returns notes from all members of the specified university.
+    
+    Args:
+        query: SQLAlchemy query object
+        university_id: University ID to filter by
+    
+    Returns:
+        Query with university filter applied
+    """
+    from backend.models import UniversityRole
+    
+    # Get member IDs for this university
+    member_ids = [
+        role.user_id for role in
+        UniversityRole.query.filter_by(university_id=university_id)
+        .with_entities(UniversityRole.user_id).all()
+    ]
+    
+    if not member_ids:
+        # No members = no notes, return empty result
+        return query.filter(False)
+    
+    return query.filter(Note.author_id.in_(member_ids))
+
+
+def build_notes_query(query_dict: dict, user) -> Query:
+    """
+    Build a query with all filters and visibility rules applied.
+    
+    This function consolidates all filtering logic into a single place:
+    - Visibility filtering (based on user authentication and university_only flag)
+    - Search filtering (title, content, author name)
+    - User filtering (notes by specific user)
+    - University filtering (notes from university members)
+    - Tag filtering (notes containing specific tag)
+    - Ordering (created_at desc, id desc)
+    
+    Note: Pagination is NOT applied here. Use get_paginated_notes() which
+    calls this function and then applies pagination.
+    
+    Args:
+        query_dict: Dictionary with optional keys:
+            - search: Search query string
+            - user: User ID to filter by
+            - university_id: University ID to filter by
+            - tag: Tag name to filter by
+        user: Current user (authenticated or anonymous)
+    
+    Returns:
+        SQLAlchemy Query object (not executed)
+    """
+    query = Note.query
+    
+    # 1. Apply visibility filter FIRST (before other filters)
+    query = _apply_visibility_filter(query, user)
+    
+    # 2. Apply search filter
+    if query_dict.get('search'):
+        query = _apply_search_filter(query, query_dict['search'])
+    
+    # 3. Apply user filter
+    if query_dict.get('user'):
+        query = query.filter(Note.author_id == query_dict['user'])
+    
+    # 4. Apply university filter
+    if query_dict.get('university_id'):
+        query = _apply_university_filter(query, query_dict['university_id'])
+    
+    # 5. Always apply ordering (most recent first)
+    query = query.order_by(Note.created_at.desc(), Note.id.desc())
+    
+    return query
+
+
+def get_paginated_notes(query_dict: dict, user):
+    """
+    Get notes with optional pagination.
+    
+    This function:
+    1. Builds the base query with all filters and visibility rules
+    2. Applies pagination if page/page_size are provided
+    3. Converts notes to dictionaries with user interactions
+    4. Returns appropriate response format
+    
+    Args:
+        query_dict: Dictionary with optional keys:
+            - page: Page number (1-indexed)
+            - page_size: Number of items per page
+            - search: Search query string
+            - user: User ID to filter by
+            - university_id: University ID to filter by
+        user: Current user (authenticated or anonymous)
+    
+    Returns:
+        Tuple of (notes_list, pagination_dict):
+        - If pagination params provided: (notes_list, pagination_dict)
+        - If no pagination: (notes_list, None)
+    
+    Example:
+        notes, pagination = get_paginated_notes({
+            'page': 1,
+            'page_size': 20,
+            'search': 'AI'
+        }, current_user)
+    """
+    # Build base query with all filters
+    base_query = build_notes_query(query_dict, user)
+    
+    # Check if pagination requested
+    page = query_dict.get('page')
+    page_size = query_dict.get('page_size')
+    
+    if page is not None and page_size is not None:
+        # Paginated mode
+        # Get total count BEFORE applying limit/offset
+        total = base_query.count()
+        
+        # Apply pagination
+        offset = (page - 1) * page_size
+        db_notes = base_query.limit(page_size).offset(offset).all()
+        
+        # Convert to dictionaries
+        notes = notes_to_dict(db_notes, user)
+        
+        # Build pagination metadata
+        pagination = {
+            'page': page,
+            'pageSize': page_size,
+            'total': total,
+            'totalPages': (total + page_size - 1) // page_size if total > 0 else 0,
+            'hasMore': page * page_size < total
+        }
+        
+        return notes, pagination
+    else:
+        # Non-paginated mode (backward compatible)
+        db_notes = base_query.all()
+        notes = notes_to_dict(db_notes, user)
+        return notes, None
 
 def get_user_note_interactions(user_id: int, note_ids: list[int]) -> tuple[set[int], set[int]]:
     """
@@ -163,32 +386,34 @@ def notes_to_dict(db_notes, current_user):
     Enriches each note with isLiked and isBookmarked flags based on
     the current user's relationship with each note.
 
-    Filters out university_only notes that the user cannot view.
+    Note: Visibility filtering is now handled at the query level in
+    build_notes_query(). This function only handles serialization and
+    interaction flags.
 
     Uses batch queries to avoid N+1 query problem - fetches all like/bookmark
     status in 2 queries total regardless of number of notes.
 
     Args:
-        db_notes: List of Note objects
+        db_notes: List of Note objects (already filtered for visibility)
         current_user: The current authenticated user (or anonymous)
 
     Returns:
         List of note dictionaries ready for JSON serialization
     """
-    # Filter notes by visibility first
-    visible_notes = [note for note in db_notes if check_note_visibility(note, current_user)]
+    if not db_notes:
+        return []
 
     # Pre-fetch all interactions in 2 queries (instead of 2N queries)
     liked_ids = set()
     bookmarked_ids = set()
 
-    if current_user.is_authenticated and visible_notes:
-        note_ids = [note.id for note in visible_notes]
+    if current_user.is_authenticated:
+        note_ids = [note.id for note in db_notes]
         liked_ids, bookmarked_ids = get_user_note_interactions(current_user.id, note_ids)
 
     # Build response with O(1) lookups
     notes = []
-    for note in visible_notes:
+    for note in db_notes:
         note_dict = note.to_dict()
 
         if current_user.is_authenticated:

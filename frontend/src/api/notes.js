@@ -16,23 +16,36 @@ import { api } from './client';
  * Get all research notes
  *
  * Returns notes from all users, sorted by creation date (newest first).
- * Optionally filter by search query or user ID.
- *
- * Note: This fetches from the backend HTML route which returns rendered notes.
- * For JSON API, notes are embedded in the community page response.
+ * Optionally filter by search query, user ID, or university ID.
+ * Supports pagination for infinite scroll.
  *
  * @param {object} params - Query parameters
  * @param {string} [params.search] - Search query for title, content, or author name
  * @param {number} [params.user] - Filter by specific user ID
- * @returns {Promise<Array>} Array of note objects
+ * @param {number} [params.university_id] - Filter by university ID
+ * @param {number} [params.page] - Page number (1-indexed, enables pagination)
+ * @param {number} [params.page_size] - Number of items per page (default 20)
+ * @returns {Promise<Array|Object>} Array of notes (non-paginated) or object with notes and pagination
  *
  * @example
+ * // Non-paginated (backward compatible)
  * const notes = await fetchNotes();
  * const searchResults = await fetchNotes({ search: 'transformers' });
- * const userNotes = await fetchNotes({ user: 123 });
+ *
+ * // Paginated
+ * const page1 = await fetchNotes({ page: 1, page_size: 20 });
+ * // Returns: { notes: [...], pagination: { page: 1, pageSize: 20, total: 150, hasMore: true } }
  */
 export async function fetchNotes(params = {}) {
-  const queryString = new URLSearchParams(params).toString();
+  // Filter out null/undefined values
+  const cleanParams = Object.entries(params).reduce((acc, [key, value]) => {
+    if (value != null) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+
+  const queryString = new URLSearchParams(cleanParams).toString();
   const endpoint = queryString ? `/notes?${queryString}` : '/notes';
   return api.get(endpoint);
 }

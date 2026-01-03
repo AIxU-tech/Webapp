@@ -4,7 +4,7 @@ from backend.extensions import db
 from backend.models import Note, NoteComment, User, University
 from backend.routes_v2.community.helpers import (
     create_db_note,
-    get_db_notes,
+    get_paginated_notes,
     notes_to_dict,
     toggle_like_status,
     toggle_bookmark_status,
@@ -94,30 +94,55 @@ def delete_note(note_id):
 @community_bp.route('/api/notes')
 def api_notes():
     """
-    Get all notes as JSON with optional filtering.
+    Get notes as JSON with optional filtering and pagination.
 
     Query parameters:
     - search: Search in title, content, or author name
     - user: Filter by specific user ID
     - university_id: Filter by university (returns notes from all members)
+    - page: Page number (1-indexed, optional - enables pagination)
+    - page_size: Number of items per page (optional, default 20 when page is provided)
 
-    Returns array of note objects with author info, likes, bookmarks, etc.
+    Response format:
+    - If pagination params provided: { notes: [...], pagination: {...} }
+    - If no pagination: [...notes] (backward compatible flat array)
+
+    Returns note objects with author info, likes, bookmarks, etc.
+    Visibility rules are applied automatically (university_only notes filtered).
     """
-    # Check if filtering by user
-    filter_user_id = request.args.get('user', type=int)
-
-    # Check if searching
-    search_query = request.args.get('search', '').strip()
-
-    # Check if filtering by university
-    university_id = request.args.get('university_id', type=int)
-
-    db_notes = get_db_notes(filter_user_id, search_query, university_id)
-
-    # Convert to dictionaries and update isLiked/isBookmarked for current user
-    notes = notes_to_dict(db_notes, current_user)
-
-    return jsonify(notes)
+    # Extract query parameters
+    query_dict = {
+        'page': request.args.get('page', type=int),
+        'page_size': request.args.get('page_size', type=int),
+        'search': request.args.get('search', '').strip(),
+        'user': request.args.get('user', type=int),
+        'university_id': request.args.get('university_id', type=int),
+    }
+    
+    # Validate pagination parameters if provided
+    if query_dict['page'] is not None:
+        if query_dict['page'] < 1:
+            return jsonify({'error': 'page must be >= 1'}), 400
+        
+        # Set default page_size if page is provided but page_size is not
+        if query_dict['page_size'] is None:
+            query_dict['page_size'] = 20
+        elif query_dict['page_size'] < 1:
+            return jsonify({'error': 'page_size must be >= 1'}), 400
+    
+    # Get notes (with or without pagination)
+    notes, pagination = get_paginated_notes(query_dict, current_user)
+    
+    # Return appropriate response format
+    if pagination:
+        # Paginated response
+        return jsonify({
+            'notes': notes,
+            'pagination': pagination
+        })
+    else:
+        # Non-paginated response (backward compatible)
+        return jsonify(notes)
 
 @community_bp.route('/api/notes/<int:note_id>', methods=['GET'])
 @login_required

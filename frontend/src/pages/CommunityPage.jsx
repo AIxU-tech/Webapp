@@ -21,12 +21,12 @@
  * @component
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 import {
-  useNotes,
+  useInfiniteNotes,
   useCreateNote,
   useLikeNote,
   useBookmarkNote,
@@ -87,11 +87,12 @@ export default function CommunityPage() {
   const filterUserId = searchParams.get('user') ? parseInt(searchParams.get('user')) : null;
 
   /**
-   * Data Fetching with React Query
+   * Data Fetching with React Query (Infinite Scroll)
    *
-   * useNotes() handles:
+   * useInfiniteNotes() handles:
    * - Automatic caching (2 minute staleTime)
    * - Loading and error states
+   * - Infinite scroll pagination
    * - Background refetching
    *
    * Different search/filter params create separate cache entries.
@@ -104,11 +105,75 @@ export default function CommunityPage() {
   }, [searchQuery, filterUserId]);
 
   const {
-    data: notes = [],
+    data,
     isLoading: loading,
     error: queryError,
-    refetch,
-  } = useNotes(queryParams);
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteNotes(queryParams);
+
+  // Extract and flatten notes from infinite query data
+  const allNotes = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap((page) => {
+      // Handle paginated response format
+      if (page && typeof page === 'object' && 'pagination' in page) {
+        return Array.isArray(page.notes) ? page.notes : [];
+      }
+      // Handle non-paginated response format (backward compatible)
+      return Array.isArray(page) ? page : [];
+    });
+  }, [data]);
+
+  /**
+   * Local UI State - Tag Filter
+   */
+  const [selectedTag, setSelectedTag] = useState('all');
+
+  /**
+   * Apply Tag Filter to Notes
+   *
+   * Memoized filtering based on selected tag.
+   */
+  const notes = useMemo(() => {
+    if (selectedTag === 'all') {
+      return allNotes;
+    }
+    return allNotes.filter(note => note.tags && note.tags.includes(selectedTag));
+  }, [selectedTag, allNotes]);
+
+  /**
+   * Infinite Scroll - Auto-load when user scrolls to bottom
+   */
+  const loadMoreRef = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const firstEntry = entries[0];
+        // When the sentinel element is visible and there's more to load
+        if (firstEntry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      {
+        // Trigger when sentinel is 200px from viewport
+        rootMargin: '200px',
+      }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   /**
    * Mutations with Optimistic Updates
@@ -120,11 +185,6 @@ export default function CommunityPage() {
   const likeNoteMutation = useLikeNote();
   const bookmarkNoteMutation = useBookmarkNote();
   const deleteNoteMutation = useDeleteNote();
-
-  /**
-   * Local UI State
-   */
-  const [selectedTag, setSelectedTag] = useState('all');
 
   /**
    * Create Note Modal State
@@ -144,16 +204,10 @@ export default function CommunityPage() {
   usePageTitle('Community Notes');
 
   /**
-   * Apply Tag Filter to Notes
-   *
-   * Memoized filtering based on selected tag.
+   * Notes are already filtered by backend based on selectedTag
+   * No need for client-side filtering anymore
    */
-  const filteredNotes = useMemo(() => {
-    if (selectedTag === 'all') {
-      return notes;
-    }
-    return notes.filter(note => note.tags && note.tags.includes(selectedTag));
-  }, [selectedTag, notes]);
+  const filteredNotes = notes;
 
   /**
    * Local search input state (for controlled input)
@@ -390,7 +444,6 @@ export default function CommunityPage() {
         items={filteredNotes}
         isLoading={loading}
         error={queryError}
-        onRetry={refetch}
         loadingText="Loading notes..."
         emptyIcon={<FileTextIcon className="h-12 w-12" />}
         emptyTitle={searchQuery ? 'No results found' : 'No posts yet'}
@@ -398,8 +451,8 @@ export default function CommunityPage() {
           searchQuery
             ? `No posts match your search for "${searchQuery}". Try a different keyword or author name.`
             : filterUserId
-            ? "This user hasn't created any posts yet."
-            : 'There are no posts in the community yet. Be the first to share!'
+              ? "This user hasn't created any posts yet."
+              : 'There are no posts in the community yet. Be the first to share!'
         }
         emptyAction={
           (filterUserId || searchQuery)
@@ -418,6 +471,20 @@ export default function CommunityPage() {
           />
         )}
       />
+
+      {/* Infinite Scroll Sentinel - Triggers load when scrolled into view */}
+      {hasNextPage && (
+        <div
+          ref={loadMoreRef}
+          className="flex justify-center items-center py-8"
+        >
+          {isFetchingNextPage && (
+            <div className="text-muted-foreground text-sm">
+              Loading more notes...
+            </div>
+          )}
+        </div>
+      )}
 
       {/*
         Create Note Modal

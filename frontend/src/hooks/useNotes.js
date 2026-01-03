@@ -3,7 +3,7 @@
  * React Query hooks for fetching and managing community notes.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchNotes,
   fetchNote,
@@ -31,14 +31,51 @@ export const noteKeys = {
   ...baseKeys,
   detail: (noteId) => [...baseKeys.all, 'detail', noteId],
   comments: (noteId) => [...baseKeys.all, noteId, 'comments'],
+  infinite: (params = {}) => [...baseKeys.all, 'infinite', params],
 };
 
-// List hook
+// List hook (deprecated - use useInfiniteNotes for new code)
 export const useNotes = createListHook({
   keys: noteKeys,
   fetchFn: fetchNotes,
   staleTime: STALE_TIMES.NOTES,
 });
+
+/**
+ * useInfiniteNotes Hook
+ *
+ * Fetches notes with infinite scroll pagination support.
+ * Uses useInfiniteQuery to automatically handle page loading and caching.
+ *
+ * @param {object} params - Filter parameters (search, user, university_id)
+ * @returns {object} React Query infinite query result with:
+ *   - data.notes: Flattened array of all notes from all pages
+ *   - data.pages: Array of page responses
+ *   - fetchNextPage: Function to load next page
+ *   - hasNextPage: Boolean indicating if more pages exist
+ *   - isFetchingNextPage: Boolean indicating if next page is loading
+ *
+ * @example
+ * const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteNotes({ search: 'AI' });
+ * const notes = data?.notes || [];
+ */
+export function useInfiniteNotes(params = {}) {
+  return useInfiniteQuery({
+    queryKey: noteKeys.infinite(params),
+    queryFn: ({ pageParam = 1 }) =>
+      fetchNotes({ ...params, page: pageParam, page_size: 20 }),
+    getNextPageParam: (lastPage) => {
+      // Handle both paginated and non-paginated responses
+      if (lastPage?.pagination?.hasMore) {
+        return lastPage.pagination.page + 1;
+      }
+      // If response is a flat array (non-paginated), no next page
+      return undefined;
+    },
+    initialPageParam: 1,
+    staleTime: STALE_TIMES.NOTES,
+  });
+}
 
 // Detail hook
 export function useNote(noteId) {
@@ -56,6 +93,46 @@ export const useCreateNote = createCreateHook({
   createFn: createNote,
 });
 
+// Helper function to update infinite query cache
+function updateInfiniteQueryCache(queryClient, noteId, updater) {
+  // Update all infinite queries (matching the infinite key pattern)
+  queryClient.setQueriesData(
+    {
+      predicate: (query) => {
+        const key = query.queryKey;
+        return key[0] === 'notes' && key[1] === 'infinite';
+      }
+    },
+    (oldData) => {
+      if (!oldData?.pages) return oldData;
+      return {
+        pages: oldData.pages.map((page) => {
+          // Handle both paginated and non-paginated responses
+          const notes = page.pagination ? page.notes : (Array.isArray(page) ? page : []);
+          const updatedNotes = notes.map((note) =>
+            note.id === noteId ? updater(note) : note
+          );
+
+          // Return in same format as received
+          if (page.pagination) {
+            return { ...page, notes: updatedNotes };
+          }
+          return updatedNotes;
+        }),
+        pageParams: oldData.pageParams || [],
+      };
+    }
+  );
+}
+
+// Helper function to update regular list cache (backward compatibility)
+function updateListCache(queryClient, noteId, updater) {
+  queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
+    if (!Array.isArray(oldData)) return oldData;
+    return oldData.map((note) => (note.id === noteId ? updater(note) : note));
+  });
+}
+
 // Bookmark mutation - custom implementation to update both list and detail caches
 export function useBookmarkNote() {
   const queryClient = useQueryClient();
@@ -68,16 +145,17 @@ export function useBookmarkNote() {
       const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
       const previousDetail = queryClient.getQueryData(noteKeys.detail(noteId));
 
-      // Update list cache
-      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
-        if (!Array.isArray(oldData)) return oldData;
-        return oldData.map((note) => {
-          if (note.id === noteId) {
-            return { ...note, isBookmarked: !note.isBookmarked };
-          }
-          return note;
-        });
-      });
+      // Update infinite query cache
+      updateInfiniteQueryCache(queryClient, noteId, (note) => ({
+        ...note,
+        isBookmarked: !note.isBookmarked,
+      }));
+
+      // Update regular list cache (backward compatibility)
+      updateListCache(queryClient, noteId, (note) => ({
+        ...note,
+        isBookmarked: !note.isBookmarked,
+      }));
 
       // Update detail cache
       queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
@@ -100,16 +178,17 @@ export function useBookmarkNote() {
     },
 
     onSuccess: (result, noteId) => {
-      // Update list cache with server response
-      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
-        if (!Array.isArray(oldData)) return oldData;
-        return oldData.map((note) => {
-          if (note.id === noteId) {
-            return { ...note, isBookmarked: result.isBookmarked };
-          }
-          return note;
-        });
-      });
+      // Update infinite query cache with server response
+      updateInfiniteQueryCache(queryClient, noteId, (note) => ({
+        ...note,
+        isBookmarked: result.isBookmarked,
+      }));
+
+      // Update regular list cache with server response
+      updateListCache(queryClient, noteId, (note) => ({
+        ...note,
+        isBookmarked: result.isBookmarked,
+      }));
 
       // Update detail cache with server response
       queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
@@ -132,7 +211,35 @@ export function useDeleteNote() {
       const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
       const previousDetail = queryClient.getQueryData(noteKeys.detail(noteId));
 
-      // Remove from list cache
+      // Remove from infinite query cache
+      queryClient.setQueriesData(
+        {
+          predicate: (query) => {
+            const key = query.queryKey;
+            return key[0] === 'notes' && key[1] === 'infinite';
+          }
+        },
+        (oldData) => {
+          if (!oldData?.pages) return oldData;
+          return {
+            pages: oldData.pages.map((page) => {
+              // Handle both paginated and non-paginated responses
+              const notes = page.pagination ? page.notes : (Array.isArray(page) ? page : []);
+              const filteredNotes = notes.filter((note) => note.id !== noteId);
+
+              // Return in same format as received
+              if (page.pagination) {
+                return { ...page, notes: filteredNotes };
+              }
+              return filteredNotes;
+            }),
+            pageParams: oldData.pageParams || [],
+          };
+        }
+      );
+
+      // Remove from regular list cache (backward compatibility)
+      updateListCache(queryClient, noteId, () => null);
       queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
         if (!Array.isArray(oldData)) return oldData;
         return oldData.filter((note) => note.id !== noteId);
@@ -179,20 +286,19 @@ export function useLikeNote() {
       const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
       const previousDetail = queryClient.getQueryData(noteKeys.detail(noteId));
 
-      // Update list cache
-      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
-        if (!Array.isArray(oldData)) return oldData;
-        return oldData.map((note) => {
-          if (note.id === noteId) {
-            return {
-              ...note,
-              isLiked: !note.isLiked,
-              likes: note.isLiked ? note.likes - 1 : note.likes + 1,
-            };
-          }
-          return note;
-        });
-      });
+      // Update infinite query cache
+      updateInfiniteQueryCache(queryClient, noteId, (note) => ({
+        ...note,
+        isLiked: !note.isLiked,
+        likes: note.isLiked ? note.likes - 1 : note.likes + 1,
+      }));
+
+      // Update regular list cache (backward compatibility)
+      updateListCache(queryClient, noteId, (note) => ({
+        ...note,
+        isLiked: !note.isLiked,
+        likes: note.isLiked ? note.likes - 1 : note.likes + 1,
+      }));
 
       // Update detail cache
       queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
@@ -219,20 +325,19 @@ export function useLikeNote() {
     },
 
     onSuccess: (result, noteId) => {
-      // Update list cache with server response
-      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
-        if (!Array.isArray(oldData)) return oldData;
-        return oldData.map((note) => {
-          if (note.id === noteId) {
-            return {
-              ...note,
-              isLiked: result.isLiked,
-              likes: result.likes,
-            };
-          }
-          return note;
-        });
-      });
+      // Update infinite query cache with server response
+      updateInfiniteQueryCache(queryClient, noteId, (note) => ({
+        ...note,
+        isLiked: result.isLiked,
+        likes: result.likes,
+      }));
+
+      // Update regular list cache with server response
+      updateListCache(queryClient, noteId, (note) => ({
+        ...note,
+        isLiked: result.isLiked,
+        likes: result.likes,
+      }));
 
       // Update detail cache with server response
       queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
