@@ -100,6 +100,7 @@ def api_notes():
     - search: Search in title, content, or author name
     - user: Filter by specific user ID
     - university_id: Filter by university (returns notes from all members)
+    - tag: Filter by tag name (case-insensitive)
     - page: Page number (1-indexed, optional - enables pagination)
     - page_size: Number of items per page (optional, default 20 when page is provided)
 
@@ -117,6 +118,7 @@ def api_notes():
         'search': request.args.get('search', '').strip(),
         'user': request.args.get('user', type=int),
         'university_id': request.args.get('university_id', type=int),
+        'tag': request.args.get('tag', '').strip(),
     }
     
     # Validate pagination parameters if provided

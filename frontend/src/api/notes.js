@@ -23,6 +23,7 @@ import { api } from './client';
  * @param {string} [params.search] - Search query for title, content, or author name
  * @param {number} [params.user] - Filter by specific user ID
  * @param {number} [params.university_id] - Filter by university ID
+ * @param {string} [params.tag] - Filter by tag name (case-insensitive)
  * @param {number} [params.page] - Page number (1-indexed, enables pagination)
  * @param {number} [params.page_size] - Number of items per page (default 20)
  * @returns {Promise<Array|Object>} Array of notes (non-paginated) or object with notes and pagination

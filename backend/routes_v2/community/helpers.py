@@ -9,6 +9,7 @@ from flask_login import current_user
 from sqlalchemy.orm import Query
 from backend.extensions import db
 from backend.models import Note, NoteComment, User, University, NoteLike, NoteBookmark, NoteCommentLike
+from sqlalchemy import func
 
 
 def create_db_note(data):
@@ -201,6 +202,38 @@ def _apply_university_filter(query: Query, university_id: int) -> Query:
     return query.filter(Note.author_id.in_(member_ids))
 
 
+def _apply_tag_filter(query: Query, tag: str) -> Query:
+    """
+    Apply tag filter to query (case-insensitive).
+    
+    Filters notes that contain the specified tag in their tags array.
+    Since tags are stored as a JSON string (e.g., '["NLP", "Deep Learning"]'),
+    we use a simple case-insensitive string search for the tag.
+    
+    Args:
+        query: SQLAlchemy query object
+        tag: Tag name to filter by (case-insensitive)
+    
+    Returns:
+        Query with tag filter applied
+    """
+    if not tag:
+        return query
+    
+    # Tags are stored as JSON string like '["NLP", "Deep Learning"]'
+    # Search for the tag as a JSON string element (with quotes) for whole-tag matching
+    # Use ilike for case-insensitive matching
+    tag_pattern = f'"{tag}"'
+    
+    # Only apply filter if tags column is not NULL and not empty
+    return query.filter(
+        Note.tags.isnot(None),
+        Note.tags != '',
+        Note.tags != '[]',
+        func.lower(Note.tags).contains(func.lower(tag_pattern))
+    )
+
+
 def build_notes_query(query_dict: dict, user) -> Query:
     """
     Build a query with all filters and visibility rules applied.
@@ -244,7 +277,11 @@ def build_notes_query(query_dict: dict, user) -> Query:
     if query_dict.get('university_id'):
         query = _apply_university_filter(query, query_dict['university_id'])
     
-    # 5. Always apply ordering (most recent first)
+    # 5. Apply tag filter
+    if query_dict.get('tag'):
+        query = _apply_tag_filter(query, query_dict['tag'])
+    
+    # 6. Always apply ordering (most recent first)
     query = query.order_by(Note.created_at.desc(), Note.id.desc())
     
     return query

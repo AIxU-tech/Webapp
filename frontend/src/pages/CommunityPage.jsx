@@ -85,6 +85,7 @@ export default function CommunityPage() {
    */
   const searchQuery = searchParams.get('search') || '';
   const filterUserId = searchParams.get('user') ? parseInt(searchParams.get('user')) : null;
+  const tagFilter = searchParams.get('tag') || 'all';
 
   /**
    * Data Fetching with React Query (Infinite Scroll)
@@ -101,8 +102,9 @@ export default function CommunityPage() {
     const params = {};
     if (searchQuery) params.search = searchQuery;
     if (filterUserId) params.user = filterUserId;
+    if (tagFilter && tagFilter !== 'all') params.tag = tagFilter;
     return params;
-  }, [searchQuery, filterUserId]);
+  }, [searchQuery, filterUserId, tagFilter]);
 
   const {
     data,
@@ -127,21 +129,10 @@ export default function CommunityPage() {
   }, [data]);
 
   /**
-   * Local UI State - Tag Filter
+   * Notes are already filtered by backend based on tagFilter from URL
+   * No need for client-side filtering anymore
    */
-  const [selectedTag, setSelectedTag] = useState('all');
-
-  /**
-   * Apply Tag Filter to Notes
-   *
-   * Memoized filtering based on selected tag.
-   */
-  const notes = useMemo(() => {
-    if (selectedTag === 'all') {
-      return allNotes;
-    }
-    return allNotes.filter(note => note.tags && note.tags.includes(selectedTag));
-  }, [selectedTag, allNotes]);
+  const notes = allNotes;
 
   /**
    * Infinite Scroll - Auto-load when user scrolls to bottom
@@ -204,10 +195,20 @@ export default function CommunityPage() {
   usePageTitle('Community Notes');
 
   /**
-   * Notes are already filtered by backend based on selectedTag
-   * No need for client-side filtering anymore
+   * Handle Tag Filter Change
+   *
+   * Updates URL search params. React Query handles the refetch
+   * automatically when queryParams changes.
    */
-  const filteredNotes = notes;
+  function handleTagChange(newTag) {
+    const newParams = new URLSearchParams(searchParams);
+    if (newTag === 'all') {
+      newParams.delete('tag');
+    } else {
+      newParams.set('tag', newTag);
+    }
+    setSearchParams(newParams);
+  }
 
   /**
    * Local search input state (for controlled input)
@@ -432,8 +433,8 @@ export default function CommunityPage() {
       <div className="mb-8">
         <TagSelector
           tags={FILTER_TAGS}
-          selected={selectedTag}
-          onChange={setSelectedTag}
+          selected={tagFilter}
+          onChange={handleTagChange}
           showAll
           allLabel="All Notes"
         />
@@ -441,7 +442,7 @@ export default function CommunityPage() {
 
       {/* Notes List */}
       <FeedItemList
-        items={filteredNotes}
+        items={notes}
         isLoading={loading}
         error={queryError}
         loadingText="Loading notes..."
