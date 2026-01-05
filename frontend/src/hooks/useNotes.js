@@ -133,7 +133,13 @@ function updateListCache(queryClient, noteId, updater) {
   });
 }
 
-// Bookmark mutation - custom implementation to update both list and detail caches
+/**
+ * useBookmarkNote Hook
+ *
+ * Mutation hook for bookmarking/unbookmarking a note with optimistic updates.
+ * Updates isBookmarked status in infinite, list, and detail caches.
+ * Detail cache updates optimistically but will refetch on error if needed.
+ */
 export function useBookmarkNote() {
   const queryClient = useQueryClient();
 
@@ -143,7 +149,6 @@ export function useBookmarkNote() {
     onMutate: async (noteId) => {
       await queryClient.cancelQueries({ queryKey: noteKeys.all });
       const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
-      const previousDetail = queryClient.getQueryData(noteKeys.detail(noteId));
 
       // Update infinite query cache
       updateInfiniteQueryCache(queryClient, noteId, (note) => ({
@@ -157,23 +162,21 @@ export function useBookmarkNote() {
         isBookmarked: !note.isBookmarked,
       }));
 
-      // Update detail cache
+      // Update detail cache optimistically (no snapshot needed - will refetch on error)
       queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
         if (!oldData) return oldData;
         return { ...oldData, isBookmarked: !oldData.isBookmarked };
       });
 
-      return { previousQueries, previousDetail, noteId };
+      return { previousQueries, noteId };
     },
 
     onError: (err, noteId, context) => {
+      // Rollback infinite and list caches
       if (context?.previousQueries) {
         context.previousQueries.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
         });
-      }
-      if (context?.previousDetail !== undefined) {
-        queryClient.setQueryData(noteKeys.detail(noteId), context.previousDetail);
       }
     },
 
@@ -190,7 +193,7 @@ export function useBookmarkNote() {
         isBookmarked: result.isBookmarked,
       }));
 
-      // Update detail cache with server response
+      // Optionally update detail cache if it exists (no snapshot needed)
       queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
         if (!oldData) return oldData;
         return { ...oldData, isBookmarked: result.isBookmarked };
@@ -199,7 +202,13 @@ export function useBookmarkNote() {
   });
 }
 
-// Delete mutation - custom implementation to update both list and detail caches
+/**
+ * useDeleteNote Hook
+ *
+ * Mutation hook for deleting a note with optimistic removal.
+ * Removes note from infinite and list caches.
+ * Detail cache is removed and will 404 on refetch (expected behavior).
+ */
 export function useDeleteNote() {
   const queryClient = useQueryClient();
 
@@ -209,7 +218,6 @@ export function useDeleteNote() {
     onMutate: async (noteId) => {
       await queryClient.cancelQueries({ queryKey: noteKeys.all });
       const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
-      const previousDetail = queryClient.getQueryData(noteKeys.detail(noteId));
 
       // Remove from infinite query cache
       queryClient.setQueriesData(
@@ -245,21 +253,21 @@ export function useDeleteNote() {
         return oldData.filter((note) => note.id !== noteId);
       });
 
-      // Remove detail cache
+      // Remove detail cache (will 404 on refetch, which is expected)
       queryClient.removeQueries({ queryKey: noteKeys.detail(noteId) });
 
-      return { previousQueries, previousDetail, noteId };
+      return { previousQueries, noteId };
     },
 
     onError: (err, noteId, context) => {
+      // Rollback infinite and list caches
       if (context?.previousQueries) {
         context.previousQueries.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      if (context?.previousDetail !== undefined) {
-        queryClient.setQueryData(noteKeys.detail(noteId), context.previousDetail);
-      }
+      // Note: Detail cache was removed, so we don't roll it back
+      // If delete fails, user can refresh detail page to see the note again
     },
   });
 }
@@ -273,7 +281,10 @@ export const prefetchNotes = createPrefetchFn({
 
 /**
  * useLikeNote Hook
- * Includes like count tracking with optimistic updates for both list and detail views.
+ *
+ * Mutation hook for liking/unliking a note with optimistic updates.
+ * Updates like count and isLiked status in infinite, list, and detail caches.
+ * Detail cache updates optimistically but will refetch on error if needed.
  */
 export function useLikeNote() {
   const queryClient = useQueryClient();
@@ -284,7 +295,6 @@ export function useLikeNote() {
     onMutate: async (noteId) => {
       await queryClient.cancelQueries({ queryKey: noteKeys.all });
       const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
-      const previousDetail = queryClient.getQueryData(noteKeys.detail(noteId));
 
       // Update infinite query cache
       updateInfiniteQueryCache(queryClient, noteId, (note) => ({
@@ -300,7 +310,7 @@ export function useLikeNote() {
         likes: note.isLiked ? note.likes - 1 : note.likes + 1,
       }));
 
-      // Update detail cache
+      // Update detail cache optimistically (no snapshot needed - will refetch on error)
       queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
         if (!oldData) return oldData;
         return {
@@ -310,17 +320,15 @@ export function useLikeNote() {
         };
       });
 
-      return { previousQueries, previousDetail, noteId };
+      return { previousQueries, noteId };
     },
 
     onError: (err, noteId, context) => {
+      // Rollback infinite and list caches
       if (context?.previousQueries) {
         context.previousQueries.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
         });
-      }
-      if (context?.previousDetail !== undefined) {
-        queryClient.setQueryData(noteKeys.detail(noteId), context.previousDetail);
       }
     },
 
@@ -339,7 +347,7 @@ export function useLikeNote() {
         likes: result.likes,
       }));
 
-      // Update detail cache with server response
+      // Optionally update detail cache if it exists (no snapshot needed)
       queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
         if (!oldData) return oldData;
         return {
