@@ -7,13 +7,241 @@ Keeps route handlers clean by extracting reusable logic.
 
 import json
 from flask_login import current_user
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import Query, joinedload
 from sqlalchemy import select
 from backend.extensions import db
 from backend.models import Opportunity, User
 from backend.models.opportunity_tag import OpportunityTag
 from backend.models.relationships import OpportunityBookmark
 
+
+# =============================================================================
+# Filter Helper Functions
+# =============================================================================
+
+def _apply_university_filter(query: Query, university_id: int) -> Query:
+    """
+    Apply university filter to query.
+    
+    Returns opportunities from all members of the specified university.
+    Uses EXISTS subquery for better performance - stops after finding first match.
+    
+    Args:
+        query: SQLAlchemy query object
+        university_id: University ID to filter by
+    
+    Returns:
+        Query with university filter applied
+    """
+    if not university_id:
+        return query
+    
+    from backend.models import UniversityRole
+    return query.filter(
+        db.exists().where(
+            db.and_(
+                UniversityRole.user_id == Opportunity.author_id,
+                UniversityRole.university_id == university_id
+            )
+        )
+    )
+
+
+def _apply_search_filter(query: Query, search_query: str) -> Query:
+    """
+    Apply search filter to query.
+    
+    Searches in:
+    - Opportunity title
+    - Opportunity description
+    - Author name (first_name, last_name, email)
+    
+    Args:
+        query: SQLAlchemy query object
+        search_query: Search string
+    
+    Returns:
+        Query with search filters applied
+    """
+    if not search_query:
+        return query
+    
+    # Find users matching the search query
+    matching_user_subquery = select(User.id).filter(
+        db.or_(
+            User.first_name.ilike(f'%{search_query}%'),
+            User.last_name.ilike(f'%{search_query}%'),
+            User.email.ilike(f'%{search_query}%')
+        )
+    )
+    
+    # Search in opportunity title, description, or author
+    return query.filter(
+        db.or_(
+            Opportunity.title.ilike(f'%{search_query}%'),
+            Opportunity.description.ilike(f'%{search_query}%'),
+            Opportunity.author_id.in_(matching_user_subquery)
+        )
+    )
+
+
+def _apply_my_university_filter(query: Query, user) -> Query:
+    """
+    Apply current user's university filter to query.
+    
+    Returns opportunities from members of the current user's university.
+    
+    Args:
+        query: SQLAlchemy query object
+        user: Current user (authenticated or anonymous)
+    
+    Returns:
+        Query with my university filter applied
+    """
+    if not (hasattr(user, 'is_authenticated') and user.is_authenticated and user.university):
+        return query
+    
+    same_uni_subquery = select(User.id).filter(
+        User.university == user.university
+    )
+    return query.filter(Opportunity.author_id.in_(same_uni_subquery))
+
+
+def _apply_location_filter(query: Query, location_filter: str) -> Query:
+    """
+    Apply location tag filter to query.
+    
+    Filters opportunities that have the specified location tag.
+    
+    Args:
+        query: SQLAlchemy query object
+        location_filter: Location tag to filter by (e.g., 'Remote', 'Hybrid', 'On-site')
+    
+    Returns:
+        Query with location filter applied
+    """
+    if not location_filter:
+        return query
+    
+    location_subquery = select(OpportunityTag.opportunity_id).filter(
+        OpportunityTag.tag == location_filter
+    )
+    return query.filter(Opportunity.id.in_(location_subquery))
+
+
+def _apply_paid_filter(query: Query, paid_filter: str) -> Query:
+    """
+    Apply paid/unpaid filter to query.
+    
+    Filters opportunities that have either 'Paid' or 'Unpaid' tag.
+    
+    Args:
+        query: SQLAlchemy query object
+        paid_filter: 'true' for Paid, 'false' for Unpaid
+    
+    Returns:
+        Query with paid filter applied
+    """
+    if not paid_filter:
+        return query
+    
+    tag_to_match = 'Paid' if paid_filter.lower() == 'true' else 'Unpaid'
+    paid_subquery = select(OpportunityTag.opportunity_id).filter(
+        OpportunityTag.tag == tag_to_match
+    )
+    return query.filter(Opportunity.id.in_(paid_subquery))
+
+
+def _apply_additional_tags_filter(query: Query, tags_filter: str) -> Query:
+    """
+    Apply additional tags filter to query.
+    
+    Filters opportunities that have all specified tags (comma-separated).
+    Each tag is applied as a separate filter (AND logic).
+    
+    Args:
+        query: SQLAlchemy query object
+        tags_filter: Comma-separated list of tags to filter by
+    
+    Returns:
+        Query with additional tags filters applied
+    """
+    if not tags_filter:
+        return query
+    
+    filter_tags = [t.strip() for t in tags_filter.split(',') if t.strip()]
+    
+    for tag in filter_tags:
+        tag_subquery = select(OpportunityTag.opportunity_id).filter(
+            OpportunityTag.tag == tag
+        )
+        query = query.filter(Opportunity.id.in_(tag_subquery))
+    
+    return query
+
+
+def build_opportunities_query(query_dict: dict, user) -> Query:
+    """
+    Build a query with all filters applied.
+    
+    This function consolidates all filtering logic into a single place:
+    - University filtering (by university_id)
+    - Search filtering (title, description, author name)
+    - My university filtering (current user's university)
+    - Location filtering (by location tag)
+    - Paid filtering (Paid/Unpaid tag)
+    - Additional tags filtering (comma-separated tags)
+    - Ordering (created_at desc, id desc)
+    
+    Args:
+        query_dict: Dictionary with optional keys:
+            - search: Search query string
+            - my_university: Boolean flag to filter by current user's university
+            - location_filter: Location tag to filter by
+            - paid_filter: 'true' or 'false' for Paid/Unpaid
+            - tags_filter: Comma-separated list of additional tags
+            - university_id: University ID to filter by
+        user: Current user (authenticated or anonymous)
+    
+    Returns:
+        SQLAlchemy Query object (not executed)
+    """
+    # Base query with author eager loading
+    query = Opportunity.query.options(joinedload(Opportunity.author))
+    
+    # 1. Apply university filter (by university_id)
+    if query_dict.get('university_id'):
+        query = _apply_university_filter(query, query_dict['university_id'])
+    
+    # 2. Apply search filter
+    if query_dict.get('search'):
+        query = _apply_search_filter(query, query_dict['search'])
+    
+    # 3. Apply my university filter
+    if query_dict.get('my_university'):
+        query = _apply_my_university_filter(query, user)
+    
+    # 4. Apply location filter
+    if query_dict.get('location_filter'):
+        query = _apply_location_filter(query, query_dict['location_filter'])
+    
+    # 5. Apply paid filter
+    if query_dict.get('paid_filter'):
+        query = _apply_paid_filter(query, query_dict['paid_filter'])
+    
+    # 6. Apply additional tags filter
+    if query_dict.get('tags_filter'):
+        query = _apply_additional_tags_filter(query, query_dict['tags_filter'])
+    
+    # 7. Always apply ordering (most recent first)
+    query = query.order_by(Opportunity.created_at.desc(), Opportunity.id.desc())
+    
+    return query
+
+
+# =============================================================================
+# Main Helper Functions
+# =============================================================================
 
 def create_db_opportunity(data):
     """
@@ -66,66 +294,19 @@ def get_db_opportunities(search_query=None, my_university=False,
     Returns:
         list: List of Opportunity objects matching criteria
     """
-    query = Opportunity.query.options(joinedload(Opportunity.author))
-
-    # Filter by specific university (by membership in UniversityRole)
-    if university_id:
-        from backend.models import UniversityRole
-        member_ids = [r.user_id for r in
-                      UniversityRole.query.filter_by(university_id=university_id).all()]
-        if not member_ids:
-            return []
-        query = query.filter(Opportunity.author_id.in_(member_ids))
-
-    if search_query:
-        matching_user_subquery = select(User.id).filter(
-            db.or_(
-                User.first_name.ilike(f'%{search_query}%'),
-                User.last_name.ilike(f'%{search_query}%'),
-                User.email.ilike(f'%{search_query}%')
-            )
-        )
-
-        query = query.filter(
-            db.or_(
-                Opportunity.title.ilike(f'%{search_query}%'),
-                Opportunity.description.ilike(f'%{search_query}%'),
-                Opportunity.author_id.in_(matching_user_subquery)
-            )
-        )
-
-    if my_university and current_user.is_authenticated and current_user.university:
-        same_uni_subquery = select(User.id).filter(
-            User.university == current_user.university
-        )
-        query = query.filter(Opportunity.author_id.in_(same_uni_subquery))
-
-    # Tag filtering at database level using subqueries
-    if location_filter:
-        location_subquery = select(OpportunityTag.opportunity_id).filter(
-            OpportunityTag.tag == location_filter
-        )
-        query = query.filter(Opportunity.id.in_(location_subquery))
-
-    if paid_filter:
-        tag_to_match = 'Paid' if paid_filter.lower() == 'true' else 'Unpaid'
-        paid_subquery = select(OpportunityTag.opportunity_id).filter(
-            OpportunityTag.tag == tag_to_match
-        )
-        query = query.filter(Opportunity.id.in_(paid_subquery))
-
-    if tags_filter:
-        filter_tags = [t.strip() for t in tags_filter.split(',') if t.strip()]
-        for tag in filter_tags:
-            tag_subquery = select(OpportunityTag.opportunity_id).filter(
-                OpportunityTag.tag == tag
-            )
-            query = query.filter(Opportunity.id.in_(tag_subquery))
-
-    return query.order_by(
-        Opportunity.created_at.desc(),
-        Opportunity.id.desc()
-    ).all()
+    # Build query dictionary from parameters
+    query_dict = {
+        'search': search_query,
+        'my_university': my_university,
+        'location_filter': location_filter,
+        'paid_filter': paid_filter,
+        'tags_filter': tags_filter,
+        'university_id': university_id,
+    }
+    
+    # Build and execute query
+    query = build_opportunities_query(query_dict, current_user)
+    return query.all()
 
 
 def check_opportunity_visibility(opportunity, user):
