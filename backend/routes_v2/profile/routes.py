@@ -29,7 +29,7 @@ from backend.extensions import db
 from backend.models import User, Note, Message, University, UserFollows, UserLikedUniversity, UniversityRole
 from backend.utils.image import allowed_file, compress_image
 from backend.utils.time import format_full_date, format_join_date, to_iso
-
+from backend.routes_v2.profile.helpers import bookmarked_notes_to_dict
 profile_bp = Blueprint('profile', __name__)
 
 
@@ -224,6 +224,7 @@ def get_profile_stats():
         'followers': current_user.follower_count,
         'following': current_user.following_count
     })
+
 
 
 # =============================================================================

@@ -132,6 +132,37 @@ def _apply_visibility_filter(query: Query, user) -> Query:
         return query.filter(Note.university_only == False)
 
 
+def _apply_bookmarked_filter(query: Query, user_id: int) -> Query:
+    """
+    Apply bookmarked filter to query.
+    
+    Returns notes that are bookmarked by the current user.
+    
+    Uses EXISTS subquery for better performance - stops after finding first match
+    and avoids potential duplicate rows from JOIN.
+    
+    Args:
+        query: SQLAlchemy query object
+        user_id: User ID to filter by
+    
+    Returns:
+        Query with bookmarked filter applied
+    """
+    if not user_id:
+        return query
+    
+    # Use EXISTS subquery instead of JOIN for better performance
+    # EXISTS stops after finding one match and avoids row multiplication
+    return query.filter(
+        db.exists().where(
+            db.and_(
+                NoteBookmark.note_id == Note.id,
+                NoteBookmark.user_id == user_id
+            )
+        )
+    )
+
+
 def _apply_search_filter(query: Query, search_query: str) -> Query:
     """
     Apply search filter to query.
@@ -281,7 +312,11 @@ def build_notes_query(query_dict: dict, user) -> Query:
     if query_dict.get('tag'):
         query = _apply_tag_filter(query, query_dict['tag'])
     
-    # 6. Always apply ordering (most recent first)
+    # 6. Apply bookmarked filter
+    if query_dict.get('bookmarked'):
+        query = _apply_bookmarked_filter(query, user.id)
+        
+    # 7. Always apply ordering (most recent first)
     query = query.order_by(Note.created_at.desc(), Note.id.desc())
     
     return query

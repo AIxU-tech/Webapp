@@ -119,6 +119,7 @@ def api_notes():
         'user': request.args.get('user', type=int),
         'university_id': request.args.get('university_id', type=int),
         'tag': request.args.get('tag', '').strip(),
+        'bookmarked': request.args.get('bookmarked', type=bool),
     }
     
     # Validate pagination parameters if provided
