@@ -118,14 +118,7 @@ export default function CommunityPage() {
   // Extract and flatten notes from infinite query data
   const allNotes = useMemo(() => {
     if (!data?.pages) return [];
-    return data.pages.flatMap((page) => {
-      // Handle paginated response format
-      if (page && typeof page === 'object' && 'pagination' in page) {
-        return Array.isArray(page.notes) ? page.notes : [];
-      }
-      // Handle non-paginated response format (backward compatible)
-      return Array.isArray(page) ? page : [];
-    });
+    return data.pages.flatMap((page) => page.notes || []);
   }, [data]);
 
   /**

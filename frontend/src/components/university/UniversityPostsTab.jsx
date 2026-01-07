@@ -2,10 +2,11 @@
  * UniversityPostsTab
  *
  * Displays posts from university members using the notes API.
- * Integrates with useNotes hook to fetch notes filtered by university_id.
+ * Uses infinite scroll pagination to load all posts for the university.
  */
 
-import { useNotes, useLikeNote, useBookmarkNote, useDeleteNote } from '../../hooks';
+import { useMemo } from 'react';
+import { useInfiniteNotes, useLikeNote, useBookmarkNote, useDeleteNote } from '../../hooks';
 import NoteCard from '../NoteCard';
 import { LoadingState, EmptyState } from '../ui';
 import { FileTextIcon } from '../icons';
@@ -15,8 +16,18 @@ export default function UniversityPostsTab({
   currentUserId,
   isAuthenticated,
 }) {
-  // Fetch notes for this university
-  const { data: notes, isLoading, error } = useNotes({ university_id: universityId });
+  // Fetch notes for this university with infinite scroll
+  const {
+    data,
+    isLoading,
+    error,
+  } = useInfiniteNotes({ university_id: universityId });
+
+  // Flatten all pages into a single array of notes
+  const notes = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap((page) => page.notes || []);
+  }, [data]);
 
   // Mutation hooks for interactions
   const likeMutation = useLikeNote();
@@ -48,8 +59,8 @@ export default function UniversityPostsTab({
     }
   };
 
-  // Loading state
-  if (isLoading) {
+  // Loading state (initial load or loading more)
+  if (isLoading && notes.length === 0) {
     return <LoadingState text="Loading posts..." />;
   }
 
@@ -65,7 +76,7 @@ export default function UniversityPostsTab({
   }
 
   // Empty state
-  if (!notes || notes.length === 0) {
+  if (!isLoading && notes.length === 0) {
     return (
       <EmptyState
         icon={<FileTextIcon className="h-12 w-12" />}
