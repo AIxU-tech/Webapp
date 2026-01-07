@@ -20,19 +20,6 @@ from backend.models.relationships import OpportunityBookmark
 # =============================================================================
 
 def _apply_university_filter(query: Query, university_id: int) -> Query:
-    """
-    Apply university filter to query.
-    
-    Returns opportunities from all members of the specified university.
-    Uses EXISTS subquery for better performance - stops after finding first match.
-    
-    Args:
-        query: SQLAlchemy query object
-        university_id: University ID to filter by
-    
-    Returns:
-        Query with university filter applied
-    """
     if not university_id:
         return query
     
@@ -48,21 +35,6 @@ def _apply_university_filter(query: Query, university_id: int) -> Query:
 
 
 def _apply_search_filter(query: Query, search_query: str) -> Query:
-    """
-    Apply search filter to query.
-    
-    Searches in:
-    - Opportunity title
-    - Opportunity description
-    - Author name (first_name, last_name, email)
-    
-    Args:
-        query: SQLAlchemy query object
-        search_query: Search string
-    
-    Returns:
-        Query with search filters applied
-    """
     if not search_query:
         return query
     
@@ -86,18 +58,6 @@ def _apply_search_filter(query: Query, search_query: str) -> Query:
 
 
 def _apply_my_university_filter(query: Query, user) -> Query:
-    """
-    Apply current user's university filter to query.
-    
-    Returns opportunities from members of the current user's university.
-    
-    Args:
-        query: SQLAlchemy query object
-        user: Current user (authenticated or anonymous)
-    
-    Returns:
-        Query with my university filter applied
-    """
     if not (hasattr(user, 'is_authenticated') and user.is_authenticated and user.university):
         return query
     
@@ -108,18 +68,6 @@ def _apply_my_university_filter(query: Query, user) -> Query:
 
 
 def _apply_location_filter(query: Query, location_filter: str) -> Query:
-    """
-    Apply location tag filter to query.
-    
-    Filters opportunities that have the specified location tag.
-    
-    Args:
-        query: SQLAlchemy query object
-        location_filter: Location tag to filter by (e.g., 'Remote', 'Hybrid', 'On-site')
-    
-    Returns:
-        Query with location filter applied
-    """
     if not location_filter:
         return query
     
@@ -130,18 +78,6 @@ def _apply_location_filter(query: Query, location_filter: str) -> Query:
 
 
 def _apply_paid_filter(query: Query, paid_filter: str) -> Query:
-    """
-    Apply paid/unpaid filter to query.
-    
-    Filters opportunities that have either 'Paid' or 'Unpaid' tag.
-    
-    Args:
-        query: SQLAlchemy query object
-        paid_filter: 'true' for Paid, 'false' for Unpaid
-    
-    Returns:
-        Query with paid filter applied
-    """
     if not paid_filter:
         return query
     
@@ -153,19 +89,6 @@ def _apply_paid_filter(query: Query, paid_filter: str) -> Query:
 
 
 def _apply_additional_tags_filter(query: Query, tags_filter: str) -> Query:
-    """
-    Apply additional tags filter to query.
-    
-    Filters opportunities that have all specified tags (comma-separated).
-    Each tag is applied as a separate filter (AND logic).
-    
-    Args:
-        query: SQLAlchemy query object
-        tags_filter: Comma-separated list of tags to filter by
-    
-    Returns:
-        Query with additional tags filters applied
-    """
     if not tags_filter:
         return query
     
