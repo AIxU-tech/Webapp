@@ -23,9 +23,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { BaseModal } from '../ui';
-import { GradientButton } from '../ui';
-import { UserListItem } from '../ui';
+import { BaseModal, GradientButton, UserListItem, Avatar } from '../ui';
 import { SearchIcon, XIcon, SendIcon } from '../icons';
 import { useSearchUsers, useSendMessage } from '../../hooks';
 
@@ -207,11 +205,7 @@ export default function NewMessageModal({ isOpen, onClose, onSuccess }) {
             {selectedRecipient && (
               <div className="mt-2">
                 <div className="flex items-center space-x-2 bg-muted px-3 py-2 rounded-lg">
-                  <img
-                    src={selectedRecipient.avatar}
-                    alt={selectedRecipient.name}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
+                  <Avatar src={selectedRecipient.avatar} name={selectedRecipient.name} size="sm" />
                   <span className="text-sm text-foreground">
                     {selectedRecipient.name}
                   </span>

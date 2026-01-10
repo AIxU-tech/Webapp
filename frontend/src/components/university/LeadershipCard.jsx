@@ -6,11 +6,8 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Card, SecondaryButton } from '../ui';
+import { Card, SecondaryButton, Avatar } from '../ui';
 import RoleBadge, { ROLES } from '../RoleBadge';
-
-// Default avatar for fallback
-const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face';
 
 export default function LeadershipCard({ members = [], onViewAll }) {
   // Filter to executives and presidents only, sorted by role (president first)
@@ -46,14 +43,7 @@ export default function LeadershipCard({ members = [], onViewAll }) {
             className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-accent transition-colors"
           >
             {/* Avatar */}
-            <img
-              src={member.avatar || DEFAULT_AVATAR}
-              alt={member.name}
-              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-              onError={(e) => {
-                e.target.src = DEFAULT_AVATAR;
-              }}
-            />
+            <Avatar src={member.avatar} name={member.name} size="md" />
 
             {/* Info */}
             <div className="flex-1 min-w-0">

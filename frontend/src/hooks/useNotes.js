@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getAvatarUrl } from '../utils/avatar';
 import {
   fetchNotes,
   fetchNote,
@@ -459,7 +460,7 @@ export function useCreateComment() {
           name: user.first_name && user.last_name
             ? `${user.first_name} ${user.last_name}`
             : user.username,
-          avatar: user.profile_picture_url || '/static/default-avatar.png',
+          avatar: getAvatarUrl(user),
         },
         likes: 0,
         timeAgo: 'Just now',

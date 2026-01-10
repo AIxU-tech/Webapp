@@ -25,6 +25,7 @@
 import { useRef, useState } from 'react';
 import { CameraIcon, UploadIcon } from '../icons';
 import { GradientButton } from '../ui';
+import { getAvatarUrl } from '../../utils/avatar';
 
 /**
  * Configuration for image processing
@@ -35,18 +36,6 @@ const IMAGE_CONFIG = {
   acceptedTypes: 'image/png,image/jpeg,image/jpg,image/gif,image/webp',
   quality: 0.9, // JPEG quality
 };
-
-/**
- * Get the user's avatar URL with fallback
- */
-function getAvatarUrl(user) {
-  if (!user) return null;
-  return (
-    user.profile_picture_url ||
-    user.avatar_url ||
-    `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`
-  );
-}
 
 /**
  * Center-crop an image to a square and return as Blob

@@ -14,6 +14,8 @@
  * />
  */
 
+import { Avatar } from '../ui';
+
 /**
  * @typedef {Object} Conversation
  * @property {Object} otherUser - The other participant in the conversation
@@ -42,13 +44,7 @@ export default function ConversationListItem({ conversation, onClick }) {
     >
       <div className="flex items-start space-x-4">
         {/* User Avatar */}
-        <div className="relative flex-shrink-0">
-          <img
-            src={otherUser.avatar}
-            alt={otherUser.name}
-            className="w-12 h-12 rounded-full object-cover"
-          />
-        </div>
+        <Avatar src={otherUser.avatar} name={otherUser.name} size="lg" />
 
         {/* Conversation Details */}
         <div className="flex-1 min-w-0">

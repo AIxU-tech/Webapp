@@ -25,6 +25,7 @@ import {
   useLikeComment,
 } from '../hooks';
 import CommentCard from './CommentCard';
+import { Avatar } from './ui';
 import { SpinnerIcon, XIcon } from './icons';
 
 /**
@@ -249,11 +250,7 @@ export default function CommentSection({ noteId, isExpanded }) {
             )}
             <form onSubmit={handleSubmit} className="flex items-start space-x-3">
               {/* User Avatar */}
-              <img
-                src={user?.profile_picture_url || '/static/default-avatar.png'}
-                alt={user?.first_name || 'You'}
-                className="w-8 h-8 rounded-full flex-shrink-0"
-              />
+              <Avatar user={user} size="sm" />
 
               {/* Input */}
               <input

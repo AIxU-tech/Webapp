@@ -9,6 +9,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../ui/Card';
+import Avatar from '../../ui/Avatar';
 import {
   FileTextIcon,
   MessageCircleIcon,
@@ -72,11 +73,7 @@ function ConnectionItem({ connection }) {
       to={`/users/${connection.id}`}
       className="flex items-center gap-3 py-2.5 border-b border-border last:border-b-0 group"
     >
-      <img
-        src={connection.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${connection.id}`}
-        alt={connection.name}
-        className="w-9 h-9 rounded-full object-cover bg-muted"
-      />
+      <Avatar src={connection.avatarUrl} name={connection.name} size="sm" className="w-9 h-9" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
           {connection.name}

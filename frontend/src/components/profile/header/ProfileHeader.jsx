@@ -7,7 +7,7 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { GradientButton, SecondaryButton } from '../../ui';
+import { GradientButton, SecondaryButton, Avatar } from '../../ui';
 import {
   UniversitiesIcon,
   MapPinIcon,
@@ -20,13 +20,6 @@ import {
 // Import banner image directly
 import bannerImage from './images/default-profile-banner.jpg';
 
-// Generates a fallback avatar URL using DiceBear
-function getAvatarUrl(user) {
-  if (user?.profile_picture_url) return user.profile_picture_url;
-  if (user?.avatar_url) return user.avatar_url;
-  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id || 'default'}`;
-}
-
 export default function ProfileHeader({
   user,
   isOwnProfile,
@@ -35,7 +28,6 @@ export default function ProfileHeader({
   onMessage,
 }) {
   const navigate = useNavigate();
-  const avatarUrl = getAvatarUrl(user);
 
   // Compose headline from university
   const headline = user?.university ? `AI Researcher · ${user.university}` : 'AI Enthusiast';
@@ -63,13 +55,12 @@ export default function ProfileHeader({
       <div className="relative bg-card rounded-b-2xl border border-t-0 border-border p-6 pt-16 sm:pt-20">
         {/* Avatar - overlaps banner, no glow */}
         <div className="absolute -top-14 sm:-top-16 left-6">
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-card overflow-hidden bg-muted">
-            <img
-              src={avatarUrl}
-              alt={user?.full_name || 'User'}
-              className="w-full h-full object-cover"
-            />
-          </div>
+          <Avatar
+            user={user}
+            size="xl"
+            className="sm:w-28 sm:h-28 sm:text-3xl border-4 border-card"
+            alt={user?.full_name || 'User'}
+          />
         </div>
 
         {/* Name row with edit button */}
