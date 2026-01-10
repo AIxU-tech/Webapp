@@ -3,6 +3,54 @@
  */
 
 /**
+ * Gradient variants for avatar fallbacks
+ * Each gradient aligns with the site's blue/purple/cyan aesthetic
+ */
+export const AVATAR_GRADIENTS = [
+  // Original blue-cyan (primary)
+  'from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)]',
+  // Purple-blue
+  'from-[hsl(262,83%,58%)] to-[hsl(220,85%,60%)]',
+  // Blue-purple
+  'from-[hsl(220,85%,60%)] to-[hsl(262,83%,58%)]',
+  // Cyan-teal
+  'from-[hsl(185,85%,55%)] to-[hsl(168,75%,50%)]',
+  // Purple-magenta
+  'from-[hsl(262,83%,58%)] to-[hsl(290,75%,55%)]',
+  // Indigo-blue
+  'from-[hsl(240,70%,58%)] to-[hsl(220,85%,60%)]',
+];
+
+/**
+ * Generate a consistent hash from a string (user ID or name)
+ * @param {string|number} value - Value to hash
+ * @returns {number} - Hash value
+ */
+function hashString(value) {
+  const str = String(value);
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Get a consistent gradient class for a user based on their ID or name
+ * @param {Object} user - User object with id, first_name, last_name
+ * @param {string} [name] - Fallback name if no user object
+ * @returns {string} - Tailwind gradient class string
+ */
+export function getAvatarGradient(user, name) {
+  // Use user ID if available for most consistent results
+  const hashValue = user?.id || name || 'default';
+  const index = hashString(hashValue) % AVATAR_GRADIENTS.length;
+  return AVATAR_GRADIENTS[index];
+}
+
+/**
  * Get the best available avatar URL from a user object
  * @param {Object} user - User object with potential avatar fields
  * @returns {string|null} - Avatar URL or null if none available

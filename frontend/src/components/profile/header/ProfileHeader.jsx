@@ -6,15 +6,13 @@
  * Stats are intentionally omitted - they appear in the sidebar.
  */
 
-import { useNavigate } from 'react-router-dom';
-import { GradientButton, SecondaryButton, Avatar } from '../../ui';
+import { SecondaryButton, Avatar } from '../../ui';
 import {
   UniversitiesIcon,
   MapPinIcon,
   ExternalLinkIcon,
-  EditIcon,
+  MessagesIcon,
   LogOutIcon,
-  MessageCircleIcon,
 } from '../../icons';
 
 // Import banner image directly
@@ -27,18 +25,8 @@ export default function ProfileHeader({
   onLogout,
   onMessage,
 }) {
-  const navigate = useNavigate();
-
   // Compose headline from university
   const headline = user?.university ? `AI Researcher · ${user.university}` : 'AI Enthusiast';
-
-  const handleMessage = () => {
-    if (onMessage) {
-      onMessage();
-    } else {
-      navigate(`/messages?user=${user?.id}`);
-    }
-  };
 
   return (
     <div className="relative">
@@ -75,23 +63,30 @@ export default function ProfileHeader({
           {/* Action buttons - rounded-full style */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {isOwnProfile ? (
-              <SecondaryButton
-                variant="outline"
-                onClick={onEditProfile}
-                className="rounded-full"
-              >
-                Edit Profile
-              </SecondaryButton>
-            ) : (
               <>
-                <GradientButton className="rounded-full">Connect</GradientButton>
                 <SecondaryButton
                   variant="outline"
-                  onClick={handleMessage}
+                  onClick={onEditProfile}
                   className="rounded-full"
-                  icon={<MessageCircleIcon className="h-4 w-4" />}
-                />
+                >
+                  Edit Profile
+                </SecondaryButton>
+                <button
+                  onClick={onLogout}
+                  title="Log out"
+                  className="p-2.5 rounded-full border border-border bg-transparent text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors"
+                >
+                  <LogOutIcon className="h-5 w-5" />
+                </button>
               </>
+            ) : (
+              <button
+                onClick={onMessage}
+                title="Send message"
+                className="p-2.5 rounded-full border border-border bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <MessagesIcon className="h-5 w-5" />
+              </button>
             )}
           </div>
         </div>

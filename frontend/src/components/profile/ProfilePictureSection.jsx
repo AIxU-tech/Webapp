@@ -24,8 +24,7 @@
 
 import { useRef, useState } from 'react';
 import { CameraIcon, UploadIcon } from '../icons';
-import { GradientButton } from '../ui';
-import { getAvatarUrl } from '../../utils/avatar';
+import { GradientButton, Avatar } from '../ui';
 
 /**
  * Configuration for image processing
@@ -117,7 +116,6 @@ export default function ProfilePictureSection({
   isUploading = false,
 }) {
   const fileInputRef = useRef(null);
-  const avatarUrl = getAvatarUrl(user);
 
   // Key to force file input remount after each upload attempt
   const [inputKey, setInputKey] = useState(0);
@@ -172,10 +170,10 @@ export default function ProfilePictureSection({
       <div className="flex items-center gap-4">
         {/* Avatar with hover overlay */}
         <div className="relative group">
-          <img
-            src={avatarUrl}
-            alt="Profile picture"
-            className="w-24 h-24 rounded-full border-2 border-border object-cover"
+          <Avatar
+            user={user}
+            size="xl"
+            className="border-2 border-border"
           />
           <button
             type="button"

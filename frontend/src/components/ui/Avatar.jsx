@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getAvatarUrl, getInitials, getInitialsFromName } from '../../utils/avatar';
+import { getAvatarUrl, getInitials, getInitialsFromName, getAvatarGradient } from '../../utils/avatar';
 
 /**
  * Size variants mapping to Tailwind classes
@@ -38,12 +38,13 @@ export function Avatar({ user, src, name, size = 'md', className = '', alt }) {
   const sizeClass = SIZES[size] || SIZES.md;
   const displayName = name || (user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : '');
   const altText = alt || displayName || 'User avatar';
+  const gradientClass = getAvatarGradient(user, name);
 
   const showImage = imageUrl && !imgError;
 
   return (
     <div
-      className={`${sizeClass} rounded-full overflow-hidden bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] flex items-center justify-center text-white font-medium flex-shrink-0 ${className}`}
+      className={`${sizeClass} rounded-full overflow-hidden bg-gradient-to-br ${gradientClass} flex items-center justify-center text-white font-medium flex-shrink-0 ${className}`}
     >
       {showImage ? (
         <img

@@ -28,6 +28,7 @@ import {
   useUploadProfilePicture,
   useForm,
 } from '../hooks';
+import { ConversationModal } from '../components/messages';
 
 // UI Components
 import {
@@ -86,6 +87,7 @@ export default function ProfilePage() {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showMessageModal, setShowMessageModal] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Feedback State (for success/error notifications)
@@ -196,10 +198,10 @@ export default function ProfilePage() {
   };
 
   /**
-   * Navigate to messages with user
+   * Open message modal to chat with user
    */
   const handleMessage = () => {
-    navigate(`/messages?user=${user?.id}`);
+    setShowMessageModal(true);
   };
 
   /**
@@ -437,6 +439,15 @@ export default function ProfilePage() {
         cancelText="Stay Logged In"
         variant="warning"
       />
+
+      {/* Message Modal - for messaging other users */}
+      {!isOwnProfile && (
+        <ConversationModal
+          userId={user?.id}
+          isOpen={showMessageModal}
+          onClose={() => setShowMessageModal(false)}
+        />
+      )}
     </div>
   );
 }
