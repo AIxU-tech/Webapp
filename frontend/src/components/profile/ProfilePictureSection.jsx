@@ -7,10 +7,17 @@
  *
  * @component
  *
+ * @param {Object} props
+ * @param {Object} props.user - User object with profile picture info
+ * @param {Function} props.onUpload - Callback when image is ready to upload (receives blob)
+ * @param {Function} [props.onError] - Callback for validation/processing errors (receives message)
+ * @param {boolean} [props.isUploading=false] - Whether upload is in progress
+ *
  * @example
  * <ProfilePictureSection
  *   user={user}
  *   onUpload={handleUpload}
+ *   onError={handleError}
  *   isUploading={isUploading}
  * />
  */
@@ -117,6 +124,7 @@ async function cropImageToSquare(file, outputSize = IMAGE_CONFIG.outputSize) {
 export default function ProfilePictureSection({
   user,
   onUpload,
+  onError,
   isUploading = false,
 }) {
   const fileInputRef = useRef(null);
@@ -141,14 +149,14 @@ export default function ProfilePictureSection({
 
     // Validate file size
     if (file.size > IMAGE_CONFIG.maxFileSize) {
-      alert('File size must be less than 5MB');
+      onError?.('File size must be less than 5MB');
       setInputKey((k) => k + 1); // Reset input
       return;
     }
 
     // Validate file type
     if (!file.type.match('image.*')) {
-      alert('Please select an image file');
+      onError?.('Please select an image file');
       setInputKey((k) => k + 1); // Reset input
       return;
     }
@@ -159,7 +167,7 @@ export default function ProfilePictureSection({
       await onUpload(croppedBlob);
     } catch (error) {
       console.error('Error processing image:', error);
-      alert('Failed to process image. Please try again.');
+      onError?.('Failed to process image. Please try again.');
     } finally {
       // Always reset input to allow selecting the same file again
       setInputKey((k) => k + 1);

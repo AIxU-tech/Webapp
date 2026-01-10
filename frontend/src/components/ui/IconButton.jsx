@@ -3,6 +3,22 @@
  *
  * Reusable icon button with consistent hover behavior across the app.
  * Provides background hover effect and supports active states with color variants.
+ *
+ * Features:
+ * - Multiple size variants (sm, md, lg)
+ * - Active state with color variants (red, primary, yellow)
+ * - Filled icon state support
+ * - Polymorphic rendering via `as` prop (button, Link, etc.)
+ *
+ * @component
+ *
+ * @example
+ * // Basic usage
+ * <IconButton icon={HeartIcon} onClick={handleClick} label="Like" />
+ *
+ * @example
+ * // As a link
+ * <IconButton icon={ExternalLinkIcon} as={Link} to="/page" label="Go to page" />
  */
 
 const SIZE_CLASSES = {
@@ -40,14 +56,18 @@ export default function IconButton({
   variant = 'default',
   className = '',
   children,
+  as: Component = 'button',
+  type = 'button',
+  ...props
 }) {
   // Determine if icon should show filled state (defaults to active state)
   const showFilled = filled !== undefined ? filled : active;
 
   return (
-    <button
+    <Component
       onClick={onClick}
-      disabled={disabled}
+      disabled={Component === 'button' ? disabled : undefined}
+      type={Component === 'button' ? type : undefined}
       className={`flex items-center gap-1 rounded-lg transition-all duration-200 ${
         SIZE_CLASSES[size]
       } ${
@@ -56,9 +76,10 @@ export default function IconButton({
         disabled ? 'opacity-50 cursor-not-allowed' : ''
       } ${className}`}
       aria-label={label}
+      {...props}
     >
       <Icon filled={showFilled} className={ICON_SIZE_CLASSES[size]} />
       {children}
-    </button>
+    </Component>
   );
 }
