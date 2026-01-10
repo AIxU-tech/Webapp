@@ -147,15 +147,14 @@ class User(UserMixin, db.Model):
         }
 
     def get_profile_picture_url(self):
-        """Return profile picture URL or default avatar"""
+        """Return profile picture URL or None (frontend handles fallback)"""
         if self.profile_picture:
             return url_for('profile.get_profile_picture', user_id=self.id)
         elif self.avatar_url:
             return self.avatar_url
         else:
-            # Use DiceBear Avatars API for consistent, professional default avatars based on user ID
-            # This creates unique, consistent avatars for each user
-            return f'https://api.dicebear.com/7.x/avataaars/svg?seed={self.id}&backgroundColor=b6e3f4,c0aede,d1d4f9'
+            # Return None - frontend Avatar component handles fallback with gradient + initials
+            return None
 
     def set_profile_picture(self, image_data, filename, mimetype):
         """Set profile picture with size validation"""
