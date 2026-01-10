@@ -15,6 +15,7 @@
 
 import { Outlet } from 'react-router-dom';
 import NavBar from './NavBar';
+import Footer from './Footer';
 
 /**
  * AppLayout
@@ -26,7 +27,7 @@ import NavBar from './NavBar';
  */
 function AppLayout() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* =================================================================
           NAVIGATION BAR
 
@@ -49,10 +50,19 @@ function AppLayout() {
 
           Renders the matched child route via React Router's Outlet.
           All authenticated page components are rendered here.
+          Uses flex-1 to grow and push footer to bottom.
           ================================================================= */}
-      <main>
+      <main className="flex-1">
         <Outlet />
       </main>
+
+      {/* =================================================================
+          FOOTER
+
+          Site-wide footer with branding, navigation links, and legal info.
+          Positioned at the bottom via flexbox layout.
+          ================================================================= */}
+      <Footer />
     </div>
   );
 }

@@ -13,11 +13,14 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import AppLayout from './components/AppLayout';
+import ProtectedRoute from './components/ProtectedRoute';
+import AuthRoute from './components/AuthRoute';
 import HomePage from './pages/HomePage';
 import AddUniversityEntryPage from './pages/AddUniversityEntryPage';
 import UniversitiesPage from './pages/UniversitiesPage';
 import UniversityDetailPage from './pages/UniversityDetailPage';
 import CommunityPage from './pages/CommunityPage';
+import NoteDetailPage from './pages/NoteDetailPage';
 import OpportunitiesPage from './pages/OpportunitiesPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -41,9 +44,24 @@ function App() {
 
         Login, Register, Verify Email, Complete Account, and Password Reset pages don't use
         AppLayout because they have full-screen plasma backgrounds and custom layouts.
+        AuthRoute wrapper redirects authenticated users to /community.
       */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      <Route
+        path="/login"
+        element={
+          <AuthRoute>
+            <LoginPage />
+          </AuthRoute>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <AuthRoute>
+            <RegisterPage />
+          </AuthRoute>
+        }
+      />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/complete-account" element={<CompleteAccountPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -80,12 +98,20 @@ function App() {
       */}
       <Route element={<AppLayout />}>
         <Route path="/community" element={<CommunityPage />} />
+        <Route path="/notes/:noteId" element={<NoteDetailPage />} />
         <Route path="/universities" element={<UniversitiesPage />} />
         <Route path="/universities/:id" element={<UniversityDetailPage />} />
         <Route path="/opportunities" element={<OpportunitiesPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/users/:userId" element={<ProfilePage />} />
-        <Route path="/messages" element={<MessagesPage />} />
+        <Route
+          path="/messages"
+          element={
+            <ProtectedRoute redirectTo="/login">
+              <MessagesPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/news" element={<NewsPage />} />
 
         {/* Admin Routes */}

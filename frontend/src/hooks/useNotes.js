@@ -3,9 +3,10 @@
  * React Query hooks for fetching and managing community notes.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchNotes,
+  fetchNote,
   createNote,
   toggleLikeNote,
   toggleBookmarkNote,
@@ -21,24 +22,70 @@ import {
   createFeedItemKeys,
   createListHook,
   createCreateHook,
-  createBookmarkHook,
-  createDeleteHook,
   createPrefetchFn,
 } from './factories/feedItemHooks';
 
-// Query Keys - extend factory keys with comments key
+// Query Keys - extend factory keys with comments and detail keys
 const baseKeys = createFeedItemKeys('notes');
 export const noteKeys = {
   ...baseKeys,
+  detail: (noteId) => [...baseKeys.all, 'detail', noteId],
   comments: (noteId) => [...baseKeys.all, noteId, 'comments'],
+  infinite: (params = {}) => [...baseKeys.all, 'infinite', params],
 };
 
-// List hook
+// List hook (deprecated - use useInfiniteNotes for new code)
 export const useNotes = createListHook({
   keys: noteKeys,
   fetchFn: fetchNotes,
   staleTime: STALE_TIMES.NOTES,
 });
+
+/**
+ * useInfiniteNotes Hook
+ *
+ * Fetches notes with infinite scroll pagination support.
+ * Uses useInfiniteQuery to automatically handle page loading and caching.
+ *
+ * @param {object} params - Filter parameters (search, user, university_id)
+ * @returns {object} React Query infinite query result with:
+ *   - data.notes: Flattened array of all notes from all pages
+ *   - data.pages: Array of page responses
+ *   - fetchNextPage: Function to load next page
+ *   - hasNextPage: Boolean indicating if more pages exist
+ *   - isFetchingNextPage: Boolean indicating if next page is loading
+ *
+ * @example
+ * const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteNotes({ search: 'AI' });
+ * const notes = data?.notes || [];
+ */
+export function useInfiniteNotes(params = {}) {
+  return useInfiniteQuery({
+    queryKey: noteKeys.infinite(params),
+    queryFn: ({ pageParam = 1 }) =>
+      fetchNotes({ ...params, page: pageParam, page_size: 20 }),
+    getNextPageParam: (lastPage) => {
+      // Handle both paginated and non-paginated responses
+      if (lastPage?.pagination?.hasMore) {
+        return lastPage.pagination.page + 1;
+      }
+      // If response is a flat array (non-paginated), no next page
+      return undefined;
+    },
+    initialPageParam: 1,
+    staleTime: STALE_TIMES.NOTES,
+  });
+}
+
+// Detail hook
+export function useNote(noteId) {
+  return useQuery({
+    queryKey: noteKeys.detail(noteId),
+    queryFn: () => fetchNote(noteId),
+    enabled: !!noteId,
+    staleTime: STALE_TIMES.NOTES,
+  });
+}
 
 // Create mutation
 export const useCreateNote = createCreateHook({
@@ -46,17 +93,184 @@ export const useCreateNote = createCreateHook({
   createFn: createNote,
 });
 
-// Bookmark mutation
-export const useBookmarkNote = createBookmarkHook({
-  keys: noteKeys,
-  toggleFn: toggleBookmarkNote,
-});
+// Helper function to update infinite query cache
+function updateInfiniteQueryCache(queryClient, noteId, updater) {
+  // Update all infinite queries (matching the infinite key pattern)
+  queryClient.setQueriesData(
+    {
+      predicate: (query) => {
+        const key = query.queryKey;
+        return key[0] === 'notes' && key[1] === 'infinite';
+      }
+    },
+    (oldData) => {
+      if (!oldData?.pages) return oldData;
+      return {
+        pages: oldData.pages.map((page) => {
+          // Handle both paginated and non-paginated responses
+          const notes = page.pagination ? page.notes : (Array.isArray(page) ? page : []);
+          const updatedNotes = notes.map((note) =>
+            note.id === noteId ? updater(note) : note
+          );
 
-// Delete mutation
-export const useDeleteNote = createDeleteHook({
-  keys: noteKeys,
-  deleteFn: deleteNote,
-});
+          // Return in same format as received
+          if (page.pagination) {
+            return { ...page, notes: updatedNotes };
+          }
+          return updatedNotes;
+        }),
+        pageParams: oldData.pageParams || [],
+      };
+    }
+  );
+}
+
+// Helper function to update regular list cache (backward compatibility)
+function updateListCache(queryClient, noteId, updater) {
+  queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
+    if (!Array.isArray(oldData)) return oldData;
+    return oldData.map((note) => (note.id === noteId ? updater(note) : note));
+  });
+}
+
+/**
+ * useBookmarkNote Hook
+ *
+ * Mutation hook for bookmarking/unbookmarking a note with optimistic updates.
+ * Updates isBookmarked status in infinite, list, and detail caches.
+ * Detail cache updates optimistically but will refetch on error if needed.
+ */
+export function useBookmarkNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: toggleBookmarkNote,
+
+    onMutate: async (noteId) => {
+      await queryClient.cancelQueries({ queryKey: noteKeys.all });
+      const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
+
+      // Update infinite query cache
+      updateInfiniteQueryCache(queryClient, noteId, (note) => ({
+        ...note,
+        isBookmarked: !note.isBookmarked,
+      }));
+
+      // Update regular list cache (backward compatibility)
+      updateListCache(queryClient, noteId, (note) => ({
+        ...note,
+        isBookmarked: !note.isBookmarked,
+      }));
+
+      // Update detail cache optimistically (no snapshot needed - will refetch on error)
+      queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
+        if (!oldData) return oldData;
+        return { ...oldData, isBookmarked: !oldData.isBookmarked };
+      });
+
+      return { previousQueries, noteId };
+    },
+
+    onError: (err, noteId, context) => {
+      // Rollback infinite and list caches
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+
+    onSuccess: (result, noteId) => {
+      // Update infinite query cache with server response
+      updateInfiniteQueryCache(queryClient, noteId, (note) => ({
+        ...note,
+        isBookmarked: result.isBookmarked,
+      }));
+
+      // Update regular list cache with server response
+      updateListCache(queryClient, noteId, (note) => ({
+        ...note,
+        isBookmarked: result.isBookmarked,
+      }));
+
+      // Optionally update detail cache if it exists (no snapshot needed)
+      queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
+        if (!oldData) return oldData;
+        return { ...oldData, isBookmarked: result.isBookmarked };
+      });
+    },
+  });
+}
+
+/**
+ * useDeleteNote Hook
+ *
+ * Mutation hook for deleting a note with optimistic removal.
+ * Removes note from infinite and list caches.
+ * Detail cache is removed and will 404 on refetch (expected behavior).
+ */
+export function useDeleteNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteNote,
+
+    onMutate: async (noteId) => {
+      await queryClient.cancelQueries({ queryKey: noteKeys.all });
+      const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
+
+      // Remove from infinite query cache
+      queryClient.setQueriesData(
+        {
+          predicate: (query) => {
+            const key = query.queryKey;
+            return key[0] === 'notes' && key[1] === 'infinite';
+          }
+        },
+        (oldData) => {
+          if (!oldData?.pages) return oldData;
+          return {
+            pages: oldData.pages.map((page) => {
+              // Handle both paginated and non-paginated responses
+              const notes = page.pagination ? page.notes : (Array.isArray(page) ? page : []);
+              const filteredNotes = notes.filter((note) => note.id !== noteId);
+
+              // Return in same format as received
+              if (page.pagination) {
+                return { ...page, notes: filteredNotes };
+              }
+              return filteredNotes;
+            }),
+            pageParams: oldData.pageParams || [],
+          };
+        }
+      );
+
+      // Remove from regular list cache (backward compatibility)
+      updateListCache(queryClient, noteId, () => null);
+      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.filter((note) => note.id !== noteId);
+      });
+
+      // Remove detail cache (will 404 on refetch, which is expected)
+      queryClient.removeQueries({ queryKey: noteKeys.detail(noteId) });
+
+      return { previousQueries, noteId };
+    },
+
+    onError: (err, noteId, context) => {
+      // Rollback infinite and list caches
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      // Note: Detail cache was removed, so we don't roll it back
+      // If delete fails, user can refresh detail page to see the note again
+    },
+  });
+}
 
 // Prefetch utility
 export const prefetchNotes = createPrefetchFn({
@@ -67,7 +281,10 @@ export const prefetchNotes = createPrefetchFn({
 
 /**
  * useLikeNote Hook
- * Unique to notes - includes like count tracking with optimistic updates.
+ *
+ * Mutation hook for liking/unliking a note with optimistic updates.
+ * Updates like count and isLiked status in infinite, list, and detail caches.
+ * Detail cache updates optimistically but will refetch on error if needed.
  */
 export function useLikeNote() {
   const queryClient = useQueryClient();
@@ -79,24 +296,35 @@ export function useLikeNote() {
       await queryClient.cancelQueries({ queryKey: noteKeys.all });
       const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
 
-      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
-        if (!Array.isArray(oldData)) return oldData;
-        return oldData.map((note) => {
-          if (note.id === noteId) {
-            return {
-              ...note,
-              isLiked: !note.isLiked,
-              likes: note.isLiked ? note.likes - 1 : note.likes + 1,
-            };
-          }
-          return note;
-        });
+      // Update infinite query cache
+      updateInfiniteQueryCache(queryClient, noteId, (note) => ({
+        ...note,
+        isLiked: !note.isLiked,
+        likes: note.isLiked ? note.likes - 1 : note.likes + 1,
+      }));
+
+      // Update regular list cache (backward compatibility)
+      updateListCache(queryClient, noteId, (note) => ({
+        ...note,
+        isLiked: !note.isLiked,
+        likes: note.isLiked ? note.likes - 1 : note.likes + 1,
+      }));
+
+      // Update detail cache optimistically (no snapshot needed - will refetch on error)
+      queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          isLiked: !oldData.isLiked,
+          likes: oldData.isLiked ? oldData.likes - 1 : oldData.likes + 1,
+        };
       });
 
-      return { previousQueries };
+      return { previousQueries, noteId };
     },
 
     onError: (err, noteId, context) => {
+      // Rollback infinite and list caches
       if (context?.previousQueries) {
         context.previousQueries.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
@@ -105,18 +333,28 @@ export function useLikeNote() {
     },
 
     onSuccess: (result, noteId) => {
-      queryClient.setQueriesData({ queryKey: noteKeys.all }, (oldData) => {
-        if (!Array.isArray(oldData)) return oldData;
-        return oldData.map((note) => {
-          if (note.id === noteId) {
-            return {
-              ...note,
-              isLiked: result.isLiked,
-              likes: result.likes,
-            };
-          }
-          return note;
-        });
+      // Update infinite query cache with server response
+      updateInfiniteQueryCache(queryClient, noteId, (note) => ({
+        ...note,
+        isLiked: result.isLiked,
+        likes: result.likes,
+      }));
+
+      // Update regular list cache with server response
+      updateListCache(queryClient, noteId, (note) => ({
+        ...note,
+        isLiked: result.isLiked,
+        likes: result.likes,
+      }));
+
+      // Optionally update detail cache if it exists (no snapshot needed)
+      queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          isLiked: result.isLiked,
+          likes: result.likes,
+        };
       });
     },
   });

@@ -20,6 +20,9 @@ class Note(db.Model):
     # Relationship to User
     author = db.relationship('User', backref='notes')
 
+    def get_note_by_id(self, note_id):
+        return Note.query.filter_by(id=note_id).first()
+
     def get_tags_list(self):
         """Convert tags JSON string back to list"""
         if self.tags:

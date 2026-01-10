@@ -14,7 +14,9 @@
  * - prefetchUniversities() - Prefetch universities list
  *
  * Notes/Community:
- * - useNotes(params) - Get notes with filters
+ * - useNotes(params) - Get notes with filters (deprecated, use useInfiniteNotes)
+ * - useInfiniteNotes(params) - Get notes with infinite scroll pagination
+ * - useNote(noteId) - Get single note by ID
  * - useCreateNote() - Create mutation
  * - useLikeNote() - Like/unlike mutation
  * - useBookmarkNote() - Bookmark mutation
@@ -99,6 +101,8 @@ export {
 // =============================================================================
 export {
   useNotes,
+  useInfiniteNotes,
+  useNote,
   useCreateNote,
   useLikeNote,
   useBookmarkNote,
@@ -188,6 +192,11 @@ export {
   useCountdown,
   useModal,
 } from './useUI';
+
+// =============================================================================
+// Clipboard Hook
+// =============================================================================
+export { useClipboard } from './useClipboard';
 
 // =============================================================================
 // Email Verification Hook

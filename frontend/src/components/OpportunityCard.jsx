@@ -5,6 +5,7 @@
 
 import { FeedCard } from './ui';
 import { MessagesIcon, BuildingIcon } from './icons';
+import { useAuthModal } from '../contexts/AuthModalContext';
 
 const LOCATION_TAGS = ['Remote', 'Hybrid', 'On-site'];
 const COMPENSATION_TAGS = ['Paid', 'Unpaid'];
@@ -18,13 +19,14 @@ export default function OpportunityCard({
   isAuthenticated = false,
   isSiteAdmin = false,
 }) {
+  const { openAuthModal } = useAuthModal();
   const isOwner = isAuthenticated && currentUserId && opportunity.author.id === currentUserId;
   const canDelete = isOwner || isSiteAdmin;
   const isOwnPost = isAuthenticated && currentUserId === opportunity.author.id;
 
   function handleMessagePoster() {
     if (!isAuthenticated) {
-      alert('Please log in to message this poster');
+      openAuthModal();
       return;
     }
     // Open chat modal inline instead of navigating away

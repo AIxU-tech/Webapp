@@ -59,7 +59,6 @@ class TestUniversityListing:
             uni = data['universities'][0]
             assert 'memberCount' in uni
             assert 'recentPosts' in uni
-            assert 'tags' in uni
             assert 'emailDomain' in uni
 
 

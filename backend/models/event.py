@@ -56,6 +56,7 @@ class Event(db.Model):
     # Relationships
     university = db.relationship('University', backref='university_events')
     created_by = db.relationship('User', backref='created_events')
+    attendees = db.relationship('EventAttendee', backref='event', cascade='all, delete-orphan')
 
     def to_dict(self, include_attendees=False):
         """
@@ -130,8 +131,8 @@ class EventAttendee(db.Model):
     )
 
     # Relationships
-    event = db.relationship('Event', backref='attendees')
     user = db.relationship('User', backref='event_rsvps')
+
 
     def to_dict(self):
         """Serialize attendee to dictionary."""

@@ -4,12 +4,27 @@
  * Displays a university card with name, location, club info, and stats.
  */
 
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Card, StatItem, SecondaryButton } from './ui';
 import { AcademicCapIcon } from './icons';
 import { GRADIENT_PRIMARY } from '../config/styles';
+import { useAuth } from '../contexts/AuthContext';
+import { useAuthModal } from '../contexts/AuthModalContext';
 
 export default function UniversityCard({ university }) {
+  const { isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
+  const navigate = useNavigate();
+
+  const handleViewUniversity = (e) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      openAuthModal();
+      return;
+    }
+    navigate(`/universities/${university.id}`);
+  };
+
   return (
     <Card>
       {/* Header - Name, Location, and Icon */}
@@ -51,8 +66,7 @@ export default function UniversityCard({ university }) {
 
       {/* View University Button */}
       <SecondaryButton
-        as={Link}
-        to={`/universities/${university.id}`}
+        onClick={handleViewUniversity}
         variant="primary"
         className="w-full"
       >
