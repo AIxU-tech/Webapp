@@ -38,13 +38,13 @@ import {
 
 // UI Components
 import {
-  BaseModal,
-  TagSelector,
   GradientButton,
   FeedItemList,
+  CreateNoteModal,
 } from '../components/ui';
 import ConfirmationModal from '../components/ConfirmationModal';
 import NoteCard from '../components/NoteCard';
+import NotesFilter from '../components/NotesFilter';
 
 // Icons
 import {
@@ -52,7 +52,6 @@ import {
   PlusIcon,
   XIcon,
   FileTextIcon,
-  ClockIcon,
   BookmarkIcon,
 } from '../components/icons';
 
@@ -60,20 +59,6 @@ import {
  * Available filter tags for categorizing notes
  */
 const FILTER_TAGS = ['NLP', 'Deep Learning', 'MLOps', 'Computer Vision', 'Ethics'];
-
-/**
- * Available tags for creating notes (includes all filter tags plus more)
- */
-const CREATE_TAGS = [
-  'NLP',
-  'Deep Learning',
-  'MLOps',
-  'Computer Vision',
-  'Ethics',
-  'Research',
-  'Tutorial',
-  'Best Practices'
-];
 
 export default function CommunityPage() {
   /**
@@ -179,10 +164,6 @@ export default function CommunityPage() {
    * Create Note Modal State
    */
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [noteTitle, setNoteTitle] = useState('');
-  const [noteContent, setNoteContent] = useState('');
-  const [selectedCreateTags, setSelectedCreateTags] = useState([]);
-  const [universityOnly, setUniversityOnly] = useState(false);
 
   /**
    * Delete Confirmation Modal State
@@ -272,15 +253,9 @@ export default function CommunityPage() {
 
   /**
    * Close Create Note Modal
-   *
-   * Resets form fields. BaseModal handles scroll lock automatically.
    */
   function closeModal() {
     setIsModalOpen(false);
-    setNoteTitle('');
-    setNoteContent('');
-    setSelectedCreateTags([]);
-    setUniversityOnly(false);
   }
 
   /**
@@ -288,32 +263,16 @@ export default function CommunityPage() {
    *
    * Uses React Query mutation with automatic cache invalidation.
    */
-  async function handleCreateNote(e) {
-    e.preventDefault();
-
-    if (!noteTitle.trim() || !noteContent.trim()) {
-      alert('Please fill in both title and content');
-      return;
-    }
-
-    createNoteMutation.mutate(
-      {
-        title: noteTitle.trim(),
-        content: noteContent.trim(),
-        tags: selectedCreateTags,
-        universityOnly,
+  function handleCreateNote(noteData) {
+    createNoteMutation.mutate(noteData, {
+      onSuccess: () => {
+        closeModal();
       },
-      {
-        onSuccess: () => {
-          // Close modal and reset form
-          closeModal();
-        },
-        onError: (err) => {
-          console.error('Error creating note:', err);
-          alert('Failed to create note. Please try again.');
-        },
-      }
-    );
+      onError: (err) => {
+        console.error('Error creating note:', err);
+        alert('Failed to create note. Please try again.');
+      },
+    });
   }
 
   /**
@@ -369,11 +328,6 @@ export default function CommunityPage() {
       setNoteToDelete(null);
     }
   }
-
-  /**
-   * Calculate Character Count for Create Modal
-   */
-  const charCount = noteTitle.length + noteContent.length;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -449,38 +403,14 @@ export default function CommunityPage() {
       </div>
 
       {/* Filter Section - Tags and Bookmarked */}
-      <div className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          {/* Tag Filter */}
-          <div className="flex-1">
-            <TagSelector
-              tags={FILTER_TAGS}
-              selected={bookmarkedFilter ? null : tagFilter}
-              onChange={handleTagChange}
-              showAll
-              allLabel="All Notes"
-            />
-          </div>
-
-          {/* Bookmarked Filter Button - Only show when authenticated */}
-          {isAuthenticated && (
-            <button
-              onClick={handleBookmarkedToggle}
-              className={`
-                inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200
-                ${bookmarkedFilter
-                  ? 'bg-primary text-white shadow-md'
-                  : 'bg-card text-muted-foreground border border-border hover:border-primary hover:text-primary'
-                }
-              `}
-              aria-label={bookmarkedFilter ? 'Show all notes' : 'Show bookmarked notes'}
-            >
-              <BookmarkIcon className="h-5 w-5" filled={bookmarkedFilter} />
-              <span>Bookmarked</span>
-            </button>
-          )}
-        </div>
-      </div>
+      <NotesFilter
+        availableTags={FILTER_TAGS}
+        selectedTag={bookmarkedFilter ? null : tagFilter}
+        onTagChange={handleTagChange}
+        isBookmarked={bookmarkedFilter}
+        onBookmarkToggle={handleBookmarkedToggle}
+        isAuthenticated={isAuthenticated}
+      />
 
       {/* Notes List */}
       <FeedItemList
@@ -537,93 +467,14 @@ export default function CommunityPage() {
         </div>
       )}
 
-      {/*
-        Create Note Modal
-
-        Uses BaseModal for consistent behavior (ESC key, scroll lock, click outside).
-      */}
-      <BaseModal
+      {/* Create Note Modal */}
+      <CreateNoteModal
         isOpen={isModalOpen}
         onClose={closeModal}
-        title="Creating a note"
-        size="2xl"
-      >
-        {/* Create Note Form */}
-        <form onSubmit={handleCreateNote} className="p-6">
-          {/* Title Input */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Title *</label>
-            <input
-              type="text"
-              placeholder="Title"
-              value={noteTitle}
-              onChange={(e) => setNoteTitle(e.target.value)}
-              required
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-
-          {/* Content Textarea */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Content *</label>
-            <textarea
-              placeholder="What do you want to talk about?"
-              value={noteContent}
-              onChange={(e) => setNoteContent(e.target.value)}
-              required
-              rows={6}
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-          </div>
-
-          {/* Tags Selection */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Tags</label>
-            <TagSelector
-              tags={CREATE_TAGS}
-              selected={selectedCreateTags}
-              onChange={setSelectedCreateTags}
-              multiple
-            />
-          </div>
-
-          {/* University Only Toggle */}
-          {user?.university && (
-            <div className="mb-4">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={universityOnly}
-                  onChange={(e) => setUniversityOnly(e.target.checked)}
-                  className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary"
-                />
-                <span className="ml-2 text-sm text-foreground">
-                  Only visible to members of my university
-                </span>
-              </label>
-            </div>
-          )}
-
-          {/* Submit Button Row */}
-          <div className="flex items-center justify-between pt-4 border-t border-border">
-            {/* Character Count */}
-            <div className="text-sm text-muted-foreground flex items-center">
-              <ClockIcon />
-              <span className="ml-1">{charCount} characters</span>
-            </div>
-
-            {/* Submit Button */}
-            <GradientButton
-              type="submit"
-              size="sm"
-              loading={createNoteMutation.isPending}
-              loadingText="Posting..."
-            >
-              Post
-            </GradientButton>
-          </div>
-        </form>
-      </BaseModal>
+        onCreate={handleCreateNote}
+        isCreating={createNoteMutation.isPending}
+        userUniversity={user?.university}
+      />
 
       {/* Delete Confirmation Modal */}
       <ConfirmationModal
