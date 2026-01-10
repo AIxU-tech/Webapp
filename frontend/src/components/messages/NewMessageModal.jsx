@@ -205,7 +205,7 @@ export default function NewMessageModal({ isOpen, onClose, onSuccess }) {
             {selectedRecipient && (
               <div className="mt-2">
                 <div className="flex items-center space-x-2 bg-muted px-3 py-2 rounded-lg">
-                  <Avatar src={selectedRecipient.avatar} name={selectedRecipient.name} size="sm" />
+                  <Avatar user={selectedRecipient} size="sm" />
                   <span className="text-sm text-foreground">
                     {selectedRecipient.name}
                   </span>

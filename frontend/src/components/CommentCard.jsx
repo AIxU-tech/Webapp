@@ -128,7 +128,7 @@ export default function CommentCard({
         <div className="flex items-center space-x-2">
           {/* Avatar + Name in single link for unified hover behavior */}
           <Link to={`/users/${comment.author.id}`} className="flex items-center space-x-2 group">
-            <Avatar src={comment.author.avatar} name={comment.author.name} size={avatarSize} />
+            <Avatar user={comment.author} size={avatarSize} />
             <span className="font-medium text-sm text-foreground group-hover:text-primary transition-colors">
               {comment.author.name}
             </span>

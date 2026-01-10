@@ -67,7 +67,7 @@ function ConversationHeader({ user, onClose }) {
   return (
     <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
       <div className="flex items-center space-x-3">
-        <Avatar src={user.avatar} name={user.name} size="md" />
+        <Avatar user={user} size="md" />
         <div>
           <h3 className="font-semibold text-foreground">{user.name}</h3>
           <p className="text-sm text-muted-foreground">{user.university}</p>

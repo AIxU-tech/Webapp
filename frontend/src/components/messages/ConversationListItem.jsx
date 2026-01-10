@@ -44,7 +44,7 @@ export default function ConversationListItem({ conversation, onClick }) {
     >
       <div className="flex items-start space-x-4">
         {/* User Avatar */}
-        <Avatar src={otherUser.avatar} name={otherUser.name} size="lg" />
+        <Avatar user={otherUser} size="lg" />
 
         {/* Conversation Details */}
         <div className="flex-1 min-w-0">

@@ -28,7 +28,7 @@ export default function FeedCard({
       <div className="flex items-center justify-between mb-4">
         <Link to={`/users/${item.author.id}`} className="flex items-center space-x-3 group">
           {/* Author Avatar */}
-          <Avatar src={item.author.avatar} name={item.author.name} size="md" />
+          <Avatar user={item.author} size="md" />
 
           {/* Author Info */}
           <div>

@@ -43,7 +43,7 @@ export default function LeadershipCard({ members = [], onViewAll }) {
             className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-accent transition-colors"
           >
             {/* Avatar */}
-            <Avatar src={member.avatar} name={member.name} size="md" />
+            <Avatar user={member} size="md" />
 
             {/* Info */}
             <div className="flex-1 min-w-0">
