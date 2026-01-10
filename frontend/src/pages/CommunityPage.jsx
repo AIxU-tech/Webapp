@@ -7,6 +7,7 @@
  * Features:
  * - Search notes by title, content, or author name
  * - Filter notes by tags (NLP, Deep Learning, MLOps, etc.)
+ * - Filter to view only bookmarked notes
  * - Create new notes with title, content, and tags
  * - Like/unlike notes (with optimistic updates)
  * - Bookmark/unbookmark notes for later (with optimistic updates)
@@ -17,6 +18,7 @@
  * - Notes cached for 2 minutes (staleTime)
  * - Like/bookmark updates appear instantly (optimistic)
  * - Failed actions automatically roll back
+ * - Each filter combination creates a separate cache entry
  *
  * @component
  */
@@ -51,6 +53,7 @@ import {
   XIcon,
   FileTextIcon,
   ClockIcon,
+  BookmarkIcon,
 } from '../components/icons';
 
 /**
@@ -86,6 +89,7 @@ export default function CommunityPage() {
   const searchQuery = searchParams.get('search') || '';
   const filterUserId = searchParams.get('user') ? parseInt(searchParams.get('user')) : null;
   const tagFilter = searchParams.get('tag') || 'all';
+  const bookmarkedFilter = searchParams.get('bookmarked') === 'true';
 
   /**
    * Data Fetching with React Query (Infinite Scroll)
@@ -103,8 +107,9 @@ export default function CommunityPage() {
     if (searchQuery) params.search = searchQuery;
     if (filterUserId) params.user = filterUserId;
     if (tagFilter && tagFilter !== 'all') params.tag = tagFilter;
+    if (bookmarkedFilter) params.bookmarked = true;
     return params;
-  }, [searchQuery, filterUserId, tagFilter]);
+  }, [searchQuery, filterUserId, tagFilter, bookmarkedFilter]);
 
   const {
     data,
@@ -199,6 +204,27 @@ export default function CommunityPage() {
       newParams.delete('tag');
     } else {
       newParams.set('tag', newTag);
+    }
+    // Clear bookmarked filter when switching to tag filter
+    newParams.delete('bookmarked');
+    setSearchParams(newParams);
+  }
+
+  /**
+   * Handle Bookmarked Filter Toggle
+   *
+   * Updates URL search params to show only bookmarked notes.
+   * React Query handles the refetch automatically when queryParams changes.
+   */
+  function handleBookmarkedToggle() {
+    const newParams = new URLSearchParams(searchParams);
+    if (bookmarkedFilter) {
+      // If already showing bookmarked, clear the filter
+      newParams.delete('bookmarked');
+    } else {
+      // Show bookmarked notes and clear tag filter
+      newParams.set('bookmarked', 'true');
+      newParams.delete('tag');
     }
     setSearchParams(newParams);
   }
@@ -422,15 +448,38 @@ export default function CommunityPage() {
         </div>
       </div>
 
-      {/* Filter Tags - Filter notes by category */}
+      {/* Filter Section - Tags and Bookmarked */}
       <div className="mb-8">
-        <TagSelector
-          tags={FILTER_TAGS}
-          selected={tagFilter}
-          onChange={handleTagChange}
-          showAll
-          allLabel="All Notes"
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          {/* Tag Filter */}
+          <div className="flex-1">
+            <TagSelector
+              tags={FILTER_TAGS}
+              selected={bookmarkedFilter ? null : tagFilter}
+              onChange={handleTagChange}
+              showAll
+              allLabel="All Notes"
+            />
+          </div>
+
+          {/* Bookmarked Filter Button - Only show when authenticated */}
+          {isAuthenticated && (
+            <button
+              onClick={handleBookmarkedToggle}
+              className={`
+                inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200
+                ${bookmarkedFilter
+                  ? 'bg-primary text-white shadow-md'
+                  : 'bg-card text-muted-foreground border border-border hover:border-primary hover:text-primary'
+                }
+              `}
+              aria-label={bookmarkedFilter ? 'Show all notes' : 'Show bookmarked notes'}
+            >
+              <BookmarkIcon className="h-5 w-5" filled={bookmarkedFilter} />
+              <span>Bookmarked</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Notes List */}
@@ -439,18 +488,26 @@ export default function CommunityPage() {
         isLoading={loading}
         error={queryError}
         loadingText="Loading notes..."
-        emptyIcon={<FileTextIcon className="h-12 w-12" />}
-        emptyTitle={searchQuery ? 'No results found' : 'No posts yet'}
+        emptyIcon={bookmarkedFilter ? <BookmarkIcon className="h-12 w-12" /> : <FileTextIcon className="h-12 w-12" />}
+        emptyTitle={
+          searchQuery
+            ? 'No results found'
+            : bookmarkedFilter
+              ? 'No bookmarked notes yet'
+              : 'No posts yet'
+        }
         emptyDescription={
           searchQuery
             ? `No posts match your search for "${searchQuery}". Try a different keyword or author name.`
-            : filterUserId
-              ? "This user hasn't created any posts yet."
-              : 'There are no posts in the community yet. Be the first to share!'
+            : bookmarkedFilter
+              ? 'Start bookmarking notes you want to save for later. Click the bookmark icon on any note to add it to your collection.'
+              : filterUserId
+                ? "This user hasn't created any posts yet."
+                : 'There are no posts in the community yet. Be the first to share!'
         }
         emptyAction={
-          (filterUserId || searchQuery)
-            ? { label: 'View all community posts', onClick: clearFilters }
+          (filterUserId || searchQuery || bookmarkedFilter)
+            ? { label: 'View all community posts', onClick: bookmarkedFilter ? handleBookmarkedToggle : clearFilters }
             : undefined
         }
         renderItem={(note) => (

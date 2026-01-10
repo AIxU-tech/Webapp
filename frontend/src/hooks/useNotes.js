@@ -85,11 +85,18 @@ export const useCreateNote = createCreateHook({
 // Helper function to update infinite query cache
 function updateInfiniteQueryCache(queryClient, noteId, updater) {
   // Update all infinite queries (matching the infinite key pattern)
+  // Skip queries that are invalidated to prevent overwriting with stale data
   queryClient.setQueriesData(
     {
       predicate: (query) => {
         const key = query.queryKey;
-        return key[0] === 'notes' && key[1] === 'infinite';
+        const isNotesInfinite = key[0] === 'notes' && key[1] === 'infinite';
+
+        // Only update queries that are:
+        // 1. Notes infinite queries
+        // 2. Not invalidated (has valid data that should be updated)
+        // 3. Currently being observed (active) OR has data in cache
+        return isNotesInfinite && query.state.dataUpdatedAt > 0;
       }
     },
     (oldData) => {
@@ -165,6 +172,13 @@ export function useBookmarkNote() {
       queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
         if (!oldData) return oldData;
         return { ...oldData, isBookmarked: result.isBookmarked };
+      });
+
+      // Remove bookmarked filter cache to force fresh fetch on next view
+      // This prevents stale data from being shown and ensures the list is correct
+      queryClient.removeQueries({
+        queryKey: noteKeys.infinite({ bookmarked: true }),
+        exact: true,
       });
     },
   });
