@@ -59,7 +59,7 @@ export default function UniversityDetailPage() {
   // Local State
   // ---------------------------------------------------------------------------
 
-  const [activeTab, setActiveTab] = useState('posts');
+  const [activeTab, setActiveTab] = useState('about');
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Error modal state
@@ -75,7 +75,7 @@ export default function UniversityDetailPage() {
     title: '',
     message: '',
     variant: 'warning',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   // ---------------------------------------------------------------------------

@@ -53,6 +53,9 @@ export const STALE_TIMES = {
 
   // User search results - cache briefly
   USER_SEARCH: 1 * 60 * 1000, // 1 minute
+
+  // AI news content updates infrequently (admin-triggered refresh)
+  NEWS: 5 * 60 * 1000, // 5 minutes
 };
 
 // =============================================================================

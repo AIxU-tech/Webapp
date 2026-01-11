@@ -19,7 +19,7 @@
  *
  * Usage:
  *   Wrap your app with <QueryProvider> in main.jsx
- *   Use custom hooks (useUniversities, useNotes, etc.) in components
+ *   Use custom hooks (useUniversities, useInfiniteNotes, etc.) in components
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
