@@ -177,16 +177,15 @@ export default function CommunityPage() {
    * React Query handles the refetch automatically when queryParams changes.
    */
   function handleBookmarkedToggle() {
-    const newParams = new URLSearchParams(searchParams);
     if (bookmarkedFilter) {
       // If already showing bookmarked, clear the filter
-      newParams.delete('bookmarked');
+      setSearchParams({});
+      setSearchInput('');
     } else {
-      // Show bookmarked notes and clear tag filter
-      newParams.set('bookmarked', 'true');
-      newParams.delete('tag');
+      // Show only bookmarked notes (clear all other filters)
+      setSearchParams({ bookmarked: 'true' });
+      setSearchInput('');
     }
-    setSearchParams(newParams);
   }
 
   /**

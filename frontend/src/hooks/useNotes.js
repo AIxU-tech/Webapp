@@ -174,14 +174,10 @@ export function useBookmarkNote() {
         return { ...oldData, isBookmarked: result.isBookmarked };
       });
 
-      // Remove all bookmarked filter caches to force fresh fetch on next view
-      // Uses predicate to match any query with bookmarked: true, regardless of other params
-      // This handles cases like bookmarked + search filters
+      // Remove bookmarked filter cache to force fresh fetch on next view
       queryClient.removeQueries({
-        predicate: (query) => {
-          const key = query.queryKey;
-          return key[0] === 'notes' && key[1] === 'infinite' && key[2]?.bookmarked === true;
-        },
+        queryKey: noteKeys.infinite({ bookmarked: true }),
+        exact: true,
       });
     },
   });
