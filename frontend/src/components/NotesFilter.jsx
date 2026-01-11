@@ -6,21 +6,15 @@ import { BookmarkIcon } from './icons';
  *
  * Provides filtering options for notes including tag-based filtering
  * and bookmarked notes toggle.
- *
- * @param {Object} props
- * @param {Array<string>} props.availableTags - List of tags to show in the filter
- * @param {string|null} props.selectedTag - Currently selected tag (null when bookmarked filter is active)
- * @param {Function} props.onTagChange - Callback when tag filter changes
- * @param {boolean} props.isBookmarked - Whether bookmarked filter is active
- * @param {Function} props.onBookmarkToggle - Callback when bookmark filter is toggled
- * @param {boolean} props.isAuthenticated - Whether user is authenticated (controls bookmark button visibility)
  */
 export default function NotesFilter({
   availableTags,
   selectedTag,
   onTagChange,
+  onTagHover,
   isBookmarked,
   onBookmarkToggle,
+  onBookmarkHover,
   isAuthenticated,
 }) {
   return (
@@ -32,6 +26,7 @@ export default function NotesFilter({
             tags={availableTags}
             selected={selectedTag}
             onChange={onTagChange}
+            onHover={onTagHover}
             showAll
             allLabel="All Notes"
           />
@@ -41,6 +36,7 @@ export default function NotesFilter({
         {isAuthenticated && (
           <button
             onClick={onBookmarkToggle}
+            onMouseEnter={onBookmarkHover}
             className={`
               inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200
               ${isBookmarked

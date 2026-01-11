@@ -112,6 +112,7 @@ export {
   useLikeComment,
   noteKeys,
   prefetchNotes,
+  prefetchInfiniteNotes,
 } from './useNotes';
 
 // =============================================================================

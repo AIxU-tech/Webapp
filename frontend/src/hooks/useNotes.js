@@ -248,6 +248,18 @@ export const prefetchNotes = createPrefetchFn({
 });
 
 /**
+ * Prefetch infinite notes query (for hover prefetching)
+ */
+export function prefetchInfiniteNotes(queryClient, params = {}) {
+  return queryClient.prefetchInfiniteQuery({
+    queryKey: noteKeys.infinite(params),
+    queryFn: () => fetchNotes({ ...params, page: 1, page_size: 20 }),
+    initialPageParam: 1,
+    staleTime: STALE_TIMES.NOTES,
+  });
+}
+
+/**
  * useLikeNote Hook
  *
  * Mutation hook for liking/unliking a note with optimistic updates.

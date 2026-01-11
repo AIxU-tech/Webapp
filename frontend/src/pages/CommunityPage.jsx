@@ -27,6 +27,7 @@ import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useInfiniteNotes,
   useCreateNote,
@@ -36,6 +37,7 @@ import {
   usePageTitle,
   useInfiniteScroll,
   useDelayedLoading,
+  prefetchInfiniteNotes,
 } from '../hooks';
 
 // UI Components
@@ -70,6 +72,8 @@ export default function CommunityPage() {
   const { openAuthModal } = useAuthModal();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const queryClient = useQueryClient();
+
   /**
    * URL-derived State
    */
@@ -77,6 +81,17 @@ export default function CommunityPage() {
   const filterUserId = searchParams.get('user') ? parseInt(searchParams.get('user')) : null;
   const tagFilter = searchParams.get('tag') || 'all';
   const bookmarkedFilter = searchParams.get('bookmarked') === 'true';
+
+  /**
+   * Prefetch on Hover - Start loading data before user clicks
+   */
+  const handleTagHover = (tag) => {
+    prefetchInfiniteNotes(queryClient, { tag });
+  };
+
+  const handleBookmarkHover = () => {
+    prefetchInfiniteNotes(queryClient, { bookmarked: true });
+  };
 
   /**
    * Data Fetching with React Query (Infinite Scroll)
@@ -388,8 +403,10 @@ export default function CommunityPage() {
         availableTags={FILTER_TAGS}
         selectedTag={bookmarkedFilter ? null : tagFilter}
         onTagChange={handleTagChange}
+        onTagHover={handleTagHover}
         isBookmarked={bookmarkedFilter}
         onBookmarkToggle={handleBookmarkedToggle}
+        onBookmarkHover={handleBookmarkHover}
         isAuthenticated={isAuthenticated}
       />
 
