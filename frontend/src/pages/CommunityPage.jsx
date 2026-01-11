@@ -23,7 +23,7 @@
  * @component
  */
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
@@ -34,6 +34,7 @@ import {
   useBookmarkNote,
   useDeleteNote,
   usePageTitle,
+  useInfiniteScroll,
 } from '../hooks';
 
 // UI Components
@@ -120,34 +121,7 @@ export default function CommunityPage() {
   /**
    * Infinite Scroll - Auto-load when user scrolls to bottom
    */
-  const loadMoreRef = useRef(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const firstEntry = entries[0];
-        // When the sentinel element is visible and there's more to load
-        if (firstEntry.isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
-        }
-      },
-      {
-        // Trigger when sentinel is 200px from viewport
-        rootMargin: '200px',
-      }
-    );
-
-    const currentRef = loadMoreRef.current;
-    if (currentRef) {
-      observer.observe(currentRef);
-    }
-
-    return () => {
-      if (currentRef) {
-        observer.unobserve(currentRef);
-      }
-    };
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  const loadMoreRef = useInfiniteScroll({ hasNextPage, isFetchingNextPage, fetchNextPage });
 
   /**
    * Mutations with Optimistic Updates

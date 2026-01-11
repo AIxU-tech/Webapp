@@ -5,8 +5,8 @@
  * Uses infinite scroll pagination to load all posts for the university.
  */
 
-import { useState, useMemo, useRef, useEffect } from 'react';
-import { useInfiniteNotes, useLikeNote, useBookmarkNote, useDeleteNote } from '../../hooks';
+import { useState, useMemo } from 'react';
+import { useInfiniteNotes, useLikeNote, useBookmarkNote, useDeleteNote, useInfiniteScroll } from '../../hooks';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import NoteCard from '../NoteCard';
 import ConfirmationModal from '../ConfirmationModal';
@@ -42,32 +42,8 @@ export default function UniversityPostsTab({
   const bookmarkMutation = useBookmarkNote();
   const deleteMutation = useDeleteNote();
 
-  // Infinite scroll - ref for sentinel element
-  const loadMoreRef = useRef(null);
-
-  // Intersection observer for infinite scroll
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const firstEntry = entries[0];
-        if (firstEntry.isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
-        }
-      },
-      { rootMargin: '200px' }
-    );
-
-    const currentRef = loadMoreRef.current;
-    if (currentRef) {
-      observer.observe(currentRef);
-    }
-
-    return () => {
-      if (currentRef) {
-        observer.unobserve(currentRef);
-      }
-    };
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  // Infinite scroll
+  const loadMoreRef = useInfiniteScroll({ hasNextPage, isFetchingNextPage, fetchNextPage });
 
   // Handle like action
   const handleLike = (noteId) => {

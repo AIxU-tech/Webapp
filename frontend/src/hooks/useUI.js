@@ -221,6 +221,47 @@ export function useCountdown(initialSeconds) {
 }
 
 // =============================================================================
+// INFINITE SCROLL HOOK
+// =============================================================================
+
+/**
+ * Returns a ref for a sentinel element that triggers fetchNextPage when visible.
+ */
+export function useInfiniteScroll({
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
+  rootMargin = '200px',
+}) {
+  const sentinelRef = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const firstEntry = entries[0];
+        if (firstEntry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin }
+    );
+
+    const currentRef = sentinelRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, rootMargin]);
+
+  return sentinelRef;
+}
+
+// =============================================================================
 // COMBINED MODAL HOOK
 // =============================================================================
 
