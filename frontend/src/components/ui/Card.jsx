@@ -15,18 +15,17 @@ export default function Card({
   children,
   className = '',
   padding = 'md',
-  hover = true,
+  hover = false,
   onClick,
   as: Component = 'div',
   ...props
 }) {
   const paddingClass = PADDING[padding] || PADDING.md;
-  const hoverClass = hover ? 'hover:shadow-hover' : '';
   const clickableClass = onClick ? 'cursor-pointer' : '';
 
   return (
     <Component
-      className={`bg-card border border-border rounded-lg shadow-card transition-all duration-200 ${paddingClass} ${hoverClass} ${clickableClass} ${className}`}
+      className={`bg-card border border-border rounded-2xl transition-all duration-200 ${paddingClass} ${clickableClass} ${className}`}
       onClick={onClick}
       {...props}
     >

@@ -33,6 +33,7 @@ export { default as StatItem } from './StatItem';
 export { default as UniversityCardSkeleton } from './UniversityCardSkeleton';
 
 // Generic UI Components
+export { default as Avatar, Avatar as AvatarComponent } from './Avatar';
 export { default as Badge } from './Badge';
 export { default as Divider } from './Divider';
 export { default as Tag, ToggleTag, TagGroup, getTagVariant } from './Tag';

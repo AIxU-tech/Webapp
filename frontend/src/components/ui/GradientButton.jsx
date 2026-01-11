@@ -66,10 +66,9 @@ const GradientButton = forwardRef(function GradientButton(
   // Build class string
   const baseClasses = `
     ${GRADIENT_PRIMARY}
-    ${SHADOW_PRIMARY_HOVER}
     text-white
     font-semibold
-    rounded-lg
+    rounded-full
     transition-all
     duration-200
     inline-flex
@@ -77,7 +76,7 @@ const GradientButton = forwardRef(function GradientButton(
     justify-center
     gap-2
     ${SIZE_CLASSES[size]}
-    ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:-translate-y-0.5'}
+    ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}
     ${className}
   `.trim().replace(/\s+/g, ' ');
 

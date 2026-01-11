@@ -20,7 +20,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PencilIcon, TrashIcon, XIcon, CheckIcon, ChatBubbleIcon } from './icons';
-import { IconButton, LikeButton } from './ui';
+import { IconButton, LikeButton, Avatar } from './ui';
 import ConfirmationModal from './ConfirmationModal';
 
 /**
@@ -117,7 +117,7 @@ export default function CommentCard({
   };
 
   // Avatar and content offset sizing based on reply status
-  const avatarSize = isReply ? 'w-6 h-6' : 'w-8 h-8';
+  const avatarSize = isReply ? 'xs' : 'sm';
   // Content offset = avatar width + gap (space-x-2 = 8px): w-8(32px)+8 = 40px, w-6(24px)+8 = 32px
   const contentOffset = isReply ? 'ml-8' : 'ml-10';
 
@@ -128,11 +128,7 @@ export default function CommentCard({
         <div className="flex items-center space-x-2">
           {/* Avatar + Name in single link for unified hover behavior */}
           <Link to={`/users/${comment.author.id}`} className="flex items-center space-x-2 group">
-            <img
-              src={comment.author.avatar}
-              alt={comment.author.name}
-              className={`${avatarSize} rounded-full flex-shrink-0`}
-            />
+            <Avatar user={comment.author} size={avatarSize} />
             <span className="font-medium text-sm text-foreground group-hover:text-primary transition-colors">
               {comment.author.name}
             </span>

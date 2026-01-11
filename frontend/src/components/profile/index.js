@@ -5,9 +5,19 @@
  * Import from this file for cleaner imports.
  *
  * @example
- * import { ProfileCard, ActivityItem, ProfilePictureSection } from '../components/profile';
+ * import { ProfileCard, ProfileHeader, ProfileSidebar } from '../components/profile';
  */
 
+// Existing components
 export { default as ProfileCard } from './ProfileCard';
 export { default as ActivityItem } from './ActivityItem';
 export { default as ProfilePictureSection } from './ProfilePictureSection';
+
+// Header components
+export * from './header';
+
+// Section components
+export * from './sections';
+
+// Sidebar components
+export * from './sidebar';

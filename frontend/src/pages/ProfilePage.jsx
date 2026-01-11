@@ -7,23 +7,18 @@
  * 2. View other user's profile (/users/:id) - Read-only view
  *
  * Features:
- * - Profile header with avatar, stats (posts, followers, following)
+ * - Profile header with banner, avatar, stats
  * - About section with bio
- * - Skills and Interests display
- * - Recent activity feed
+ * - Featured projects, experience, and research sections (empty states for now)
+ * - Sidebar with activity stats, recent posts, university, and skills
  * - Edit profile modal (own profile only)
  * - Profile picture upload with auto-cropping (own profile only)
- *
- * University Affiliation:
- * Users are automatically enrolled in a university based on their .edu email
- * domain during registration. The profile page displays the user's university
- * but does not allow changing it manually. University affiliation is read-only.
  *
  * @component
  */
 
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { logout } from '../api/auth';
 import {
@@ -31,33 +26,32 @@ import {
   usePageTitle,
   useUpdateProfile,
   useUploadProfilePicture,
+  useForm,
 } from '../hooks';
+import { ConversationModal } from '../components/messages';
 
 // UI Components
 import {
+  Alert,
   BaseModal,
   LoadingState,
   ErrorState,
   GradientButton,
   SecondaryButton,
-  Badge,
-  EmptyState,
 } from '../components/ui';
 import ConfirmationModal from '../components/ConfirmationModal';
 import FormInput from '../components/FormInput';
 
 // Profile Components
 import {
-  ProfileCard,
-  ActivityItem,
+  ProfileHeader,
   ProfilePictureSection,
+  AboutSection,
+  ProjectsSection,
+  ExperienceSection,
+  ResearchSection,
+  ProfileSidebar,
 } from '../components/profile';
-
-// Icons
-import { EditIcon, LogOutIcon } from '../components/icons';
-
-// Styles
-import { GRADIENT_PRIMARY } from '../config/styles';
 
 export default function ProfilePage() {
   const { userId } = useParams();
@@ -93,60 +87,49 @@ export default function ProfilePage() {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showMessageModal, setShowMessageModal] = useState(false);
 
   // ---------------------------------------------------------------------------
-  // Form State
+  // Feedback State (for success/error notifications)
   // ---------------------------------------------------------------------------
 
-  const [formData, setFormData] = useState({});
-  const [formInitialized, setFormInitialized] = useState(false);
+  const [feedback, setFeedback] = useState({ type: null, message: '' });
 
   // Set page title
   usePageTitle(user ? (isOwnProfile ? 'Profile' : user.full_name) : 'Profile');
 
   // ---------------------------------------------------------------------------
-  // Form Initialization
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    // Reset form initialization when modal closes
-    if (!showEditModal) {
-      setFormInitialized(false);
-      return;
-    }
-
-    // Don't re-initialize if already done
-    if (formInitialized || !user || !isOwnProfile) return;
-
-    setFormData({
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
-      location: user.location || '',
-      about_section: user.about_section || '',
-      skills: user.skills?.join(', ') || '',
-      interests: user.interests?.join(', ') || '',
-    });
-    setFormInitialized(true);
-  }, [showEditModal, user, isOwnProfile, formInitialized]);
-
-  // ---------------------------------------------------------------------------
-  // Handlers
+  // Form State (using useForm hook)
   // ---------------------------------------------------------------------------
 
   /**
-   * Handle profile form submission
+   * Get initial form values from user object
    */
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
+  const getInitialFormValues = (userData) => ({
+    first_name: userData?.first_name || '',
+    last_name: userData?.last_name || '',
+    location: userData?.location || '',
+    about_section: userData?.about_section || '',
+    skills: userData?.skills?.join(', ') || '',
+    interests: userData?.interests?.join(', ') || '',
+  });
 
-    try {
+  const {
+    formData,
+    setFormData,
+    error: formError,
+    handleChange,
+    handleSubmit: handleFormSubmit,
+  } = useForm({
+    initialValues: getInitialFormValues(user),
+    onSubmit: async (data) => {
       const updates = {
-        ...formData,
-        skills: formData.skills
-          ? formData.skills.split(',').map((s) => s.trim()).filter(Boolean)
+        ...data,
+        skills: data.skills
+          ? data.skills.split(',').map((s) => s.trim()).filter(Boolean)
           : [],
-        interests: formData.interests
-          ? formData.interests.split(',').map((i) => i.trim()).filter(Boolean)
+        interests: data.interests
+          ? data.interests.split(',').map((i) => i.trim()).filter(Boolean)
           : [],
       };
 
@@ -158,11 +141,21 @@ export default function ProfilePage() {
       }
 
       setShowEditModal(false);
-      alert('Profile updated successfully!');
-    } catch (err) {
-      console.error('Error updating profile:', err);
-      alert('Failed to update profile. Please try again.');
-    }
+      setFeedback({ type: 'success', message: 'Profile updated successfully!' });
+    },
+    defaultErrorMessage: 'Failed to update profile. Please try again.',
+  });
+
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Open edit modal and reset form data to current user values
+   */
+  const openEditModal = () => {
+    setFormData(getInitialFormValues(user));
+    setShowEditModal(true);
   };
 
   /**
@@ -178,8 +171,15 @@ export default function ProfilePage() {
       }
     } catch (err) {
       console.error('Error uploading picture:', err);
-      alert('Failed to upload profile picture');
+      setFeedback({ type: 'error', message: 'Failed to upload profile picture' });
     }
+  };
+
+  /**
+   * Handle profile picture upload errors from ProfilePictureSection
+   */
+  const handlePictureError = (message) => {
+    setFeedback({ type: 'error', message });
   };
 
   /**
@@ -198,10 +198,17 @@ export default function ProfilePage() {
   };
 
   /**
-   * Update form field
+   * Open message modal to chat with user
    */
-  const updateField = (field) => (e) => {
-    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+  const handleMessage = () => {
+    setShowMessageModal(true);
+  };
+
+  /**
+   * Dismiss feedback notification
+   */
+  const dismissFeedback = () => {
+    setFeedback({ type: null, message: '' });
   };
 
   // ---------------------------------------------------------------------------
@@ -226,148 +233,60 @@ export default function ProfilePage() {
   // Main Render
   // ---------------------------------------------------------------------------
 
-  const avatarUrl =
-    user.profile_picture_url ||
-    user.avatar_url ||
-    `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
-
   return (
-    <div className="min-h-screen bg-background">
-      {/* Profile Header */}
-      <section className={`${GRADIENT_PRIMARY} text-white`}>
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex flex-col lg:flex-row items-center gap-6">
-            {/* Avatar */}
-            <div className="flex-shrink-0">
-              <img
-                src={avatarUrl}
-                alt={`Avatar of ${user.full_name}`}
-                className="w-24 h-24 rounded-full border-4 border-white shadow-lg object-cover"
-              />
-            </div>
-
-            {/* User Info */}
-            <div className="flex-1 text-center lg:text-left">
-              <h1 className="text-3xl font-bold mb-1 leading-tight">
-                {user.full_name}
-              </h1>
-              <p className="text-lg opacity-90 mb-1">
-                {user.university || 'No university'}
-              </p>
-              <p className="text-sm opacity-75 mb-3">
-                Joined {user.joined_formatted}
-              </p>
-
-              {/* Stats */}
-              <div className="flex flex-wrap gap-6 text-sm justify-center lg:justify-start">
-                <div className="flex items-baseline gap-1">
-                  <span className="font-semibold">{user.post_count || 0}</span>
-                  <span className="opacity-75">posts</span>
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="font-semibold">{user.follower_count || 0}</span>
-                  <span className="opacity-75">followers</span>
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="font-semibold">{user.following_count || 0}</span>
-                  <span className="opacity-75">following</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            {isOwnProfile && (
-              <div className="flex gap-3 mt-4 lg:mt-0">
-                <SecondaryButton
-                  variant="ghost"
-                  icon={<EditIcon />}
-                  onClick={() => setShowEditModal(true)}
-                  className="bg-white/20 hover:bg-white/30 text-white border-0"
-                >
-                  Edit Profile
-                </SecondaryButton>
-                <SecondaryButton
-                  variant="ghost"
-                  icon={<LogOutIcon />}
-                  onClick={() => setShowLogoutModal(true)}
-                  className="bg-white/20 hover:bg-white/30 text-white border-0"
-                >
-                  Log out
-                </SecondaryButton>
-              </div>
-            )}
-          </div>
+    <div className="min-h-screen gradient-mesh">
+      {/* Feedback notification */}
+      {feedback.message && (
+        <div className="fixed top-4 right-4 z-50 max-w-md">
+          <Alert
+            variant={feedback.type}
+            dismissible
+            onDismiss={dismissFeedback}
+          >
+            {feedback.message}
+          </Alert>
         </div>
-      </section>
+      )}
 
-      {/* Profile Content */}
+      {/* Two-column layout from the start: Main content + Sidebar */}
       <main className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left Column - Bio & Skills */}
-          <aside className="lg:col-span-1 space-y-6">
-            {/* About */}
-            <ProfileCard title="About">
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {user.about_section || 'No bio provided.'}
-              </p>
-            </ProfileCard>
+        <div className="grid lg:grid-cols-[1fr_340px] gap-8">
+          {/* Main Column */}
+          <div className="space-y-6">
+            {/* Profile Header card is part of main column */}
+            <ProfileHeader
+              user={user}
+              isOwnProfile={isOwnProfile}
+              onEditProfile={openEditModal}
+              onLogout={() => setShowLogoutModal(true)}
+              onMessage={handleMessage}
+            />
+            <AboutSection
+              aboutText={user.about_section}
+              isOwnProfile={isOwnProfile}
+            />
+            <ProjectsSection
+              projects={[]}
+              isOwnProfile={isOwnProfile}
+            />
+            <ExperienceSection
+              experiences={[]}
+              isOwnProfile={isOwnProfile}
+            />
+            <ResearchSection
+              publications={[]}
+              isOwnProfile={isOwnProfile}
+            />
+          </div>
 
-            {/* Skills */}
-            <ProfileCard title="Skills">
-              {user.skills?.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {user.skills.map((skill, index) => (
-                    <Badge key={index} variant="secondary">
-                      {skill}
-                    </Badge>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No skills listed.</p>
-              )}
-            </ProfileCard>
-
-            {/* Interests */}
-            <ProfileCard title="Interests">
-              {user.interests?.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {user.interests.map((interest, index) => (
-                    <Badge key={index} variant="info">
-                      {interest}
-                    </Badge>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No interests listed.</p>
-              )}
-            </ProfileCard>
-          </aside>
-
-          {/* Right Column - Activity */}
-          <section className="lg:col-span-2">
-            <ProfileCard title="Recent Activity">
-              {user.recent_activity?.length > 0 ? (
-                <div className="space-y-4">
-                  {user.recent_activity.map((activity, index) => (
-                    <ActivityItem key={index} activity={activity} />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  title="No recent activity"
-                  description="Activity will appear here once you start posting."
-                  className="py-8"
-                />
-              )}
-
-              {/* View All Activity */}
-              <div className="mt-6 text-center">
-                <GradientButton as={Link} to="/community">
-                  View All Activity
-                </GradientButton>
-              </div>
-            </ProfileCard>
-          </section>
+          {/* Sidebar (fixed 340px width) */}
+          <div>
+            <ProfileSidebar
+              user={user}
+              isOwnProfile={isOwnProfile}
+              onEditSkills={openEditModal}
+            />
+          </div>
         </div>
       </main>
 
@@ -383,11 +302,19 @@ export default function ProfilePage() {
           <ProfilePictureSection
             user={user}
             onUpload={handleUploadPicture}
+            onError={handlePictureError}
             isUploading={uploadPictureMutation.isPending}
           />
 
           {/* Profile Form */}
-          <form onSubmit={handleUpdateProfile} className="space-y-4">
+          <form onSubmit={handleFormSubmit} className="space-y-4">
+            {/* Form Error Display */}
+            {formError && (
+              <Alert variant="error" className="mb-2">
+                {formError}
+              </Alert>
+            )}
+
             {/* Name Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -395,8 +322,9 @@ export default function ProfilePage() {
                   First name
                 </label>
                 <FormInput
+                  name="first_name"
                   value={formData.first_name || ''}
-                  onChange={updateField('first_name')}
+                  onChange={handleChange}
                   placeholder="First name"
                 />
               </div>
@@ -405,8 +333,9 @@ export default function ProfilePage() {
                   Last name
                 </label>
                 <FormInput
+                  name="last_name"
                   value={formData.last_name || ''}
-                  onChange={updateField('last_name')}
+                  onChange={handleChange}
                   placeholder="Last name"
                 />
               </div>
@@ -431,8 +360,9 @@ export default function ProfilePage() {
                 Location
               </label>
               <FormInput
+                name="location"
                 value={formData.location || ''}
-                onChange={updateField('location')}
+                onChange={handleChange}
                 placeholder="City, Country"
               />
             </div>
@@ -443,9 +373,10 @@ export default function ProfilePage() {
                 About
               </label>
               <textarea
+                name="about_section"
                 rows="4"
                 value={formData.about_section || ''}
-                onChange={updateField('about_section')}
+                onChange={handleChange}
                 placeholder="Tell us about yourself..."
                 className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground"
               />
@@ -457,8 +388,9 @@ export default function ProfilePage() {
                 Skills (comma-separated)
               </label>
               <FormInput
+                name="skills"
                 value={formData.skills || ''}
-                onChange={updateField('skills')}
+                onChange={handleChange}
                 placeholder="Python, Machine Learning, Data Analysis"
               />
             </div>
@@ -469,8 +401,9 @@ export default function ProfilePage() {
                 Interests (comma-separated)
               </label>
               <FormInput
+                name="interests"
                 value={formData.interests || ''}
-                onChange={updateField('interests')}
+                onChange={handleChange}
                 placeholder="NLP, Computer Vision, Robotics"
               />
             </div>
@@ -506,6 +439,15 @@ export default function ProfilePage() {
         cancelText="Stay Logged In"
         variant="warning"
       />
+
+      {/* Message Modal - for messaging other users */}
+      {!isOwnProfile && (
+        <ConversationModal
+          userId={user?.id}
+          isOpen={showMessageModal}
+          onClose={() => setShowMessageModal(false)}
+        />
+      )}
     </div>
   );
 }

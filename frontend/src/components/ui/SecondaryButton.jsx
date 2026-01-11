@@ -45,6 +45,7 @@ const SIZE_CLASSES = {
 
 /**
  * Variant style definitions
+ * Uses CSS variables for consistent theming (see styles.css)
  */
 const VARIANT_CLASSES = {
   // Default solid secondary button
@@ -59,14 +60,14 @@ const VARIANT_CLASSES = {
   // Primary solid (non-gradient)
   primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
 
-  // Danger button for destructive actions
-  danger: 'bg-red-600 text-white hover:bg-red-700',
+  // Danger button for destructive actions (uses --destructive CSS variable)
+  danger: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
 
-  // Danger outline
-  dangerOutline: 'bg-transparent text-red-600 border border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20',
+  // Danger outline (uses --destructive CSS variable)
+  dangerOutline: 'bg-transparent text-destructive border border-destructive/30 hover:bg-destructive/10',
 
-  // Success button
-  success: 'bg-green-600 text-white hover:bg-green-700',
+  // Success button (uses --success-green CSS variable)
+  success: 'bg-success-green text-white hover:bg-success-green/90',
 };
 
 const SecondaryButton = forwardRef(function SecondaryButton(
@@ -93,7 +94,7 @@ const SecondaryButton = forwardRef(function SecondaryButton(
   const baseClasses = `
     ${VARIANT_CLASSES[variant] || VARIANT_CLASSES.default}
     font-medium
-    rounded-lg
+    rounded-full
     transition-colors
     duration-200
     inline-flex

@@ -6,6 +6,7 @@
 
 import { Link } from 'react-router-dom';
 import Tag, { TagGroup } from './Tag';
+import Avatar from './Avatar';
 import { BookmarkIcon, TrashIcon } from '../icons';
 
 export default function FeedCard({
@@ -27,11 +28,7 @@ export default function FeedCard({
       <div className="flex items-center justify-between mb-4">
         <Link to={`/users/${item.author.id}`} className="flex items-center space-x-3 group">
           {/* Author Avatar */}
-          <img
-            src={item.author.avatar}
-            alt={item.author.name}
-            className="w-10 h-10 rounded-full flex-shrink-0"
-          />
+          <Avatar user={item.author} size="md" />
 
           {/* Author Info */}
           <div>
