@@ -14,7 +14,6 @@
  * - prefetchUniversities() - Prefetch universities list
  *
  * Notes/Community:
- * - useNotes(params) - Get notes with filters (deprecated, use useInfiniteNotes)
  * - useInfiniteNotes(params) - Get notes with infinite scroll pagination
  * - useNote(noteId) - Get single note by ID
  * - useCreateNote() - Create mutation
@@ -68,7 +67,7 @@
  * - useForm(config) - Form state, validation, and submission handling
  *
  * Usage:
- *   import { useUniversities, useNotes, useAIContent } from '../hooks';
+ *   import { useUniversities, useInfiniteNotes, useAIContent } from '../hooks';
  */
 
 // =============================================================================
@@ -100,7 +99,6 @@ export {
 // Notes/Community Hooks
 // =============================================================================
 export {
-  useNotes,
   useInfiniteNotes,
   useNote,
   useCreateNote,
@@ -114,6 +112,7 @@ export {
   useLikeComment,
   noteKeys,
   prefetchNotes,
+  prefetchInfiniteNotes,
 } from './useNotes';
 
 // =============================================================================
@@ -190,6 +189,8 @@ export {
   usePageTitle,
   useDebounce,
   useCountdown,
+  useDelayedLoading,
+  useInfiniteScroll,
   useModal,
 } from './useUI';
 

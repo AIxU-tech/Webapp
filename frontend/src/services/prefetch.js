@@ -19,6 +19,7 @@
  * - Notes list - first page (for CommunityPage, shared cache with infinite query)
  * - Opportunities list (for OpportunitiesPage)
  * - Conversations list (for MessagesPage)
+ * - AI News content (for NewsPage)
  *
  * Performance Notes:
  * ------------------
@@ -32,11 +33,13 @@ import { noteKeys } from '../hooks/useNotes';
 import { messageKeys } from '../hooks/useMessages';
 import { userKeys } from '../hooks/useUsers';
 import { opportunityKeys } from '../hooks/useOpportunities';
+import { newsKeys } from '../hooks/useNews';
 import { getUniversities } from '../api/universities';
 import { fetchNotes } from '../api/notes';
 import { getConversations } from '../api/messages';
 import { getUser } from '../api/users';
 import { fetchOpportunities } from '../api/opportunities';
+import { fetchAIContent } from '../api/news';
 import { STALE_TIMES } from '../config/cache';
 
 // =============================================================================
@@ -107,6 +110,17 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
       queryFn: getConversations,
       staleTime: STALE_TIMES.CONVERSATIONS,
     }),
+
+    // -------------------------------------------------------------------------
+    // AI News Content (Stories + Papers)
+    // -------------------------------------------------------------------------
+    // Used by: NewsPage
+    // Fetches both stories and papers in a single request (default: 3 each)
+    queryClient.prefetchQuery({
+      queryKey: newsKeys.content(),
+      queryFn: () => fetchAIContent(3, 3),
+      staleTime: STALE_TIMES.NEWS,
+    }),
   ];
 
   // -------------------------------------------------------------------------
@@ -128,7 +142,7 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
   const results = await Promise.allSettled(prefetchOperations);
 
   // Log any failures for debugging (won't break the app)
-  const dataTypes = ['universities', 'notes', 'opportunities', 'conversations', 'user profile'];
+  const dataTypes = ['universities', 'notes', 'opportunities', 'conversations', 'ai news', 'user profile'];
   results.forEach((result, index) => {
     if (result.status === 'rejected') {
       console.warn(`[Prefetch] Failed to prefetch ${dataTypes[index]}:`, result.reason);

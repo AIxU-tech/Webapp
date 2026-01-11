@@ -10,6 +10,7 @@
 
 // Modal & State Components
 export { default as BaseModal } from './BaseModal';
+export { default as CreateNoteModal } from './CreateNoteModal';
 export { default as EmptyState } from './EmptyState';
 export { default as LoadingState } from './LoadingState';
 export { default as ErrorState } from './ErrorState';

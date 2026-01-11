@@ -93,7 +93,6 @@ class NoteLike(db.Model):
     )
 
     user = db.relationship('User', backref='note_likes')
-    note = db.relationship('Note', backref='like_records')
 
     @classmethod
     def get_liked_notes(cls, user_id: int) -> list['Note']:
@@ -197,7 +196,6 @@ class NoteBookmark(db.Model):
     )
 
     user = db.relationship('User', backref='note_bookmarks')
-    note = db.relationship('Note', backref='bookmark_records')
 
     @classmethod
     def get_bookmarked_notes(cls, user_id: int) -> list['Note']:
