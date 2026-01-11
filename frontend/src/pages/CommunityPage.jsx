@@ -164,6 +164,7 @@ export default function CommunityPage() {
    * Create Note Modal State
    */
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [createNoteError, setCreateNoteError] = useState(null);
 
   /**
    * Delete Confirmation Modal State
@@ -248,6 +249,7 @@ export default function CommunityPage() {
       openAuthModal();
       return;
     }
+    setCreateNoteError(null);
     setIsModalOpen(true);
   }
 
@@ -256,6 +258,7 @@ export default function CommunityPage() {
    */
   function closeModal() {
     setIsModalOpen(false);
+    setCreateNoteError(null);
   }
 
   /**
@@ -264,13 +267,14 @@ export default function CommunityPage() {
    * Uses React Query mutation with automatic cache invalidation.
    */
   function handleCreateNote(noteData) {
+    setCreateNoteError(null);
     createNoteMutation.mutate(noteData, {
       onSuccess: () => {
         closeModal();
       },
       onError: (err) => {
         console.error('Error creating note:', err);
-        alert('Failed to create note. Please try again.');
+        setCreateNoteError('Failed to create note. Please try again.');
       },
     });
   }
@@ -299,7 +303,7 @@ export default function CommunityPage() {
    */
   function handleBookmark(noteId) {
     if (!isAuthenticated) {
-      alert('Please log in to bookmark notes');
+      openAuthModal();
       return;
     }
 
@@ -474,6 +478,7 @@ export default function CommunityPage() {
         onCreate={handleCreateNote}
         isCreating={createNoteMutation.isPending}
         userUniversity={user?.university}
+        error={createNoteError}
       />
 
       {/* Delete Confirmation Modal */}

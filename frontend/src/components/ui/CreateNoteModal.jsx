@@ -17,6 +17,7 @@ import { useState } from 'react';
 import BaseModal from './BaseModal';
 import TagSelector from './TagSelector';
 import GradientButton from './GradientButton';
+import Alert from './Alert';
 import { ClockIcon } from '../icons';
 
 /**
@@ -41,6 +42,7 @@ const CREATE_TAGS = [
  * @property {Function} onCreate - Callback when note is created, receives {title, content, tags, universityOnly}
  * @property {boolean} isCreating - Whether the note is currently being created
  * @property {string|null} userUniversity - User's university name (null if no university)
+ * @property {string|null} error - Error message from failed creation attempt
  */
 
 export default function CreateNoteModal({
@@ -49,12 +51,14 @@ export default function CreateNoteModal({
   onCreate,
   isCreating = false,
   userUniversity = null,
+  error = null,
 }) {
   // Form state
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
   const [universityOnly, setUniversityOnly] = useState(false);
+  const [validationError, setValidationError] = useState(null);
 
   /**
    * Reset form to initial state
@@ -64,6 +68,7 @@ export default function CreateNoteModal({
     setNoteContent('');
     setSelectedTags([]);
     setUniversityOnly(false);
+    setValidationError(null);
   }
 
   /**
@@ -81,10 +86,11 @@ export default function CreateNoteModal({
    */
   function handleSubmit(e) {
     e.preventDefault();
+    setValidationError(null);
 
     // Validate required fields
     if (!noteTitle.trim() || !noteContent.trim()) {
-      alert('Please fill in both title and content');
+      setValidationError('Please fill in both title and content');
       return;
     }
 
@@ -165,6 +171,15 @@ export default function CreateNoteModal({
                 Only visible to members of my university
               </span>
             </label>
+          </div>
+        )}
+
+        {/* Error Display */}
+        {(error || validationError) && (
+          <div className="mb-4">
+            <Alert variant="error">
+              {error || validationError}
+            </Alert>
           </div>
         )}
 

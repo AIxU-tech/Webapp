@@ -101,6 +101,7 @@ def api_notes():
     - user: Filter by specific user ID
     - university_id: Filter by university (returns notes from all members)
     - tag: Filter by tag name (case-insensitive)
+    - bookmarked: Filter to only bookmarked notes (requires authentication)
     - page: Page number (1-indexed, optional - enables pagination)
     - page_size: Number of items per page (optional, default 20 when page is provided)
 
@@ -111,6 +112,10 @@ def api_notes():
     Returns note objects with author info, likes, bookmarks, etc.
     Visibility rules are applied automatically (university_only notes filtered).
     """
+    # Bookmarked filter requires authentication
+    if request.args.get('bookmarked') and not current_user.is_authenticated:
+        return jsonify({'error': 'Authentication required to view bookmarked notes'}), 401
+
     # Extract query parameters
     query_dict = {
         'page': request.args.get('page', type=int),

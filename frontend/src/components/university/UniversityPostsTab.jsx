@@ -5,9 +5,11 @@
  * Uses infinite scroll pagination to load all posts for the university.
  */
 
-import { useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useInfiniteNotes, useLikeNote, useBookmarkNote, useDeleteNote } from '../../hooks';
+import { useAuthModal } from '../../contexts/AuthModalContext';
 import NoteCard from '../NoteCard';
+import ConfirmationModal from '../ConfirmationModal';
 import { LoadingState, EmptyState } from '../ui';
 import { FileTextIcon } from '../icons';
 
@@ -16,11 +18,17 @@ export default function UniversityPostsTab({
   currentUserId,
   isAuthenticated,
 }) {
+  const { openAuthModal } = useAuthModal();
+  const [noteToDelete, setNoteToDelete] = useState(null);
+
   // Fetch notes for this university with infinite scroll
   const {
     data,
     isLoading,
     error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   } = useInfiniteNotes({ university_id: universityId });
 
   // Flatten all pages into a single array of notes
@@ -34,10 +42,37 @@ export default function UniversityPostsTab({
   const bookmarkMutation = useBookmarkNote();
   const deleteMutation = useDeleteNote();
 
+  // Infinite scroll - ref for sentinel element
+  const loadMoreRef = useRef(null);
+
+  // Intersection observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const firstEntry = entries[0];
+        if (firstEntry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   // Handle like action
   const handleLike = (noteId) => {
     if (!isAuthenticated) {
-      alert('Please log in to like posts');
+      openAuthModal();
       return;
     }
     likeMutation.mutate(noteId);
@@ -46,16 +81,22 @@ export default function UniversityPostsTab({
   // Handle bookmark action
   const handleBookmark = (noteId) => {
     if (!isAuthenticated) {
-      alert('Please log in to bookmark posts');
+      openAuthModal();
       return;
     }
     bookmarkMutation.mutate(noteId);
   };
 
-  // Handle delete action
+  // Handle delete action - opens confirmation modal
   const handleDelete = (noteId) => {
-    if (confirm('Are you sure you want to delete this post?')) {
-      deleteMutation.mutate(noteId);
+    setNoteToDelete(noteId);
+  };
+
+  // Confirm delete action
+  const handleConfirmDelete = () => {
+    if (noteToDelete) {
+      deleteMutation.mutate(noteToDelete);
+      setNoteToDelete(null);
     }
   };
 
@@ -88,18 +129,45 @@ export default function UniversityPostsTab({
 
   // Render posts
   return (
-    <div className="space-y-4">
-      {notes.map((note) => (
-        <NoteCard
-          key={note.id}
-          note={note}
-          onLike={handleLike}
-          onBookmark={handleBookmark}
-          onDelete={handleDelete}
-          currentUserId={currentUserId}
-          isAuthenticated={isAuthenticated}
-        />
-      ))}
-    </div>
+    <>
+      <div className="space-y-4">
+        {notes.map((note) => (
+          <NoteCard
+            key={note.id}
+            note={note}
+            onLike={handleLike}
+            onBookmark={handleBookmark}
+            onDelete={handleDelete}
+            currentUserId={currentUserId}
+            isAuthenticated={isAuthenticated}
+          />
+        ))}
+
+        {/* Infinite Scroll Sentinel */}
+        {hasNextPage && (
+          <div
+            ref={loadMoreRef}
+            className="flex justify-center items-center py-8"
+          >
+            {isFetchingNextPage && (
+              <div className="text-muted-foreground text-sm">
+                Loading more posts...
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={noteToDelete !== null}
+        onClose={() => setNoteToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Post"
+        message="Are you sure you want to delete this post? This action cannot be undone."
+        confirmText="Delete"
+        variant="danger"
+      />
+    </>
   );
 }
