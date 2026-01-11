@@ -393,7 +393,7 @@ export default function CommunityPage() {
       {/* Notes List */}
       <FeedItemList
         items={notes}
-        isLoading={loading && notes.length === 0}
+        isLoading={loading}
         error={queryError}
         loadingText="Loading notes..."
         emptyIcon={bookmarkedFilter ? <BookmarkIcon className="h-12 w-12" /> : <FileTextIcon className="h-12 w-12" />}
