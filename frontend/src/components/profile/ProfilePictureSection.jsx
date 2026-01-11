@@ -7,17 +7,24 @@
  *
  * @component
  *
+ * @param {Object} props
+ * @param {Object} props.user - User object with profile picture info
+ * @param {Function} props.onUpload - Callback when image is ready to upload (receives blob)
+ * @param {Function} [props.onError] - Callback for validation/processing errors (receives message)
+ * @param {boolean} [props.isUploading=false] - Whether upload is in progress
+ *
  * @example
  * <ProfilePictureSection
  *   user={user}
  *   onUpload={handleUpload}
+ *   onError={handleError}
  *   isUploading={isUploading}
  * />
  */
 
 import { useRef, useState } from 'react';
 import { CameraIcon, UploadIcon } from '../icons';
-import { GradientButton } from '../ui';
+import { GradientButton, Avatar } from '../ui';
 
 /**
  * Configuration for image processing
@@ -28,18 +35,6 @@ const IMAGE_CONFIG = {
   acceptedTypes: 'image/png,image/jpeg,image/jpg,image/gif,image/webp',
   quality: 0.9, // JPEG quality
 };
-
-/**
- * Get the user's avatar URL with fallback
- */
-function getAvatarUrl(user) {
-  if (!user) return null;
-  return (
-    user.profile_picture_url ||
-    user.avatar_url ||
-    `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`
-  );
-}
 
 /**
  * Center-crop an image to a square and return as Blob
@@ -117,10 +112,10 @@ async function cropImageToSquare(file, outputSize = IMAGE_CONFIG.outputSize) {
 export default function ProfilePictureSection({
   user,
   onUpload,
+  onError,
   isUploading = false,
 }) {
   const fileInputRef = useRef(null);
-  const avatarUrl = getAvatarUrl(user);
 
   // Key to force file input remount after each upload attempt
   const [inputKey, setInputKey] = useState(0);
@@ -141,14 +136,14 @@ export default function ProfilePictureSection({
 
     // Validate file size
     if (file.size > IMAGE_CONFIG.maxFileSize) {
-      alert('File size must be less than 5MB');
+      onError?.('File size must be less than 5MB');
       setInputKey((k) => k + 1); // Reset input
       return;
     }
 
     // Validate file type
     if (!file.type.match('image.*')) {
-      alert('Please select an image file');
+      onError?.('Please select an image file');
       setInputKey((k) => k + 1); // Reset input
       return;
     }
@@ -159,7 +154,7 @@ export default function ProfilePictureSection({
       await onUpload(croppedBlob);
     } catch (error) {
       console.error('Error processing image:', error);
-      alert('Failed to process image. Please try again.');
+      onError?.('Failed to process image. Please try again.');
     } finally {
       // Always reset input to allow selecting the same file again
       setInputKey((k) => k + 1);
@@ -175,10 +170,10 @@ export default function ProfilePictureSection({
       <div className="flex items-center gap-4">
         {/* Avatar with hover overlay */}
         <div className="relative group">
-          <img
-            src={avatarUrl}
-            alt="Profile picture"
-            className="w-24 h-24 rounded-full border-2 border-border object-cover"
+          <Avatar
+            user={user}
+            size="xl"
+            className="border-2 border-border"
           />
           <button
             type="button"

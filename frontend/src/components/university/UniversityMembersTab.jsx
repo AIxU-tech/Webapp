@@ -6,12 +6,9 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Card, EmptyState } from '../ui';
+import { Card, EmptyState, Avatar } from '../ui';
 import { UsersIcon } from '../icons';
 import RoleBadge from '../RoleBadge';
-
-// Default avatar for fallback
-const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face';
 
 export default function UniversityMembersTab({ members = [] }) {
   if (members.length === 0) {
@@ -40,14 +37,7 @@ export default function UniversityMembersTab({ members = [] }) {
             className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
           >
             {/* Avatar */}
-            <img
-              src={member.avatar || DEFAULT_AVATAR}
-              alt={member.name}
-              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-              onError={(e) => {
-                e.target.src = DEFAULT_AVATAR;
-              }}
-            />
+            <Avatar user={member} size="md" />
 
             {/* Info */}
             <div className="flex-1 min-w-0">

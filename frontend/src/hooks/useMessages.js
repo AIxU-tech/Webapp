@@ -129,7 +129,7 @@ export function useConversations() {
           otherUser: {
             id: senderId,
             name: data.conversation?.sender_name || 'Unknown',
-            avatar: data.conversation?.sender_avatar || '/static/default-avatar.png',
+            avatar: data.conversation?.sender_avatar,
             university: data.conversation?.sender_university || 'University',
           },
           lastMessage: {
