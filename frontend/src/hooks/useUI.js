@@ -221,6 +221,29 @@ export function useCountdown(initialSeconds) {
 }
 
 // =============================================================================
+// DELAYED LOADING HOOK
+// =============================================================================
+
+/**
+ * Returns true only after isLoading has been true for the specified delay.
+ * Prevents flash of loading state on fast loads.
+ */
+export function useDelayedLoading(isLoading, delay = 200) {
+  const [showLoading, setShowLoading] = useState(false);
+
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => setShowLoading(true), delay);
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoading(false);
+    }
+  }, [isLoading, delay]);
+
+  return showLoading;
+}
+
+// =============================================================================
 // INFINITE SCROLL HOOK
 // =============================================================================
 

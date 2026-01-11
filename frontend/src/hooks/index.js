@@ -188,6 +188,7 @@ export {
   usePageTitle,
   useDebounce,
   useCountdown,
+  useDelayedLoading,
   useInfiniteScroll,
   useModal,
 } from './useUI';

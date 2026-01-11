@@ -35,6 +35,7 @@ import {
   useDeleteNote,
   usePageTitle,
   useInfiniteScroll,
+  useDelayedLoading,
 } from '../hooks';
 
 // UI Components
@@ -99,12 +100,15 @@ export default function CommunityPage() {
 
   const {
     data,
-    isLoading: loading,
+    isLoading,
     error: queryError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteNotes(queryParams);
+
+  // Only show loading spinner if loading takes >200ms (prevents flash)
+  const showLoading = useDelayedLoading(isLoading);
 
   // Extract and flatten notes from infinite query data
   const allNotes = useMemo(() => {
@@ -393,7 +397,7 @@ export default function CommunityPage() {
       {/* Notes List */}
       <FeedItemList
         items={notes}
-        isLoading={loading}
+        isLoading={showLoading}
         error={queryError}
         loadingText="Loading notes..."
         emptyIcon={bookmarkedFilter ? <BookmarkIcon className="h-12 w-12" /> : <FileTextIcon className="h-12 w-12" />}
