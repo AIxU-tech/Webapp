@@ -22,6 +22,7 @@ from backend.routes_v2.opportunities.helpers import (
     opportunities_to_dict,
     toggle_bookmark_status
 )
+from backend.services.content_moderator import moderate_content
 
 opportunities_bp = Blueprint('opportunities', __name__)
 
@@ -53,6 +54,19 @@ def create_opportunity():
                 'success': False,
                 'error': 'Title and description are required'
             }), 400
+
+        # Content moderation - check title first, then description, then compensation
+        title = data.get('title', '').strip()
+        if not moderate_content(title):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
+        
+        description = data.get('description', '').strip()
+        if not moderate_content(description):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
+        
+        compensation = data.get('compensation', '').strip() if data.get('compensation') else ''
+        if compensation and not moderate_content(compensation):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
 
         # Create opportunity using helper
         opportunity = create_db_opportunity(data)
