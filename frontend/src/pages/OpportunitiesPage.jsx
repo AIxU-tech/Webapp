@@ -16,18 +16,20 @@
 
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 import {
-  useOpportunities,
+  useInfiniteOpportunities,
   useCreateOpportunity,
   useBookmarkOpportunity,
   useDeleteOpportunity,
+  useInfiniteScroll,
   usePageTitle,
+  prefetchInfiniteOpportunities,
 } from '../hooks';
 
 import {
-  BaseModal,
   TagSelector,
   GradientButton,
   FeedItemList,
@@ -36,20 +38,18 @@ import { ToggleTag, TagGroup } from '../components/ui/Tag';
 import ConfirmationModal from '../components/ConfirmationModal';
 import ConversationModal from '../components/messages/ConversationModal';
 import OpportunityCard from '../components/OpportunityCard';
+import { CreateOpportunityModal } from '../components/opportunities';
 
 import {
   SearchIcon,
   PlusIcon,
   XIcon,
   OpportunitiesIcon,
-  ClockIcon,
+  BookmarkIcon,
 } from '../components/icons';
 
 // Location type tags (mutually exclusive)
 const LOCATION_TAGS = ['Remote', 'Hybrid', 'On-site'];
-
-// Compensation tags (mutually exclusive)
-const COMPENSATION_TAGS = ['Paid', 'Unpaid'];
 
 // Optional category tags for opportunities
 const CATEGORY_TAGS = ['Project', 'Research', 'Startup', 'Hackathon'];
@@ -58,12 +58,15 @@ export default function OpportunitiesPage() {
   const { user, isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
 
   // URL-derived state
   const searchQuery = searchParams.get('search') || '';
   const locationFilter = searchParams.get('location') || '';
   const paidFilter = searchParams.get('paid') || '';
   const myUniversity = searchParams.get('myUniversity') === 'true';
+  const tagFilter = searchParams.get('tag') || 'all';
+  const bookmarkedFilter = searchParams.get('bookmarked') === 'true';
 
   // Build query params for API
   const queryParams = useMemo(() => {
@@ -72,34 +75,38 @@ export default function OpportunitiesPage() {
     if (locationFilter) params.location = locationFilter;
     if (paidFilter) params.paid = paidFilter;
     if (myUniversity) params.myUniversity = 'true';
+    if (tagFilter && tagFilter !== 'all') params.tag = tagFilter;
+    if (bookmarkedFilter) params.bookmarked = true;
     return params;
-  }, [searchQuery, locationFilter, paidFilter, myUniversity]);
+  }, [searchQuery, locationFilter, paidFilter, myUniversity, tagFilter, bookmarkedFilter]);
 
-  // Fetch opportunities
+  // Fetch opportunities with infinite scroll
   const {
-    data: opportunities = [],
+    data,
     isLoading: loading,
     error: queryError,
-    refetch,
-  } = useOpportunities(queryParams);
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteOpportunities(queryParams);
+
+  // Extract and flatten opportunities from infinite query data
+  const opportunities = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap((page) => page.opportunities || []);
+  }, [data]);
 
   // Mutations
   const createOpportunityMutation = useCreateOpportunity();
   const bookmarkOpportunityMutation = useBookmarkOpportunity();
   const deleteOpportunityMutation = useDeleteOpportunity();
 
-  // Local filter state for tags (client-side filtering)
-  const [selectedTag, setSelectedTag] = useState('all');
+  // Infinite scroll - Auto-load when user scrolls to bottom
+  const loadMoreRef = useInfiniteScroll({ hasNextPage, isFetchingNextPage, fetchNextPage });
 
   // Create modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [compensation, setCompensation] = useState('');
-  const [universityOnly, setUniversityOnly] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState('');
-  const [isPaid, setIsPaid] = useState(null); // null = not selected, true = paid, false = unpaid
-  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [createError, setCreateError] = useState(null);
 
   // Delete modal state
   const [opportunityToDelete, setOpportunityToDelete] = useState(null);
@@ -112,14 +119,21 @@ export default function OpportunitiesPage() {
 
   usePageTitle('Opportunities');
 
-  // Apply client-side tag filtering
-  const filteredOpportunities = useMemo(() => {
-    if (selectedTag === 'all') return opportunities;
-    return opportunities.filter(opp => opp.tags && opp.tags.includes(selectedTag));
-  }, [selectedTag, opportunities]);
+  // Opportunities are already filtered by backend based on tagFilter from URL
+  // No need for client-side filtering anymore
+  const filteredOpportunities = opportunities;
 
   // Check if any filters are active
-  const hasActiveFilters = searchQuery || locationFilter || paidFilter || myUniversity;
+  const hasActiveFilters = searchQuery || locationFilter || paidFilter || myUniversity || (tagFilter && tagFilter !== 'all') || bookmarkedFilter;
+
+  /**
+   * Prefetch on Hover - Start loading data before user clicks
+   */
+  const handleBookmarkHover = () => {
+    if (isAuthenticated) {
+      prefetchInfiniteOpportunities(queryClient, { bookmarked: true });
+    }
+  };
 
   function handleSearch(e) {
     e.preventDefault();
@@ -135,7 +149,36 @@ export default function OpportunitiesPage() {
   function clearFilters() {
     setSearchInput('');
     setSearchParams({});
-    setSelectedTag('all');
+  }
+
+  function handleTagChange(newTag) {
+    const newParams = new URLSearchParams(searchParams);
+    if (newTag === 'all') {
+      newParams.delete('tag');
+    } else {
+      newParams.set('tag', newTag);
+    }
+    // Clear bookmarked filter when switching to tag filter
+    newParams.delete('bookmarked');
+    setSearchParams(newParams);
+  }
+
+  /**
+   * Handle Bookmarked Filter Toggle
+   *
+   * Updates URL search params to show only bookmarked opportunities.
+   * React Query handles the refetch automatically when queryParams changes.
+   */
+  function handleBookmarkedToggle() {
+    if (bookmarkedFilter) {
+      // If already showing bookmarked, clear the filter
+      setSearchParams({});
+      setSearchInput('');
+    } else {
+      // Show only bookmarked opportunities (clear all other filters)
+      setSearchParams({ bookmarked: 'true' });
+      setSearchInput('');
+    }
   }
 
   function toggleLocationFilter(location) {
@@ -145,6 +188,9 @@ export default function OpportunitiesPage() {
     } else {
       newParams.set('location', location);
     }
+    // Clear tag and bookmarked filters when toggling location
+    newParams.delete('tag');
+    newParams.delete('bookmarked');
     setSearchParams(newParams);
   }
 
@@ -155,6 +201,9 @@ export default function OpportunitiesPage() {
     } else {
       newParams.set('paid', paid);
     }
+    // Clear tag and bookmarked filters when toggling paid status
+    newParams.delete('tag');
+    newParams.delete('bookmarked');
     setSearchParams(newParams);
   }
 
@@ -165,6 +214,9 @@ export default function OpportunitiesPage() {
     } else {
       newParams.set('myUniversity', 'true');
     }
+    // Clear tag and bookmarked filters when toggling my university
+    newParams.delete('tag');
+    newParams.delete('bookmarked');
     setSearchParams(newParams);
   }
 
@@ -173,57 +225,26 @@ export default function OpportunitiesPage() {
       openAuthModal();
       return;
     }
+    setCreateError(null);
     setIsModalOpen(true);
   }
 
   function closeModal() {
     setIsModalOpen(false);
-    setTitle('');
-    setDescription('');
-    setCompensation('');
-    setUniversityOnly(false);
-    setSelectedLocation('');
-    setIsPaid(null);
-    setSelectedCategories([]);
+    setCreateError(null);
   }
 
-  async function handleCreateOpportunity(e) {
-    e.preventDefault();
-
-    if (!title.trim() || !description.trim()) {
-      alert('Please fill in both title and description');
-      return;
-    }
-
-    if (!selectedLocation) {
-      alert('Please select a location type (Remote, Hybrid, or On-site)');
-      return;
-    }
-
-    if (isPaid === null) {
-      alert('Please indicate if this opportunity is Paid or Unpaid');
-      return;
-    }
-
-    // Build tags array
-    const tags = [selectedLocation, isPaid ? 'Paid' : 'Unpaid', ...selectedCategories];
-
-    createOpportunityMutation.mutate(
-      {
-        title: title.trim(),
-        description: description.trim(),
-        compensation: isPaid ? compensation.trim() : '',
-        universityOnly,
-        tags,
+  function handleCreateOpportunity(opportunityData) {
+    setCreateError(null);
+    createOpportunityMutation.mutate(opportunityData, {
+      onSuccess: () => {
+        closeModal();
       },
-      {
-        onSuccess: () => closeModal(),
-        onError: (err) => {
-          console.error('Error creating opportunity:', err);
-          alert('Failed to create opportunity. Please try again.');
-        },
-      }
-    );
+      onError: (err) => {
+        console.error('Error creating opportunity:', err);
+        setCreateError('Failed to create opportunity. Please try again.');
+      },
+    });
   }
 
   function handleBookmark(opportunityId) {
@@ -244,8 +265,6 @@ export default function OpportunitiesPage() {
       setOpportunityToDelete(null);
     }
   }
-
-  const charCount = title.length + description.length;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -337,15 +356,39 @@ export default function OpportunitiesPage() {
         </div>
       </div>
 
-      {/* Additional Tag Filter */}
+      {/* Additional Tag Filter and Bookmarked Button */}
       <div className="mb-8">
-        <TagSelector
-          tags={CATEGORY_TAGS}
-          selected={selectedTag}
-          onChange={setSelectedTag}
-          showAll
-          allLabel="All Categories"
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          {/* Tag Filter */}
+          <div className="flex-1">
+            <TagSelector
+              tags={CATEGORY_TAGS}
+              selected={bookmarkedFilter ? null : tagFilter}
+              onChange={handleTagChange}
+              showAll
+              allLabel="All Categories"
+            />
+          </div>
+
+          {/* Bookmarked Filter Button - Only show when authenticated */}
+          {isAuthenticated && (
+            <button
+              onClick={handleBookmarkedToggle}
+              onMouseEnter={handleBookmarkHover}
+              className={`
+                inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200
+                ${bookmarkedFilter
+                  ? 'bg-primary text-white shadow-md'
+                  : 'bg-card text-muted-foreground border border-border hover:border-primary hover:text-primary'
+                }
+              `}
+              aria-label={bookmarkedFilter ? 'Show all opportunities' : 'Show bookmarked opportunities'}
+            >
+              <BookmarkIcon className="h-5 w-5" filled={bookmarkedFilter} />
+              <span>Bookmarked</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Opportunities List */}
@@ -353,16 +396,33 @@ export default function OpportunitiesPage() {
         items={filteredOpportunities}
         isLoading={loading}
         error={queryError}
-        onRetry={refetch}
         loadingText="Loading opportunities..."
-        emptyIcon={<OpportunitiesIcon className="h-12 w-12" />}
-        emptyTitle={hasActiveFilters ? 'No opportunities found' : 'No opportunities yet'}
-        emptyDescription={
-          hasActiveFilters
-            ? 'Try adjusting your filters or search terms.'
-            : 'Be the first to post an opportunity!'
+        emptyIcon={bookmarkedFilter ? <BookmarkIcon className="h-12 w-12" /> : <OpportunitiesIcon className="h-12 w-12" />}
+        emptyTitle={
+          searchQuery
+            ? 'No results found'
+            : bookmarkedFilter
+              ? 'No bookmarked opportunities yet'
+              : hasActiveFilters
+                ? 'No opportunities found'
+                : 'No opportunities yet'
         }
-        emptyAction={hasActiveFilters ? { label: 'Clear filters', onClick: clearFilters } : undefined}
+        emptyDescription={
+          searchQuery
+            ? `No opportunities match your search for "${searchQuery}". Try a different keyword or author name.`
+            : bookmarkedFilter
+              ? 'Start bookmarking opportunities you want to save for later. Click the bookmark icon on any opportunity to add it to your collection.'
+              : hasActiveFilters
+                ? 'Try adjusting your filters or search terms.'
+                : 'Be the first to post an opportunity!'
+        }
+        emptyAction={
+          (searchQuery || (hasActiveFilters && !bookmarkedFilter))
+            ? { label: 'Clear filters', onClick: clearFilters }
+            : bookmarkedFilter
+              ? { label: 'View all opportunities', onClick: handleBookmarkedToggle }
+              : undefined
+        }
         renderItem={(opp) => (
           <OpportunityCard
             key={opp.id}
@@ -377,138 +437,21 @@ export default function OpportunitiesPage() {
         )}
       />
 
+      {/* Infinite scroll trigger */}
+      {hasNextPage && (
+        <div ref={loadMoreRef} className="py-4 text-center text-muted-foreground">
+          {isFetchingNextPage ? 'Loading more...' : ''}
+        </div>
+      )}
+
       {/* Create Opportunity Modal */}
-      <BaseModal
+      <CreateOpportunityModal
         isOpen={isModalOpen}
         onClose={closeModal}
-        title="Post an Opportunity"
-        size="2xl"
-      >
-        <form onSubmit={handleCreateOpportunity} className="p-6">
-          {/* Title */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Title *</label>
-            <input
-              type="text"
-              placeholder="e.g., Research Assistant Needed for ML Project"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-
-          {/* Description */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Description *</label>
-            <textarea
-              placeholder={"Recommended info:\n• What you're working on\n• What roles/skills you need\n• Expected time commitment\n• How to get involved"}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              required
-              rows={6}
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-          </div>
-
-          {/* Location Type */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Location Type *</label>
-            <TagGroup>
-              {LOCATION_TAGS.map(loc => (
-                <ToggleTag
-                  key={loc}
-                  selected={selectedLocation === loc}
-                  onClick={() => setSelectedLocation(loc)}
-                  size="lg"
-                >
-                  {loc}
-                </ToggleTag>
-              ))}
-            </TagGroup>
-          </div>
-
-          {/* Paid/Unpaid */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Compensation *</label>
-            <TagGroup>
-              <ToggleTag
-                selected={isPaid === true}
-                onClick={() => setIsPaid(true)}
-                variant="success"
-                size="lg"
-              >
-                Paid
-              </ToggleTag>
-              <ToggleTag
-                selected={isPaid === false}
-                onClick={() => setIsPaid(false)}
-                variant="secondary"
-                size="lg"
-              >
-                Unpaid
-              </ToggleTag>
-            </TagGroup>
-          </div>
-
-          {/* Compensation Details (only shown if Paid) */}
-          {isPaid && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-foreground mb-2">Compensation Details</label>
-              <input
-                type="text"
-                placeholder="e.g., $20/hour, $500 stipend, equity offered"
-                value={compensation}
-                onChange={(e) => setCompensation(e.target.value)}
-                className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          )}
-
-          {/* University Only Toggle */}
-          <div className="mb-4">
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={universityOnly}
-                onChange={(e) => setUniversityOnly(e.target.checked)}
-                className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary"
-              />
-              <span className="ml-2 text-sm text-foreground">
-                Only visible to members of my university
-              </span>
-            </label>
-          </div>
-
-          {/* Category Tags */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Categories (optional)</label>
-            <TagSelector
-              tags={CATEGORY_TAGS}
-              selected={selectedCategories}
-              onChange={setSelectedCategories}
-              multiple
-            />
-          </div>
-
-          {/* Submit Row */}
-          <div className="flex items-center justify-between pt-4 border-t border-border">
-            <div className="text-sm text-muted-foreground flex items-center">
-              <ClockIcon />
-              <span className="ml-1">{charCount} characters</span>
-            </div>
-
-            <GradientButton
-              type="submit"
-              size="sm"
-              loading={createOpportunityMutation.isPending}
-              loadingText="Posting..."
-            >
-              Post Opportunity
-            </GradientButton>
-          </div>
-        </form>
-      </BaseModal>
+        onCreate={handleCreateOpportunity}
+        isCreating={createOpportunityMutation.isPending}
+        error={createError}
+      />
 
       {/* Delete Confirmation Modal */}
       <ConfirmationModal

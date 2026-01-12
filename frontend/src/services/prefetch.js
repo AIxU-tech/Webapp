@@ -92,12 +92,14 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
     }),
 
     // -------------------------------------------------------------------------
-    // Opportunities List
+    // Opportunities List - First Page (default view - no filters)
     // -------------------------------------------------------------------------
-    // Used by: OpportunitiesPage
-    queryClient.prefetchQuery({
-      queryKey: opportunityKeys.list({}),
-      queryFn: () => fetchOpportunities({}),
+    // Used by: OpportunitiesPage (main feed)
+    // Uses infinite query format to share cache with useInfiniteOpportunities()
+    queryClient.prefetchInfiniteQuery({
+      queryKey: opportunityKeys.infinite({}),
+      queryFn: () => fetchOpportunities({ page: 1, page_size: 20 }),
+      initialPageParam: 1,
       staleTime: STALE_TIMES.OPPORTUNITIES,
     }),
 
