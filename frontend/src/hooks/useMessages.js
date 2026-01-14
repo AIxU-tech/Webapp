@@ -304,37 +304,65 @@ export function useSendMessage() {
       };
 
       // Update conversation messages
-      queryClient.setQueryData(
-        messageKeys.conversation(recipientId),
-        (oldData) => {
-          if (!oldData?.messages) return oldData;
-          return {
-            ...oldData,
-            messages: [...oldData.messages, optimisticMessage],
-          };
-        }
+      // Check if conversation data exists in cache
+      const existingConversationData = queryClient.getQueryData(
+        messageKeys.conversation(recipientId)
       );
+
+      if (!existingConversationData?.messages) {
+        // Conversation doesn't exist yet - create it with just the optimistic message
+        queryClient.setQueryData(messageKeys.conversation(recipientId), {
+          messages: [optimisticMessage],
+        });
+      } else {
+        // Conversation exists - append the optimistic message
+        queryClient.setQueryData(
+          messageKeys.conversation(recipientId),
+          (oldData) => {
+            if (!oldData?.messages) return oldData;
+            return {
+              ...oldData,
+              messages: [...oldData.messages, optimisticMessage],
+            };
+          }
+        );
+      }
 
       // Update conversations list
       queryClient.setQueryData(messageKeys.conversations(), (oldData) => {
         if (!oldData?.conversations) return oldData;
 
-        return {
-          ...oldData,
-          conversations: oldData.conversations.map((conv) => {
-            if (conv.otherUser.id === recipientId) {
-              return {
-                ...conv,
-                lastMessage: {
-                  content,
-                  timestamp: 'Just now',
-                  isSentByCurrentUser: true,
-                },
-              };
-            }
-            return conv;
-          }),
-        };
+        // Check if conversation already exists
+        const existingIndex = oldData.conversations.findIndex(
+          (conv) => conv.otherUser.id === recipientId
+        );
+
+        if (existingIndex >= 0) {
+          // Conversation exists - update it and move to top
+          const updated = {
+            ...oldData.conversations[existingIndex],
+            lastMessage: {
+              content,
+              timestamp: 'Just now',
+              isSentByCurrentUser: true,
+            },
+          };
+
+          // Remove from current position and add to top
+          const newConversations = [
+            updated,
+            ...oldData.conversations.filter((_, i) => i !== existingIndex),
+          ];
+
+          return {
+            ...oldData,
+            conversations: newConversations,
+          };
+        } else {
+          // Conversation doesn't exist - we'll add it in onSuccess after fetching user info
+          // For now, just return the existing data
+          return oldData;
+        }
       });
 
       return { previousConversation, previousConversations, optimisticMessage };
@@ -362,7 +390,7 @@ export function useSendMessage() {
     // -------------------------------------------------------------------------
     // Success Handler
     // -------------------------------------------------------------------------
-    onSuccess: (result, { recipientId }, context) => {
+    onSuccess: async (result, { recipientId }, context) => {
       // Replace optimistic message with real message from server
       queryClient.setQueryData(
         messageKeys.conversation(recipientId),
@@ -383,6 +411,107 @@ export function useSendMessage() {
           };
         }
       );
+
+      // Check if conversation exists in conversations list
+      const conversationsData = queryClient.getQueryData(
+        messageKeys.conversations()
+      );
+
+      const conversationExists = conversationsData?.conversations?.some(
+        (conv) => conv.otherUser.id === recipientId
+      );
+
+      if (!conversationExists) {
+        // Conversation doesn't exist - fetch user info and add to conversations list
+        try {
+          const conversationData = await getConversation(recipientId);
+
+          if (conversationData?.user) {
+            // Add new conversation to the top of the list
+            queryClient.setQueryData(messageKeys.conversations(), (oldData) => {
+              if (!oldData?.conversations) {
+                return {
+                  success: true,
+                  conversations: [
+                    {
+                      otherUser: {
+                        id: conversationData.user.id,
+                        name: conversationData.user.name,
+                        avatar: conversationData.user.avatar,
+                        university: conversationData.user.university || 'University',
+                      },
+                      lastMessage: {
+                        content: result.message.content,
+                        timestamp: result.message.timestamp || 'Just now',
+                        isSentByCurrentUser: true,
+                      },
+                      hasUnread: false,
+                    },
+                  ],
+                };
+              }
+
+              return {
+                ...oldData,
+                conversations: [
+                  {
+                    otherUser: {
+                      id: conversationData.user.id,
+                      name: conversationData.user.name,
+                      avatar: conversationData.user.avatar,
+                      university: conversationData.user.university || 'University',
+                    },
+                    lastMessage: {
+                      content: result.message.content,
+                      timestamp: result.message.timestamp || 'Just now',
+                      isSentByCurrentUser: true,
+                    },
+                    hasUnread: false,
+                  },
+                  ...oldData.conversations,
+                ],
+              };
+            });
+          }
+        } catch (error) {
+          // If fetching user info fails, silently continue
+          // The conversation will appear after refresh anyway
+          console.error('Failed to fetch user info for new conversation:', error);
+        }
+      } else {
+        // Conversation exists - just update the last message
+        queryClient.setQueryData(messageKeys.conversations(), (oldData) => {
+          if (!oldData?.conversations) return oldData;
+
+          const existingIndex = oldData.conversations.findIndex(
+            (conv) => conv.otherUser.id === recipientId
+          );
+
+          if (existingIndex >= 0) {
+            // Update and move to top
+            const updated = {
+              ...oldData.conversations[existingIndex],
+              lastMessage: {
+                content: result.message.content,
+                timestamp: result.message.timestamp || 'Just now',
+                isSentByCurrentUser: true,
+              },
+            };
+
+            const newConversations = [
+              updated,
+              ...oldData.conversations.filter((_, i) => i !== existingIndex),
+            ];
+
+            return {
+              ...oldData,
+              conversations: newConversations,
+            };
+          }
+
+          return oldData;
+        });
+      }
     },
   });
 }

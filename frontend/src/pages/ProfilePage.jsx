@@ -264,8 +264,11 @@ export default function ProfilePage() {
             <AboutSection
               aboutText={user.about_section}
               isOwnProfile={isOwnProfile}
+              onEdit={openEditModal}
             />
-            <ProjectsSection
+
+            {/* TODO: Add projects, experience, and research sections */}
+            {/* <ProjectsSection
               projects={[]}
               isOwnProfile={isOwnProfile}
             />
@@ -276,7 +279,7 @@ export default function ProfilePage() {
             <ResearchSection
               publications={[]}
               isOwnProfile={isOwnProfile}
-            />
+            /> */}
           </div>
 
           {/* Sidebar (fixed 340px width) */}

@@ -55,7 +55,7 @@ class Event(db.Model):
 
     # Relationships
     university = db.relationship('University', backref='university_events')
-    created_by = db.relationship('User', backref='created_events')
+    created_by = db.relationship('User', backref='created_events', passive_deletes=True)
     attendees = db.relationship('EventAttendee', backref='event', cascade='all, delete-orphan')
 
     def to_dict(self, include_attendees=False):
