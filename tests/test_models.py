@@ -72,16 +72,6 @@ class TestUserModel:
             user = User(email='noskills@example.edu')
             assert user.get_skills_list() == []
 
-    def test_user_interests_json_roundtrip(self, app):
-        """Test that interests are properly stored and retrieved"""
-        with app.app_context():
-            user = User(email='interests@example.edu')
-            interests = ['NLP', 'Computer Vision']
-            user.set_interests_list(interests)
-
-            retrieved = user.get_interests_list()
-            assert retrieved == interests
-
     def test_user_to_dict_complete(self, app):
         """Test that to_dict includes all expected fields"""
         with app.app_context():
@@ -106,7 +96,6 @@ class TestUserModel:
             assert 'full_name' in user_dict
             assert 'university' in user_dict
             assert 'skills' in user_dict
-            assert 'interests' in user_dict
             assert 'post_count' in user_dict
             assert 'follower_count' in user_dict
             assert 'following_count' in user_dict

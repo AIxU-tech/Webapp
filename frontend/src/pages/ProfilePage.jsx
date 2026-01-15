@@ -104,14 +104,13 @@ export default function ProfilePage() {
 
   /**
    * Get initial form values from user object
+   * Note: about_section is edited inline, not in modal
    */
   const getInitialFormValues = (userData) => ({
     first_name: userData?.first_name || '',
     last_name: userData?.last_name || '',
     location: userData?.location || '',
-    about_section: userData?.about_section || '',
     skills: userData?.skills?.join(', ') || '',
-    interests: userData?.interests?.join(', ') || '',
   });
 
   const {
@@ -127,9 +126,6 @@ export default function ProfilePage() {
         ...data,
         skills: data.skills
           ? data.skills.split(',').map((s) => s.trim()).filter(Boolean)
-          : [],
-        interests: data.interests
-          ? data.interests.split(',').map((i) => i.trim()).filter(Boolean)
           : [],
       };
 
@@ -156,6 +152,22 @@ export default function ProfilePage() {
   const openEditModal = () => {
     setFormData(getInitialFormValues(user));
     setShowEditModal(true);
+  };
+
+  /**
+   * Handle inline save of the About section
+   * Updates only the about_section field without opening the full modal
+   * Uses optimistic updates - assumes success immediately, shows error if fails
+   */
+  const handleSaveAbout = async (aboutText) => {
+    const response = await updateProfileMutation.mutateAsync({
+      about_section: aboutText,
+    });
+
+    // Update AuthContext if needed
+    if (response.user && isOwnProfile) {
+      setCurrentUser({ ...currentUser, ...response.user });
+    }
   };
 
   /**
@@ -264,7 +276,7 @@ export default function ProfilePage() {
             <AboutSection
               aboutText={user.about_section}
               isOwnProfile={isOwnProfile}
-              onEdit={openEditModal}
+              onSave={handleSaveAbout}
             />
 
             {/* TODO: Add projects, experience, and research sections */}
@@ -344,19 +356,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* University (Read-only) */}
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">
-                University
-              </label>
-              <div className="w-full px-4 py-3 bg-muted/50 border border-border rounded-lg text-foreground">
-                {user?.university || 'No university affiliated'}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                University is determined by your .edu email domain and cannot be changed.
-              </p>
-            </div>
-
             {/* Location */}
             <div>
               <label className="block text-sm text-muted-foreground mb-1">
@@ -370,21 +369,6 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* About */}
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">
-                About
-              </label>
-              <textarea
-                name="about_section"
-                rows="4"
-                value={formData.about_section || ''}
-                onChange={handleChange}
-                placeholder="Tell us about yourself..."
-                className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground"
-              />
-            </div>
-
             {/* Skills */}
             <div>
               <label className="block text-sm text-muted-foreground mb-1">
@@ -395,19 +379,6 @@ export default function ProfilePage() {
                 value={formData.skills || ''}
                 onChange={handleChange}
                 placeholder="Python, Machine Learning, Data Analysis"
-              />
-            </div>
-
-            {/* Interests */}
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">
-                Interests (comma-separated)
-              </label>
-              <FormInput
-                name="interests"
-                value={formData.interests || ''}
-                onChange={handleChange}
-                placeholder="NLP, Computer Vision, Robotics"
               />
             </div>
 

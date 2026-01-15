@@ -339,3 +339,32 @@ export function useModal(isOpen, onClose, options = {}) {
 
   return { containerRef };
 }
+
+// =============================================================================
+// UNSAVED CHANGES HOOKS
+// =============================================================================
+
+/**
+ * Warns user when attempting to close/refresh browser with unsaved changes.
+ * Shows the browser's native "Leave site?" confirmation dialog.
+ *
+ * @param {boolean} hasUnsavedChanges - Whether there are unsaved changes
+ *
+ * @example
+ * const [isDirty, setIsDirty] = useState(false);
+ * useBeforeUnload(isDirty);
+ */
+export function useBeforeUnload(hasUnsavedChanges) {
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      // Modern browsers ignore custom messages but still show a generic dialog
+      e.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+}

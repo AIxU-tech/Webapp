@@ -146,16 +146,6 @@ class TestProfileUpdates:
         data = response.get_json()
         assert data['user']['skills'] == []
 
-    def test_update_profile_interests_as_array(self, authenticated_client, app):
-        """Test updating interests with array input"""
-        response = authenticated_client.patch('/api/profile', json={
-            'interests': ['NLP', 'Computer Vision', 'Robotics']
-        })
-
-        assert response.status_code == 200
-        data = response.get_json()
-        assert 'NLP' in data['user']['interests']
-
     def test_update_profile_unauthenticated(self, client):
         """Test profile update without login returns 401"""
         response = client.patch('/api/profile', json={

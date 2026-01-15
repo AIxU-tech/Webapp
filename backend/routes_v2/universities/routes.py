@@ -126,7 +126,6 @@ def get_university(university_id: int):
             'location': m.location or '',
             'about': m.about_section or '',
             'skills': m.get_skills_list(),
-            'interests': m.get_interests_list(),
             'postCount': m.post_count or 0,
             'role': role.role,
             'roleName': role.role_name,

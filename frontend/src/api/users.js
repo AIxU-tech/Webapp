@@ -44,22 +44,21 @@ export async function getUserStats() {
 /**
  * Update current user's profile
  *
+ * Note: University is auto-determined by email domain and cannot be changed.
+ *
  * @param {object} updates - Profile fields to update
  * @param {string} updates.first_name - First name
  * @param {string} updates.last_name - Last name
- * @param {string} updates.university - University name
  * @param {string} updates.about_section - Bio/about section
  * @param {string} updates.location - Location
  * @param {Array<string>} updates.skills - Skills list
- * @param {Array<string>} updates.interests - Interests list
  * @returns {Promise<object>} Updated user object
  * @throws {ApiError} If not authenticated or validation fails
  *
  * @example
  * await updateProfile({
  *   about_section: 'AI researcher passionate about NLP',
- *   skills: ['Python', 'TensorFlow', 'PyTorch'],
- *   interests: ['nlp', 'computer-vision']
+ *   skills: ['Python', 'TensorFlow', 'PyTorch']
  * });
  */
 export async function updateProfile(updates) {

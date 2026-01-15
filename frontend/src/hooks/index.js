@@ -196,6 +196,7 @@ export {
   useDelayedLoading,
   useInfiniteScroll,
   useModal,
+  useBeforeUnload,
 } from './useUI';
 
 // =============================================================================

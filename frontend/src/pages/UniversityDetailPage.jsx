@@ -20,7 +20,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { deleteUniversity } from '../api/universities';
 
 // Hooks
-import { useUniversity, usePageTitle } from '../hooks';
+import { useUniversity, usePageTitle, useRemoveMember, useUpdateMemberRole } from '../hooks';
 
 // UI Components
 import { BaseModal, LoadingState, SecondaryButton } from '../components/ui';
@@ -55,6 +55,10 @@ export default function UniversityDetailPage() {
     error: fetchError,
   } = useUniversity(id);
 
+  // Member management mutations
+  const removeMemberMutation = useRemoveMember();
+  const updateRoleMutation = useUpdateMemberRole();
+
   // ---------------------------------------------------------------------------
   // Local State
   // ---------------------------------------------------------------------------
@@ -67,6 +71,7 @@ export default function UniversityDetailPage() {
     isOpen: false,
     title: '',
     message: '',
+    navigateOnClose: false,
   });
 
   // Confirmation modal state
@@ -110,8 +115,11 @@ export default function UniversityDetailPage() {
   // ---------------------------------------------------------------------------
 
   const handleErrorModalClose = () => {
-    setErrorModal({ isOpen: false, title: '', message: '' });
-    navigate('/universities');
+    const shouldNavigate = errorModal.navigateOnClose;
+    setErrorModal({ isOpen: false, title: '', message: '', navigateOnClose: false });
+    if (shouldNavigate) {
+      navigate('/universities');
+    }
   };
 
   const handleDelete = async () => {
@@ -129,6 +137,7 @@ export default function UniversityDetailPage() {
         isOpen: true,
         title: 'Delete Failed',
         message: error.message || 'Failed to delete university.',
+        navigateOnClose: false,
       });
       setDeleteLoading(false);
     }
@@ -142,6 +151,83 @@ export default function UniversityDetailPage() {
   // Navigate to Events tab when View All is clicked
   const handleViewAllEvents = () => {
     setActiveTab('events');
+  };
+
+  // Handle member role change
+  const handleRoleChange = async (memberId, newRole) => {
+    try {
+      await updateRoleMutation.mutateAsync({
+        universityId: id,
+        userId: memberId,
+        role: newRole,
+      });
+    } catch (error) {
+      console.error('Failed to update role:', error);
+      setErrorModal({
+        isOpen: true,
+        title: 'Role Update Failed',
+        message: error.message || 'Failed to update member role.',
+        navigateOnClose: false,
+      });
+    }
+  };
+
+  // Handle member removal
+  const handleRemoveMember = (memberId) => {
+    const member = sortedMembers.find((m) => m.id === memberId);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Member',
+      message: `Are you sure you want to remove ${member?.name || 'this member'} from the club? They can rejoin if they still have a valid university email.`,
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          await removeMemberMutation.mutateAsync({
+            universityId: id,
+            userId: memberId,
+          });
+          setConfirmModal({ ...confirmModal, isOpen: false });
+        } catch (error) {
+          console.error('Failed to remove member:', error);
+          setErrorModal({
+            isOpen: true,
+            title: 'Removal Failed',
+            message: error.message || 'Failed to remove member.',
+            navigateOnClose: false,
+          });
+        }
+      },
+    });
+  };
+
+  // Handle making someone president (transfers presidency)
+  const handleMakePresident = (memberId) => {
+    const member = sortedMembers.find((m) => m.id === memberId);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Transfer Presidency',
+      message: `Are you sure you want to make ${member?.name || 'this member'} the new President? You will be demoted to Executive.`,
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          // Setting role to 2 (PRESIDENT) will transfer presidency
+          await updateRoleMutation.mutateAsync({
+            universityId: id,
+            userId: memberId,
+            role: 2, // PRESIDENT
+          });
+          setConfirmModal({ ...confirmModal, isOpen: false });
+        } catch (error) {
+          console.error('Failed to transfer presidency:', error);
+          setErrorModal({
+            isOpen: true,
+            title: 'Transfer Failed',
+            message: error.message || 'Failed to transfer presidency.',
+            navigateOnClose: false,
+          });
+        }
+      },
+    });
   };
 
   // ---------------------------------------------------------------------------
@@ -215,7 +301,16 @@ export default function UniversityDetailPage() {
           />
         );
       case 'members':
-        return <UniversityMembersTab members={sortedMembers} />;
+        return (
+          <UniversityMembersTab
+            members={sortedMembers}
+            permissions={permissions}
+            currentUserId={currentUserId}
+            onRoleChange={handleRoleChange}
+            onRemove={handleRemoveMember}
+            onMakePresident={handleMakePresident}
+          />
+        );
       case 'about':
         return <UniversityAboutTab university={university} />;
       default:

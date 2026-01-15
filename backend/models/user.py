@@ -34,9 +34,12 @@ class User(UserMixin, db.Model):
     avatar_url = db.Column(db.String(200), nullable=True)
     location = db.Column(db.String(100), nullable=True)
 
-    # JSON fields for lists (skills and interests)
+    # JSON field for skills list
     skills = db.Column(db.Text, nullable=True)  # Store as JSON string
-    interests = db.Column(db.Text, nullable=True)  # Store as JSON string
+
+    # DEPRECATED: interests column is no longer used by the application.
+    # The column may still exist in the database but is not exposed in the API.
+    interests = db.Column(db.Text, nullable=True)
 
     # DEPRECATED: These JSON columns have been replaced by proper relationship tables.
     # - liked_universities -> UserLikedUniversity table
@@ -83,18 +86,14 @@ class User(UserMixin, db.Model):
         """Convert list to JSON string for storage"""
         self.skills = json.dumps(skills_list) if skills_list else None
 
+    # DEPRECATED: interests functionality has been removed
     def get_interests_list(self):
-        """Convert interests JSON string back to list"""
-        if self.interests:
-            try:
-                return json.loads(self.interests)
-            except:
-                return []
+        """DEPRECATED: interests are no longer used"""
         return []
 
     def set_interests_list(self, interests_list):
-        """Convert list to JSON string for storage"""
-        self.interests = json.dumps(interests_list) if interests_list else None
+        """DEPRECATED: interests are no longer used"""
+        pass
 
     def increment_post_count(self):
         """Increment post count when user creates a new post"""
@@ -142,7 +141,6 @@ class User(UserMixin, db.Model):
             'profile_picture_url': self.get_profile_picture_url(),
             'location': self.location,
             'skills': self.get_skills_list(),
-            'interests': self.get_interests_list(),
             'permissionLevel': self.permission_level,
         }
 

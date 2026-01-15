@@ -41,6 +41,7 @@ const ACTIVE_CLASSES = {
 
 const VARIANT_CLASSES = {
   default: 'text-muted-foreground hover:text-foreground hover:bg-muted',
+  subtle: 'text-muted-foreground hover:text-foreground hover:bg-foreground/10',
   danger: 'text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20',
 };
 
