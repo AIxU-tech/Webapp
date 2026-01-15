@@ -16,6 +16,7 @@ from flask import Flask, send_from_directory, jsonify
 import os
 from backend.config import Config
 from backend.extensions import db, login_manager, socketio
+from flask_migrate import Migrate
 
 
 def create_app(config_class=Config):
@@ -53,6 +54,8 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'  # Redirect here if login required
     login_manager.login_message = 'Please log in to access this page.'
+
+    migrate = Migrate(app, db)
 
     # Custom unauthorized handler for API routes - return JSON 401 instead of redirect
     @login_manager.unauthorized_handler
@@ -106,7 +109,12 @@ def create_app(config_class=Config):
         # This creates dev@test.edu if not present, enabling seamless dev experience.
         if app.config.get('DEV_MODE', False):
             from backend.seed_data import ensure_dev_user
-            ensure_dev_user()
+
+            try:
+                ensure_dev_user()
+            except Exception as e:
+                print(
+                    f"Skipping dev user creation (likely during migration): {e}")
 
     # Register blueprints
     from backend.routes_v2 import (
@@ -178,7 +186,8 @@ def create_app(config_class=Config):
     # =========================================================================
     # Serve the React SPA (built assets) under /app
     # Use absolute path to avoid any path resolution issues in production
-    STATIC_APP_DIR = os.path.abspath(os.path.join(app.root_path, '..', 'static', 'app'))
+    STATIC_APP_DIR = os.path.abspath(
+        os.path.join(app.root_path, '..', 'static', 'app'))
 
     @app.route('/app', defaults={'path': ''})
     @app.route('/app/<path:path>')

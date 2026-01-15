@@ -7,6 +7,7 @@
  * Features:
  * - Search notes by title, content, or author name
  * - Filter notes by tags (NLP, Deep Learning, MLOps, etc.)
+ * - Filter to view only bookmarked notes
  * - Create new notes with title, content, and tags
  * - Like/unlike notes (with optimistic updates)
  * - Bookmark/unbookmark notes for later (with optimistic updates)
@@ -17,6 +18,7 @@
  * - Notes cached for 2 minutes (staleTime)
  * - Like/bookmark updates appear instantly (optimistic)
  * - Failed actions automatically roll back
+ * - Each filter combination creates a separate cache entry
  *
  * @component
  */
@@ -24,24 +26,29 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useAuthModal } from '../contexts/AuthModalContext';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  useNotes,
+  useInfiniteNotes,
   useCreateNote,
   useLikeNote,
   useBookmarkNote,
   useDeleteNote,
   usePageTitle,
+  useInfiniteScroll,
+  useDelayedLoading,
+  prefetchInfiniteNotes,
 } from '../hooks';
 
 // UI Components
 import {
-  BaseModal,
-  TagSelector,
   GradientButton,
   FeedItemList,
+  CreateNoteModal,
 } from '../components/ui';
 import ConfirmationModal from '../components/ConfirmationModal';
 import NoteCard from '../components/NoteCard';
+import NotesFilter from '../components/NotesFilter';
 
 // Icons
 import {
@@ -49,7 +56,7 @@ import {
   PlusIcon,
   XIcon,
   FileTextIcon,
-  ClockIcon,
+  BookmarkIcon,
 } from '../components/icons';
 
 /**
@@ -57,39 +64,42 @@ import {
  */
 const FILTER_TAGS = ['NLP', 'Deep Learning', 'MLOps', 'Computer Vision', 'Ethics'];
 
-/**
- * Available tags for creating notes (includes all filter tags plus more)
- */
-const CREATE_TAGS = [
-  'NLP',
-  'Deep Learning',
-  'MLOps',
-  'Computer Vision',
-  'Ethics',
-  'Research',
-  'Tutorial',
-  'Best Practices'
-];
-
 export default function CommunityPage() {
   /**
    * Authentication and URL State
    */
   const { user, isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const queryClient = useQueryClient();
 
   /**
    * URL-derived State
    */
   const searchQuery = searchParams.get('search') || '';
   const filterUserId = searchParams.get('user') ? parseInt(searchParams.get('user')) : null;
+  const tagFilter = searchParams.get('tag') || 'all';
+  const bookmarkedFilter = searchParams.get('bookmarked') === 'true';
 
   /**
-   * Data Fetching with React Query
+   * Prefetch on Hover - Start loading data before user clicks
+   */
+  const handleTagHover = (tag) => {
+    prefetchInfiniteNotes(queryClient, { tag });
+  };
+
+  const handleBookmarkHover = () => {
+    prefetchInfiniteNotes(queryClient, { bookmarked: true });
+  };
+
+  /**
+   * Data Fetching with React Query (Infinite Scroll)
    *
-   * useNotes() handles:
+   * useInfiniteNotes() handles:
    * - Automatic caching (2 minute staleTime)
    * - Loading and error states
+   * - Infinite scroll pagination
    * - Background refetching
    *
    * Different search/filter params create separate cache entries.
@@ -98,15 +108,39 @@ export default function CommunityPage() {
     const params = {};
     if (searchQuery) params.search = searchQuery;
     if (filterUserId) params.user = filterUserId;
+    if (tagFilter && tagFilter !== 'all') params.tag = tagFilter;
+    if (bookmarkedFilter) params.bookmarked = true;
     return params;
-  }, [searchQuery, filterUserId]);
+  }, [searchQuery, filterUserId, tagFilter, bookmarkedFilter]);
 
   const {
-    data: notes = [],
-    isLoading: loading,
+    data,
+    isLoading,
     error: queryError,
-    refetch,
-  } = useNotes(queryParams);
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteNotes(queryParams);
+
+  // Only show loading spinner if loading takes >200ms (prevents flash)
+  const showLoading = useDelayedLoading(isLoading);
+
+  // Extract and flatten notes from infinite query data
+  const allNotes = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap((page) => page.notes || []);
+  }, [data]);
+
+  /**
+   * Notes are already filtered by backend based on tagFilter from URL
+   * No need for client-side filtering anymore
+   */
+  const notes = allNotes;
+
+  /**
+   * Infinite Scroll - Auto-load when user scrolls to bottom
+   */
+  const loadMoreRef = useInfiniteScroll({ hasNextPage, isFetchingNextPage, fetchNextPage });
 
   /**
    * Mutations with Optimistic Updates
@@ -120,18 +154,10 @@ export default function CommunityPage() {
   const deleteNoteMutation = useDeleteNote();
 
   /**
-   * Local UI State
-   */
-  const [selectedTag, setSelectedTag] = useState('all');
-
-  /**
    * Create Note Modal State
    */
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [noteTitle, setNoteTitle] = useState('');
-  const [noteContent, setNoteContent] = useState('');
-  const [selectedCreateTags, setSelectedCreateTags] = useState([]);
-  const [universityOnly, setUniversityOnly] = useState(false);
+  const [createNoteError, setCreateNoteError] = useState(null);
 
   /**
    * Delete Confirmation Modal State
@@ -142,16 +168,40 @@ export default function CommunityPage() {
   usePageTitle('Community Notes');
 
   /**
-   * Apply Tag Filter to Notes
+   * Handle Tag Filter Change
    *
-   * Memoized filtering based on selected tag.
+   * Updates URL search params. React Query handles the refetch
+   * automatically when queryParams changes.
    */
-  const filteredNotes = useMemo(() => {
-    if (selectedTag === 'all') {
-      return notes;
+  function handleTagChange(newTag) {
+    const newParams = new URLSearchParams(searchParams);
+    if (newTag === 'all') {
+      newParams.delete('tag');
+    } else {
+      newParams.set('tag', newTag);
     }
-    return notes.filter(note => note.tags && note.tags.includes(selectedTag));
-  }, [selectedTag, notes]);
+    // Clear bookmarked filter when switching to tag filter
+    newParams.delete('bookmarked');
+    setSearchParams(newParams);
+  }
+
+  /**
+   * Handle Bookmarked Filter Toggle
+   *
+   * Updates URL search params to show only bookmarked notes.
+   * React Query handles the refetch automatically when queryParams changes.
+   */
+  function handleBookmarkedToggle() {
+    if (bookmarkedFilter) {
+      // If already showing bookmarked, clear the filter
+      setSearchParams({});
+      setSearchInput('');
+    } else {
+      // Show only bookmarked notes (clear all other filters)
+      setSearchParams({ bookmarked: 'true' });
+      setSearchInput('');
+    }
+  }
 
   /**
    * Local search input state (for controlled input)
@@ -188,23 +238,19 @@ export default function CommunityPage() {
    */
   function openModal() {
     if (!isAuthenticated) {
-      alert('Please log in to create notes');
+      openAuthModal();
       return;
     }
+    setCreateNoteError(null);
     setIsModalOpen(true);
   }
 
   /**
    * Close Create Note Modal
-   *
-   * Resets form fields. BaseModal handles scroll lock automatically.
    */
   function closeModal() {
     setIsModalOpen(false);
-    setNoteTitle('');
-    setNoteContent('');
-    setSelectedCreateTags([]);
-    setUniversityOnly(false);
+    setCreateNoteError(null);
   }
 
   /**
@@ -212,32 +258,17 @@ export default function CommunityPage() {
    *
    * Uses React Query mutation with automatic cache invalidation.
    */
-  async function handleCreateNote(e) {
-    e.preventDefault();
-
-    if (!noteTitle.trim() || !noteContent.trim()) {
-      alert('Please fill in both title and content');
-      return;
-    }
-
-    createNoteMutation.mutate(
-      {
-        title: noteTitle.trim(),
-        content: noteContent.trim(),
-        tags: selectedCreateTags,
-        universityOnly,
+  function handleCreateNote(noteData) {
+    setCreateNoteError(null);
+    createNoteMutation.mutate(noteData, {
+      onSuccess: () => {
+        closeModal();
       },
-      {
-        onSuccess: () => {
-          // Close modal and reset form
-          closeModal();
-        },
-        onError: (err) => {
-          console.error('Error creating note:', err);
-          alert('Failed to create note. Please try again.');
-        },
-      }
-    );
+      onError: (err) => {
+        console.error('Error creating note:', err);
+        setCreateNoteError('Failed to create note. Please try again.');
+      },
+    });
   }
 
   /**
@@ -248,7 +279,7 @@ export default function CommunityPage() {
    */
   function handleLike(noteId) {
     if (!isAuthenticated) {
-      alert('Please log in to like notes');
+      openAuthModal();
       return;
     }
 
@@ -264,7 +295,7 @@ export default function CommunityPage() {
    */
   function handleBookmark(noteId) {
     if (!isAuthenticated) {
-      alert('Please log in to bookmark notes');
+      openAuthModal();
       return;
     }
 
@@ -293,11 +324,6 @@ export default function CommunityPage() {
       setNoteToDelete(null);
     }
   }
-
-  /**
-   * Calculate Character Count for Create Modal
-   */
-  const charCount = noteTitle.length + noteContent.length;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -372,36 +398,44 @@ export default function CommunityPage() {
         </div>
       </div>
 
-      {/* Filter Tags - Filter notes by category */}
-      <div className="mb-8">
-        <TagSelector
-          tags={FILTER_TAGS}
-          selected={selectedTag}
-          onChange={setSelectedTag}
-          showAll
-          allLabel="All Notes"
-        />
-      </div>
+      {/* Filter Section - Tags and Bookmarked */}
+      <NotesFilter
+        availableTags={FILTER_TAGS}
+        selectedTag={bookmarkedFilter ? null : tagFilter}
+        onTagChange={handleTagChange}
+        onTagHover={handleTagHover}
+        isBookmarked={bookmarkedFilter}
+        onBookmarkToggle={handleBookmarkedToggle}
+        onBookmarkHover={handleBookmarkHover}
+        isAuthenticated={isAuthenticated}
+      />
 
       {/* Notes List */}
       <FeedItemList
-        items={filteredNotes}
-        isLoading={loading}
+        items={notes}
+        isLoading={showLoading}
         error={queryError}
-        onRetry={refetch}
         loadingText="Loading notes..."
-        emptyIcon={<FileTextIcon className="h-12 w-12" />}
-        emptyTitle={searchQuery ? 'No results found' : 'No posts yet'}
+        emptyIcon={bookmarkedFilter ? <BookmarkIcon className="h-12 w-12" /> : <FileTextIcon className="h-12 w-12" />}
+        emptyTitle={
+          searchQuery
+            ? 'No results found'
+            : bookmarkedFilter
+              ? 'No bookmarked notes yet'
+              : 'No posts yet'
+        }
         emptyDescription={
           searchQuery
             ? `No posts match your search for "${searchQuery}". Try a different keyword or author name.`
-            : filterUserId
-            ? "This user hasn't created any posts yet."
-            : 'There are no posts in the community yet. Be the first to share!'
+            : bookmarkedFilter
+              ? 'Start bookmarking notes you want to save for later. Click the bookmark icon on any note to add it to your collection.'
+              : filterUserId
+                ? "This user hasn't created any posts yet."
+                : 'There are no posts in the community yet. Be the first to share!'
         }
         emptyAction={
-          (filterUserId || searchQuery)
-            ? { label: 'View all community posts', onClick: clearFilters }
+          (filterUserId || searchQuery || bookmarkedFilter)
+            ? { label: 'View all community posts', onClick: bookmarkedFilter ? handleBookmarkedToggle : clearFilters }
             : undefined
         }
         renderItem={(note) => (
@@ -417,93 +451,29 @@ export default function CommunityPage() {
         )}
       />
 
-      {/*
-        Create Note Modal
-
-        Uses BaseModal for consistent behavior (ESC key, scroll lock, click outside).
-      */}
-      <BaseModal
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        title="Creating a note"
-        size="2xl"
-      >
-        {/* Create Note Form */}
-        <form onSubmit={handleCreateNote} className="p-6">
-          {/* Title Input */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Title *</label>
-            <input
-              type="text"
-              placeholder="Title"
-              value={noteTitle}
-              onChange={(e) => setNoteTitle(e.target.value)}
-              required
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-
-          {/* Content Textarea */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Content *</label>
-            <textarea
-              placeholder="What do you want to talk about?"
-              value={noteContent}
-              onChange={(e) => setNoteContent(e.target.value)}
-              required
-              rows={6}
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-          </div>
-
-          {/* Tags Selection */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Tags</label>
-            <TagSelector
-              tags={CREATE_TAGS}
-              selected={selectedCreateTags}
-              onChange={setSelectedCreateTags}
-              multiple
-            />
-          </div>
-
-          {/* University Only Toggle */}
-          {user?.university && (
-            <div className="mb-4">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={universityOnly}
-                  onChange={(e) => setUniversityOnly(e.target.checked)}
-                  className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary"
-                />
-                <span className="ml-2 text-sm text-foreground">
-                  Only visible to members of my university
-                </span>
-              </label>
+      {/* Infinite Scroll Sentinel - Triggers load when scrolled into view */}
+      {hasNextPage && (
+        <div
+          ref={loadMoreRef}
+          className="flex justify-center items-center py-8"
+        >
+          {isFetchingNextPage && (
+            <div className="text-muted-foreground text-sm">
+              Loading more notes...
             </div>
           )}
+        </div>
+      )}
 
-          {/* Submit Button Row */}
-          <div className="flex items-center justify-between pt-4 border-t border-border">
-            {/* Character Count */}
-            <div className="text-sm text-muted-foreground flex items-center">
-              <ClockIcon />
-              <span className="ml-1">{charCount} characters</span>
-            </div>
-
-            {/* Submit Button */}
-            <GradientButton
-              type="submit"
-              size="sm"
-              loading={createNoteMutation.isPending}
-              loadingText="Posting..."
-            >
-              Post
-            </GradientButton>
-          </div>
-        </form>
-      </BaseModal>
+      {/* Create Note Modal */}
+      <CreateNoteModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        onCreate={handleCreateNote}
+        isCreating={createNoteMutation.isPending}
+        userUniversity={user?.university}
+        error={createNoteError}
+      />
 
       {/* Delete Confirmation Modal */}
       <ConfirmationModal

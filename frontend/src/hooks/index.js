@@ -14,7 +14,8 @@
  * - prefetchUniversities() - Prefetch universities list
  *
  * Notes/Community:
- * - useNotes(params) - Get notes with filters
+ * - useInfiniteNotes(params) - Get notes with infinite scroll pagination
+ * - useNote(noteId) - Get single note by ID
  * - useCreateNote() - Create mutation
  * - useLikeNote() - Like/unlike mutation
  * - useBookmarkNote() - Bookmark mutation
@@ -22,11 +23,13 @@
  * - prefetchNotes() - Prefetch notes list
  *
  * Opportunities:
- * - useOpportunities(params) - Get opportunities with filters
+ * - useInfiniteOpportunities(params) - Get opportunities with infinite scroll pagination
+ * - useOpportunities(params) - Get opportunities with filters (backward compatible)
  * - useCreateOpportunity() - Create mutation
  * - useBookmarkOpportunity() - Bookmark mutation
  * - useDeleteOpportunity() - Delete mutation
  * - prefetchOpportunities() - Prefetch opportunities list
+ * - prefetchInfiniteOpportunities() - Prefetch infinite opportunities query
  *
  * Messages:
  * - useConversations() - Get conversations with real-time updates
@@ -66,7 +69,7 @@
  * - useForm(config) - Form state, validation, and submission handling
  *
  * Usage:
- *   import { useUniversities, useNotes, useAIContent } from '../hooks';
+ *   import { useUniversities, useInfiniteNotes, useAIContent } from '../hooks';
  */
 
 // =============================================================================
@@ -98,7 +101,8 @@ export {
 // Notes/Community Hooks
 // =============================================================================
 export {
-  useNotes,
+  useInfiniteNotes,
+  useNote,
   useCreateNote,
   useLikeNote,
   useBookmarkNote,
@@ -110,18 +114,21 @@ export {
   useLikeComment,
   noteKeys,
   prefetchNotes,
+  prefetchInfiniteNotes,
 } from './useNotes';
 
 // =============================================================================
 // Opportunities Hooks
 // =============================================================================
 export {
+  useInfiniteOpportunities,
   useOpportunities,
   useCreateOpportunity,
   useBookmarkOpportunity,
   useDeleteOpportunity,
   opportunityKeys,
   prefetchOpportunities,
+  prefetchInfiniteOpportunities,
 } from './useOpportunities';
 
 // =============================================================================
@@ -186,8 +193,15 @@ export {
   usePageTitle,
   useDebounce,
   useCountdown,
+  useDelayedLoading,
+  useInfiniteScroll,
   useModal,
 } from './useUI';
+
+// =============================================================================
+// Clipboard Hook
+// =============================================================================
+export { useClipboard } from './useClipboard';
 
 // =============================================================================
 // Email Verification Hook

@@ -221,6 +221,70 @@ export function useCountdown(initialSeconds) {
 }
 
 // =============================================================================
+// DELAYED LOADING HOOK
+// =============================================================================
+
+/**
+ * Returns true only after isLoading has been true for the specified delay.
+ * Prevents flash of loading state on fast loads.
+ */
+export function useDelayedLoading(isLoading, delay = 200) {
+  const [showLoading, setShowLoading] = useState(false);
+
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => setShowLoading(true), delay);
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoading(false);
+    }
+  }, [isLoading, delay]);
+
+  return showLoading;
+}
+
+// =============================================================================
+// INFINITE SCROLL HOOK
+// =============================================================================
+
+/**
+ * Returns a ref for a sentinel element that triggers fetchNextPage when visible.
+ */
+export function useInfiniteScroll({
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
+  rootMargin = '200px',
+}) {
+  const sentinelRef = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const firstEntry = entries[0];
+        if (firstEntry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin }
+    );
+
+    const currentRef = sentinelRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, rootMargin]);
+
+  return sentinelRef;
+}
+
+// =============================================================================
 // COMBINED MODAL HOOK
 // =============================================================================
 

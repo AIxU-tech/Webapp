@@ -9,11 +9,11 @@ import { useRef, useState, useEffect } from 'react';
 import { FileTextIcon, ClockIcon, OpportunitiesIcon, InfoIcon, UsersIcon } from '../icons';
 
 const TABS = [
+  { id: 'about', label: 'About', Icon: InfoIcon },
   { id: 'posts', label: 'Posts', Icon: FileTextIcon },
   { id: 'events', label: 'Events', Icon: ClockIcon },
   { id: 'opportunities', label: 'Opportunities', Icon: OpportunitiesIcon },
   { id: 'members', label: 'Members', Icon: UsersIcon },
-  { id: 'about', label: 'About', Icon: InfoIcon },
 ];
 
 export default function UniversityNavTabs({ activeTab, onTabChange, className = '' }) {

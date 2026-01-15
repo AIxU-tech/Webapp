@@ -4,7 +4,7 @@ from backend.extensions import db
 from backend.models import Note, NoteComment, User, University
 from backend.routes_v2.community.helpers import (
     create_db_note,
-    get_db_notes,
+    get_paginated_notes,
     notes_to_dict,
     toggle_like_status,
     toggle_bookmark_status,
@@ -15,6 +15,7 @@ from backend.routes_v2.community.helpers import (
     delete_comment,
     toggle_comment_like_status,
 )
+from backend.services.content_moderator import moderate_content
 
 community_bp = Blueprint('community', __name__)
 
@@ -30,6 +31,15 @@ def create_note():
         # Validate required fields
         if not data.get('title') or not data.get('content'):
             return jsonify({'success': False, 'error': 'Title and content are required'}), 400
+
+        # Content moderation - check title first, then content
+        title = data.get('title', '').strip()
+        if not moderate_content(title):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
+        
+        content = data.get('content', '').strip()
+        if not moderate_content(content):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
 
         # Create new note
         note = create_db_note(data)
@@ -94,30 +104,79 @@ def delete_note(note_id):
 @community_bp.route('/api/notes')
 def api_notes():
     """
-    Get all notes as JSON with optional filtering.
+    Get notes as JSON with optional filtering and pagination.
 
     Query parameters:
     - search: Search in title, content, or author name
     - user: Filter by specific user ID
     - university_id: Filter by university (returns notes from all members)
+    - tag: Filter by tag name (case-insensitive)
+    - bookmarked: Filter to only bookmarked notes (requires authentication)
+    - page: Page number (1-indexed, optional - enables pagination)
+    - page_size: Number of items per page (optional, default 20 when page is provided)
 
-    Returns array of note objects with author info, likes, bookmarks, etc.
+    Response format:
+    - If pagination params provided: { notes: [...], pagination: {...} }
+    - If no pagination: [...notes] (backward compatible flat array)
+
+    Returns note objects with author info, likes, bookmarks, etc.
+    Visibility rules are applied automatically (university_only notes filtered).
     """
-    # Check if filtering by user
-    filter_user_id = request.args.get('user', type=int)
+    # Bookmarked filter requires authentication
+    if request.args.get('bookmarked') and not current_user.is_authenticated:
+        return jsonify({'error': 'Authentication required to view bookmarked notes'}), 401
 
-    # Check if searching
-    search_query = request.args.get('search', '').strip()
+    # Extract query parameters
+    query_dict = {
+        'page': request.args.get('page', type=int),
+        'page_size': request.args.get('page_size', type=int),
+        'search': request.args.get('search', '').strip(),
+        'user': request.args.get('user', type=int),
+        'university_id': request.args.get('university_id', type=int),
+        'tag': request.args.get('tag', '').strip(),
+        'bookmarked': request.args.get('bookmarked', type=bool),
+    }
+    
+    # Validate pagination parameters if provided
+    if query_dict['page'] is not None:
+        if query_dict['page'] < 1:
+            return jsonify({'error': 'page must be >= 1'}), 400
+        
+        # Set default page_size if page is provided but page_size is not
+        if query_dict['page_size'] is None:
+            query_dict['page_size'] = 20
+        elif query_dict['page_size'] < 1:
+            return jsonify({'error': 'page_size must be >= 1'}), 400
+    
+    # Get notes (with or without pagination)
+    notes, pagination = get_paginated_notes(query_dict, current_user)
+    
+    # Return appropriate response format
+    if pagination:
+        # Paginated response
+        return jsonify({
+            'notes': notes,
+            'pagination': pagination
+        })
+    else:
+        # Non-paginated response (backward compatible)
+        return jsonify(notes)
 
-    # Check if filtering by university
-    university_id = request.args.get('university_id', type=int)
-
-    db_notes = get_db_notes(filter_user_id, search_query, university_id)
-
-    # Convert to dictionaries and update isLiked/isBookmarked for current user
-    notes = notes_to_dict(db_notes, current_user)
-
-    return jsonify(notes)
+@community_bp.route('/api/notes/<int:note_id>', methods=['GET'])
+@login_required
+def get_note(note_id):
+    try:
+        note = Note.query.get(note_id)
+        if not note:
+            return jsonify({'success': False, 'error': 'Note not found'}), 404
+        else:
+            notes_dict = notes_to_dict([note], current_user)
+            return jsonify({
+                'success': True,
+                'note': notes_dict[0]
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # Route to toggle like on a note
@@ -219,6 +278,10 @@ def add_comment(note_id):
         if not text:
             return jsonify({'success': False, 'error': 'Comment text is required'}), 400
         
+        # Content moderation
+        if not moderate_content(text):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
+        
         # Resolve the parent_id based on threading rules
         try:
             parent_id = resolve_parent_id(reply_to_id)
@@ -269,6 +332,10 @@ def edit_comment(note_id, comment_id):
         
         if not text:
             return jsonify({'success': False, 'error': 'Comment text is required'}), 400
+        
+        # Content moderation
+        if not moderate_content(text):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
         
         update_comment(comment, text)
         db.session.commit()

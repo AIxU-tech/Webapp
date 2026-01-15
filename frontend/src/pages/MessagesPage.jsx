@@ -21,7 +21,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -50,7 +50,6 @@ export default function MessagesPage() {
   // ---------------------------------------------------------------------------
   // Hooks and Context
   // ---------------------------------------------------------------------------
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
@@ -76,15 +75,6 @@ export default function MessagesPage() {
   // Modal states
   const [activeConversationUserId, setActiveConversationUserId] = useState(null);
   const [showNewMessageModal, setShowNewMessageModal] = useState(false);
-
-  // ---------------------------------------------------------------------------
-  // Authentication Check
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login');
-    }
-  }, [isAuthenticated, navigate]);
 
   // ---------------------------------------------------------------------------
   // Handle startWith URL Parameter (e.g., from "Message Poster" button)

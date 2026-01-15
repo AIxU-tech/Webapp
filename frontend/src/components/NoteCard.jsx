@@ -12,6 +12,9 @@ import {
   BuildingIcon,
 } from './icons';
 import CommentSection from './CommentSection';
+import SharePopover from './SharePopover';
+import Toast from './Toast';
+import { useAuthModal } from '../contexts/AuthModalContext';
 
 export default function NoteCard({
   note,
@@ -20,15 +23,24 @@ export default function NoteCard({
   onDelete,
   currentUserId,
   isAuthenticated = false,
+  initialCommentsExpanded = false,
 }) {
+  const { openAuthModal } = useAuthModal();
   // Local state for comment section expansion
-  const [isCommentsExpanded, setIsCommentsExpanded] = useState(false);
+  const [isCommentsExpanded, setIsCommentsExpanded] = useState(initialCommentsExpanded);
+  // Share popover state
+  const [isSharePopoverOpen, setIsSharePopoverOpen] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   // Determine if current user owns this note
   const isOwner = isAuthenticated && currentUserId && note.author.id === currentUserId;
 
   // Toggle comment section
   const handleToggleComments = () => {
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
     setIsCommentsExpanded((prev) => !prev);
   };
 
@@ -64,30 +76,47 @@ export default function NoteCard({
       </button>
 
       {/* Share Button */}
-      <button
-        className="flex items-center space-x-2 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
-        aria-label="Share note"
-      >
-        <ShareIcon />
-        <span className="font-medium">Share</span>
-      </button>
+      <div className="relative">
+        <button
+          onClick={() => setIsSharePopoverOpen((prev) => !prev)}
+          className="flex items-center space-x-2 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+          aria-label="Share note"
+          aria-expanded={isSharePopoverOpen}
+        >
+          <ShareIcon />
+          <span className="font-medium">Share</span>
+        </button>
+        <SharePopover
+          isOpen={isSharePopoverOpen}
+          onClose={() => setIsSharePopoverOpen(false)}
+          noteId={note.id}
+          onCopySuccess={() => setShowToast(true)}
+        />
+      </div>
     </>
   );
 
   return (
-    <FeedCard
-      item={note}
-      canDelete={isOwner}
-      isBookmarked={note.isBookmarked}
-      onBookmark={onBookmark}
-      onDelete={onDelete}
-      tags={note.tags || []}
-      headerBadges={headerBadges}
-      primaryActions={primaryActions}
-      expandableContent={<CommentSection noteId={note.id} isExpanded={isCommentsExpanded} />}
-    >
-      <h3 className="text-xl font-bold text-foreground mb-2">{note.title}</h3>
-      <p className="text-muted-foreground mb-4">{note.content}</p>
-    </FeedCard>
+    <>
+      <FeedCard
+        item={note}
+        canDelete={isOwner}
+        isBookmarked={note.isBookmarked}
+        onBookmark={onBookmark}
+        onDelete={onDelete}
+        tags={note.tags || []}
+        headerBadges={headerBadges}
+        primaryActions={primaryActions}
+        expandableContent={<CommentSection noteId={note.id} isExpanded={isCommentsExpanded} />}
+      >
+        <h3 className="text-xl font-bold text-foreground mb-2">{note.title}</h3>
+        <p className="text-muted-foreground mb-4">{note.content}</p>
+      </FeedCard>
+      <Toast
+        message="Link copied!"
+        isVisible={showToast}
+        onDismiss={() => setShowToast(false)}
+      />
+    </>
   );
 }

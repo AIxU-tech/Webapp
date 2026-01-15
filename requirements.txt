@@ -31,3 +31,6 @@ gunicorn>=21.0.0
 
 # Background Task Scheduling
 APScheduler>=3.10.0
+
+# Flask migration library
+Flask-Migrate==4.0.5

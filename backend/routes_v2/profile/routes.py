@@ -25,11 +25,11 @@ from flask_login import login_required, current_user, logout_user
 from datetime import datetime
 import base64
 import io
+from sqlalchemy.orm import joinedload
 from backend.extensions import db
-from backend.models import User, Note, Message, University, UserFollows, UserLikedUniversity, UniversityRole
+from backend.models import User, Note, NoteComment, Message, University, UserFollows, UserLikedUniversity, UniversityRole
 from backend.utils.image import allowed_file, compress_image
 from backend.utils.time import format_full_date, format_join_date, to_iso
-
 profile_bp = Blueprint('profile', __name__)
 
 
@@ -226,6 +226,7 @@ def get_profile_stats():
     })
 
 
+
 # =============================================================================
 # API Endpoints - Profile Picture Management
 # =============================================================================
@@ -343,7 +344,7 @@ def get_user_detail(user_id: int):
     Returns detailed user information including:
     - Basic profile info (name, university, location, etc.)
     - Skills and interests
-    - Recent activity feed (posts)
+    - Recent activity feed (posts and comments)
     - Profile picture URL
 
     Args:
@@ -356,22 +357,47 @@ def get_user_detail(user_id: int):
     if not user:
         return jsonify({'error': 'User not found'}), 404
 
-    # Get user's recent posts for activity feed
-    recent_posts = Note.query.filter_by(author_id=user.id).order_by(Note.created_at.desc()).limit(4).all()
-
-    # Build activity list from recent posts
     recent_activity = []
+
+    # Get user's recent posts for activity feed (limit 4)
+    recent_posts = Note.query.filter_by(author_id=user.id).order_by(Note.created_at.desc()).limit(4).all()
     for post in recent_posts:
         recent_activity.append({
             'type': 'post',
+            'id': post.id,
             'title': post.title,
             'content': post.content[:100] + '...' if len(post.content) > 100 else post.content,
             'likes': post.likes,
+            'comments': post.comments,
             'time': post.get_time_ago(),
             'created_at': to_iso(post.created_at)
         })
 
-    # If no posts, add join activity as placeholder
+    # Get user's recent comments for activity feed (limit 4)
+    # Use joinedload to eager load the note relationship and avoid N+1 queries
+    recent_comments = (
+        NoteComment.query
+        .filter_by(user_id=user.id)
+        .options(joinedload(NoteComment.note))
+        .order_by(NoteComment.created_at.desc())
+        .limit(4)
+        .all()
+    )
+    for comment in recent_comments:
+        # Access the note via relationship (eager loaded via joinedload)
+        # Handle case where note might be deleted (shouldn't happen due to cascade, but defensive)
+        note_title = comment.note.title if comment.note else 'Deleted Post'
+        recent_activity.append({
+            'type': 'comment',
+            'id': comment.id,
+            'text': comment.text,
+            'postTitle': note_title,
+            'noteId': comment.note_id,
+            'time': comment.get_time_ago(),
+            'created_at': to_iso(comment.created_at)
+        })
+
+    # If no activity at all, add join activity as placeholder
     if not recent_activity:
         recent_activity.append({
             'type': 'join',

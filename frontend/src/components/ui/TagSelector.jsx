@@ -31,6 +31,7 @@ export default function TagSelector({
   tags = [],
   selected,
   onChange,
+  onHover,
   showAll = false,
   allLabel = 'All',
   multiple = false,
@@ -78,6 +79,7 @@ export default function TagSelector({
           key={tag}
           selected={isSelected(tag)}
           onClick={() => handleTagClick(tag)}
+          onMouseEnter={onHover ? () => onHover(tag) : undefined}
           size={size}
         >
           {tag}

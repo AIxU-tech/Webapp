@@ -32,16 +32,7 @@
  */
 
 import { Link } from 'react-router-dom';
-
-/**
- * Get profile picture URL for a user
- */
-function getProfilePictureUrl(user) {
-  if (!user) return null;
-  if (user.profile_picture_url) return user.profile_picture_url;
-  if (user.id) return `/user/${user.id}/profile_picture`;
-  return null;
-}
+import Avatar from './Avatar';
 
 /**
  * Get user's display name
@@ -54,16 +45,6 @@ function getDisplayName(user) {
   return 'Unknown';
 }
 
-/**
- * Get user's initials for avatar fallback
- */
-function getInitials(user) {
-  if (!user) return '?';
-  const first = user.first_name?.[0] || '';
-  const last = user.last_name?.[0] || '';
-  return (first + last).toUpperCase() || '?';
-}
-
 export default function UserListItem({
   user,
   subtitle,
@@ -74,20 +55,7 @@ export default function UserListItem({
   avatarSize = 'md',
   className = '',
 }) {
-  const profilePictureUrl = getProfilePictureUrl(user);
   const displayName = getDisplayName(user);
-  const initials = getInitials(user);
-
-  /**
-   * Avatar size classes
-   */
-  const avatarSizes = {
-    sm: 'w-8 h-8 text-xs',
-    md: 'w-10 h-10 text-sm',
-    lg: 'w-12 h-12 text-base',
-  };
-
-  const avatarClass = avatarSizes[avatarSize] || avatarSizes.md;
 
   /**
    * Content to render
@@ -95,22 +63,7 @@ export default function UserListItem({
   const content = (
     <>
       {/* Avatar */}
-      <div className={`flex-shrink-0 ${avatarClass} rounded-full overflow-hidden bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] flex items-center justify-center text-white font-medium`}>
-        {profilePictureUrl ? (
-          <img
-            src={profilePictureUrl}
-            alt={displayName}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              e.target.style.display = 'none';
-              e.target.nextSibling.style.display = 'flex';
-            }}
-          />
-        ) : null}
-        <span className={profilePictureUrl ? 'hidden' : 'flex items-center justify-center'}>
-          {initials}
-        </span>
-      </div>
+      <Avatar user={user} size={avatarSize} name={displayName} />
 
       {/* Name and subtitle */}
       <div className="flex-1 min-w-0">

@@ -16,8 +16,10 @@
  * What Gets Prefetched:
  * ---------------------
  * - Universities list (for UniversitiesPage, ProfilePage dropdown, RegisterPage)
- * - Notes list (for CommunityPage)
+ * - Notes list - first page (for CommunityPage, shared cache with infinite query)
+ * - Opportunities list (for OpportunitiesPage)
  * - Conversations list (for MessagesPage)
+ * - AI News content (for NewsPage)
  *
  * Performance Notes:
  * ------------------
@@ -30,10 +32,14 @@ import { universityKeys } from '../hooks/useUniversities';
 import { noteKeys } from '../hooks/useNotes';
 import { messageKeys } from '../hooks/useMessages';
 import { userKeys } from '../hooks/useUsers';
+import { opportunityKeys } from '../hooks/useOpportunities';
+import { newsKeys } from '../hooks/useNews';
 import { getUniversities } from '../api/universities';
 import { fetchNotes } from '../api/notes';
 import { getConversations } from '../api/messages';
 import { getUser } from '../api/users';
+import { fetchOpportunities } from '../api/opportunities';
+import { fetchAIContent } from '../api/news';
 import { STALE_TIMES } from '../config/cache';
 
 // =============================================================================
@@ -74,13 +80,27 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
     }),
 
     // -------------------------------------------------------------------------
-    // Notes List (default view - no filters)
+    // Notes List - First Page (default view - no filters)
     // -------------------------------------------------------------------------
     // Used by: CommunityPage (main feed)
-    queryClient.prefetchQuery({
-      queryKey: noteKeys.list({}),
-      queryFn: () => fetchNotes({}),
+    // Uses infinite query format to share cache with useInfiniteNotes()
+    queryClient.prefetchInfiniteQuery({
+      queryKey: noteKeys.infinite({}),
+      queryFn: () => fetchNotes({ page: 1, page_size: 20 }),
+      initialPageParam: 1,
       staleTime: STALE_TIMES.NOTES,
+    }),
+
+    // -------------------------------------------------------------------------
+    // Opportunities List - First Page (default view - no filters)
+    // -------------------------------------------------------------------------
+    // Used by: OpportunitiesPage (main feed)
+    // Uses infinite query format to share cache with useInfiniteOpportunities()
+    queryClient.prefetchInfiniteQuery({
+      queryKey: opportunityKeys.infinite({}),
+      queryFn: () => fetchOpportunities({ page: 1, page_size: 20 }),
+      initialPageParam: 1,
+      staleTime: STALE_TIMES.OPPORTUNITIES,
     }),
 
     // -------------------------------------------------------------------------
@@ -91,6 +111,17 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
       queryKey: messageKeys.conversations(),
       queryFn: getConversations,
       staleTime: STALE_TIMES.CONVERSATIONS,
+    }),
+
+    // -------------------------------------------------------------------------
+    // AI News Content (Stories + Papers)
+    // -------------------------------------------------------------------------
+    // Used by: NewsPage
+    // Fetches both stories and papers in a single request (default: 3 each)
+    queryClient.prefetchQuery({
+      queryKey: newsKeys.content(),
+      queryFn: () => fetchAIContent(3, 3),
+      staleTime: STALE_TIMES.NEWS,
     }),
   ];
 
@@ -113,7 +144,7 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
   const results = await Promise.allSettled(prefetchOperations);
 
   // Log any failures for debugging (won't break the app)
-  const dataTypes = ['universities', 'notes', 'conversations', 'user profile'];
+  const dataTypes = ['universities', 'notes', 'opportunities', 'conversations', 'ai news', 'user profile'];
   results.forEach((result, index) => {
     if (result.status === 'rejected') {
       console.warn(`[Prefetch] Failed to prefetch ${dataTypes[index]}:`, result.reason);

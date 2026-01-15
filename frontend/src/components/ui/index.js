@@ -10,6 +10,7 @@
 
 // Modal & State Components
 export { default as BaseModal } from './BaseModal';
+export { default as CreateNoteModal } from './CreateNoteModal';
 export { default as EmptyState } from './EmptyState';
 export { default as LoadingState } from './LoadingState';
 export { default as ErrorState } from './ErrorState';
@@ -32,6 +33,7 @@ export { default as StatItem } from './StatItem';
 export { default as UniversityCardSkeleton } from './UniversityCardSkeleton';
 
 // Generic UI Components
+export { default as Avatar, Avatar as AvatarComponent } from './Avatar';
 export { default as Badge } from './Badge';
 export { default as Divider } from './Divider';
 export { default as Tag, ToggleTag, TagGroup, getTagVariant } from './Tag';

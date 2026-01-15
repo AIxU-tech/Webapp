@@ -17,8 +17,14 @@ class Note(db.Model):
     university_only = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Relationship to User
+    # Relationships
     author = db.relationship('User', backref='notes')
+    like_records = db.relationship('NoteLike', backref='note', cascade='all, delete-orphan', passive_deletes=True)
+    bookmark_records = db.relationship('NoteBookmark', backref='note', cascade='all, delete-orphan', passive_deletes=True)
+    comment_records = db.relationship('NoteComment', backref='note', cascade='all, delete-orphan', passive_deletes=True)
+
+    def get_note_by_id(self, note_id):
+        return Note.query.filter_by(id=note_id).first()
 
     def get_tags_list(self):
         """Convert tags JSON string back to list"""

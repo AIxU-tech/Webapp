@@ -329,6 +329,108 @@ class TestNoteListing:
             assert note_data['isLiked'] is True
 
 
+class TestNotePagination:
+    """Minimal tests for /api/notes pagination behavior"""
+
+    def test_list_notes_paginated_shape_and_metadata(self, client, multiple_notes):
+        response = client.get('/api/notes?page=1&page_size=2')
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert set(data.keys()) == {'notes', 'pagination'}
+        assert len(data['notes']) == 2
+
+        p = data['pagination']
+        assert p == {
+            'page': 1,
+            'pageSize': 2,
+            'total': 5,
+            'totalPages': 3,
+            'hasMore': True
+        }
+
+    def test_list_notes_paginated_default_page_size(self, client, app, test_user):
+        with app.app_context():
+            user = db.session.get(User, test_user.id)
+            for i in range(21):
+                db.session.add(Note(title=f'Paginate {i}', content='x', author_id=user.id))
+            db.session.commit()
+
+        response = client.get('/api/notes?page=1')
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['pagination']['pageSize'] == 20
+        assert data['pagination']['total'] == 21
+        assert len(data['notes']) == 20
+        assert data['pagination']['hasMore'] is True
+
+    @pytest.mark.parametrize(
+        'query, expected_error',
+        [
+            ('page=0', 'page must be >= 1'),
+            ('page=1&page_size=0', 'page_size must be >= 1'),
+        ],
+    )
+    def test_list_notes_pagination_validation(self, client, query, expected_error):
+        response = client.get(f'/api/notes?{query}')
+        assert response.status_code == 400
+        assert response.get_json()['error'] == expected_error
+
+    def test_list_notes_pages_do_not_overlap_and_are_ordered(self, client, multiple_notes):
+        page1 = client.get('/api/notes?page=1&page_size=2').get_json()['notes']
+        page2 = client.get('/api/notes?page=2&page_size=2').get_json()['notes']
+
+        ids1 = [n['id'] for n in page1]
+        ids2 = [n['id'] for n in page2]
+        assert set(ids1).isdisjoint(ids2)
+        assert ids1 == sorted(ids1, reverse=True)
+        assert ids2 == sorted(ids2, reverse=True)
+        assert min(ids1) > max(ids2)
+
+    def test_pagination_total_respects_visibility_rules(
+        self,
+        app,
+        test_university,
+        second_university,
+        member_user,
+        admin_user,
+    ):
+        with app.app_context():
+            uni1 = db.session.get(University, test_university.id)
+            uni2 = db.session.get(University, second_university.id)
+
+            u1 = db.session.get(User, member_user.id)
+            u2 = User(email='u2@uni2.edu', first_name='U2', last_name='Two', university=uni2.name)
+            u2.set_password('pw')
+            db.session.add(u2)
+            db.session.commit()
+
+            db.session.add_all(
+                [
+                    Note(title='pub1', content='x', author_id=u1.id, university_only=False),
+                    Note(title='pub2', content='x', author_id=u2.id, university_only=False),
+                    Note(title='u1-only', content='x', author_id=u1.id, university_only=True),
+                    Note(title='u2-only', content='x', author_id=u2.id, university_only=True),
+                ]
+            )
+            db.session.commit()
+
+        anon_client = app.test_client()
+        member_client = app.test_client()
+        admin_client = app.test_client()
+
+        member_client.post('/api/auth/login', json={'email': 'member@example.edu', 'password': 'memberpass123'})
+        admin_client.post('/api/auth/login', json={'email': 'admin@example.edu', 'password': 'adminpassword123'})
+
+        anon_total = anon_client.get('/api/notes?page=1&page_size=50').get_json()['pagination']['total']
+        member_total = member_client.get('/api/notes?page=1&page_size=50').get_json()['pagination']['total']
+        admin_total = admin_client.get('/api/notes?page=1&page_size=50').get_json()['pagination']['total']
+
+        assert anon_total == 2
+        assert member_total == 3
+        assert admin_total == 4
+
+
 class TestNoteLikes:
     """Tests for liking/unliking notes"""
 

@@ -9,6 +9,7 @@
  * - ESC key to close
  * - Click outside to close
  * - Prevents body scroll when open
+ * - Restores parent modal (login/register) when closed if opened from one
  *
  * @component
  */
@@ -16,10 +17,35 @@
 import FormButton from './FormButton';
 import { XIcon } from './icons';
 import { useEscapeKey, useScrollLock } from '../hooks';
+import { useAuthModal } from '../contexts/AuthModalContext';
 
-export default function TermsModal({ isOpen, onClose }) {
-  // Handle ESC key to close modal
-  useEscapeKey(isOpen, onClose);
+/**
+ * TermsModal Component
+ *
+ * @param {Object} props
+ * @param {boolean} props.isOpen - Whether the modal is open
+ * @param {Function} props.onClose - Function to close the modal
+ * @param {string|null} props.parentModalType - 'login' | 'register' | null - Which modal opened Terms
+ */
+export default function TermsModal({ isOpen, onClose, parentModalType = null }) {
+  const { openAuthModal } = useAuthModal();
+
+  /**
+   * Handle closing the Terms modal
+   * If there's a parent modal, restore it after closing Terms
+   */
+  const handleClose = () => {
+    onClose();
+    // Restore parent modal after a brief delay to allow Terms modal to close
+    if (parentModalType) {
+      setTimeout(() => {
+        openAuthModal(parentModalType);
+      }, 100);
+    }
+  };
+
+  // Handle ESC key to close modal (uses handleClose to restore parent modal)
+  useEscapeKey(isOpen, handleClose);
 
   // Prevent body scroll when modal is open
   useScrollLock(isOpen);
@@ -28,10 +54,10 @@ export default function TermsModal({ isOpen, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          onClose();
+          handleClose();
         }
       }}
     >
@@ -43,7 +69,7 @@ export default function TermsModal({ isOpen, onClose }) {
               Terms and Conditions
             </h2>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
               <XIcon />
@@ -141,7 +167,7 @@ export default function TermsModal({ isOpen, onClose }) {
           <div className="p-6 border-t border-border">
             <FormButton
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               fullWidth={true}
             >
               Close
