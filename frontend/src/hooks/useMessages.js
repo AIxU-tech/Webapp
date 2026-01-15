@@ -30,14 +30,14 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import {
   getConversations,
   getConversation,
   sendMessage,
   searchUsersForMessages,
 } from '../api/messages';
-import { useSocket, useSocketEvent } from '../contexts/SocketContext';
+import { useSocketEvent } from '../contexts/SocketContext';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
 
 // =============================================================================
@@ -99,54 +99,52 @@ export function useConversations() {
       if (!oldConversations?.conversations) return oldConversations;
 
       const senderId = data.conversation?.sender_id || data.message?.sender_id;
-      const existingIndex = oldConversations.conversations.findIndex(
-        (conv) => conv.otherUser.id === senderId
+      const lastMessage = createLastMessageObject(
+        data.message.content,
+        data.message.timestamp || 'Just now',
+        false
       );
 
-      let newConversations;
-
-      if (existingIndex >= 0) {
+      if (conversationExists(oldConversations.conversations, senderId)) {
         // Existing conversation: Update and move to top
-        const existing = oldConversations.conversations[existingIndex];
-        const updated = {
-          ...existing,
-          lastMessage: {
-            content: data.message.content,
-            timestamp: data.message.timestamp || 'Just now',
-            isSentByCurrentUser: false,
-          },
-          hasUnread: true,
-        };
+        const updatedConversations = updateConversationAndMoveToTop(
+          oldConversations.conversations,
+          senderId,
+          lastMessage
+        );
 
-        // Remove from current position and add to top
-        newConversations = [
-          updated,
-          ...oldConversations.conversations.filter((_, i) => i !== existingIndex),
-        ];
+        // Mark the updated conversation as unread (it's now at index 0)
+        updatedConversations[0] = { ...updatedConversations[0], hasUnread: true };
+
+        return {
+          ...oldConversations,
+          conversations: updatedConversations,
+        };
       } else {
         // New conversation: Add to top
+        const userData = {
+          id: senderId,
+          name: data.conversation?.sender_name || 'Unknown',
+          avatar: data.conversation?.sender_avatar,
+          university: data.conversation?.sender_university || 'University',
+        };
+
         const newConversation = {
           otherUser: {
-            id: senderId,
-            name: data.conversation?.sender_name || 'Unknown',
-            avatar: data.conversation?.sender_avatar,
-            university: data.conversation?.sender_university || 'University',
+            id: userData.id,
+            name: userData.name,
+            avatar: userData.avatar,
+            university: userData.university,
           },
-          lastMessage: {
-            content: data.message.content,
-            timestamp: data.message.timestamp || 'Just now',
-            isSentByCurrentUser: false,
-          },
+          lastMessage,
           hasUnread: true,
         };
 
-        newConversations = [newConversation, ...oldConversations.conversations];
+        return {
+          ...oldConversations,
+          conversations: [newConversation, ...oldConversations.conversations],
+        };
       }
-
-      return {
-        ...oldConversations,
-        conversations: newConversations,
-      };
     });
 
     // Also update the specific conversation cache if it exists
@@ -333,30 +331,18 @@ export function useSendMessage() {
         if (!oldData?.conversations) return oldData;
 
         // Check if conversation already exists
-        const existingIndex = oldData.conversations.findIndex(
-          (conv) => conv.otherUser.id === recipientId
-        );
-
-        if (existingIndex >= 0) {
+        if (conversationExists(oldData.conversations, recipientId)) {
           // Conversation exists - update it and move to top
-          const updated = {
-            ...oldData.conversations[existingIndex],
-            lastMessage: {
-              content,
-              timestamp: 'Just now',
-              isSentByCurrentUser: true,
-            },
-          };
-
-          // Remove from current position and add to top
-          const newConversations = [
-            updated,
-            ...oldData.conversations.filter((_, i) => i !== existingIndex),
-          ];
+          const lastMessage = createLastMessageObject(content);
+          const updatedConversations = updateConversationAndMoveToTop(
+            oldData.conversations,
+            recipientId,
+            lastMessage
+          );
 
           return {
             ...oldData,
-            conversations: newConversations,
+            conversations: updatedConversations,
           };
         } else {
           // Conversation doesn't exist - we'll add it in onSuccess after fetching user info
@@ -417,60 +403,47 @@ export function useSendMessage() {
         messageKeys.conversations()
       );
 
-      const conversationExists = conversationsData?.conversations?.some(
-        (conv) => conv.otherUser.id === recipientId
+      const exists = conversationExists(
+        conversationsData?.conversations,
+        recipientId
       );
 
-      if (!conversationExists) {
+      if (!exists) {
         // Conversation doesn't exist - fetch user info and add to conversations list
         try {
           const conversationData = await getConversation(recipientId);
 
           if (conversationData?.user) {
+            // Create the new conversation object
+            const lastMessage = createLastMessageObject(
+              result.message.content,
+              result.message.timestamp || 'Just now',
+              true
+            );
+
+            const newConversation = {
+              otherUser: {
+                id: conversationData.user.id,
+                name: conversationData.user.name,
+                avatar: conversationData.user.avatar,
+                university: conversationData.user.university || 'University',
+              },
+              lastMessage,
+              hasUnread: false,
+            };
+
             // Add new conversation to the top of the list
             queryClient.setQueryData(messageKeys.conversations(), (oldData) => {
-              if (!oldData?.conversations) {
-                return {
-                  success: true,
-                  conversations: [
-                    {
-                      otherUser: {
-                        id: conversationData.user.id,
-                        name: conversationData.user.name,
-                        avatar: conversationData.user.avatar,
-                        university: conversationData.user.university || 'University',
-                      },
-                      lastMessage: {
-                        content: result.message.content,
-                        timestamp: result.message.timestamp || 'Just now',
-                        isSentByCurrentUser: true,
-                      },
-                      hasUnread: false,
-                    },
-                  ],
-                };
-              }
+              const previousConversations = oldData?.conversations || [];
+              const conversationsData = addConversationToTop(
+                newConversation,
+                previousConversations
+              );
 
-              return {
-                ...oldData,
-                conversations: [
-                  {
-                    otherUser: {
-                      id: conversationData.user.id,
-                      name: conversationData.user.name,
-                      avatar: conversationData.user.avatar,
-                      university: conversationData.user.university || 'University',
-                    },
-                    lastMessage: {
-                      content: result.message.content,
-                      timestamp: result.message.timestamp || 'Just now',
-                      isSentByCurrentUser: true,
-                    },
-                    hasUnread: false,
-                  },
-                  ...oldData.conversations,
-                ],
-              };
+              // If there was old data, preserve it, otherwise use the new structure
+              return oldData
+                ? { ...oldData, conversations: conversationsData.conversations }
+                : conversationsData;
             });
           }
         } catch (error) {
@@ -479,37 +452,26 @@ export function useSendMessage() {
           console.error('Failed to fetch user info for new conversation:', error);
         }
       } else {
-        // Conversation exists - just update the last message
+        // Conversation exists - update the last message and move to top
         queryClient.setQueryData(messageKeys.conversations(), (oldData) => {
           if (!oldData?.conversations) return oldData;
 
-          const existingIndex = oldData.conversations.findIndex(
-            (conv) => conv.otherUser.id === recipientId
+          const lastMessage = createLastMessageObject(
+            result.message.content,
+            result.message.timestamp || 'Just now',
+            true
           );
 
-          if (existingIndex >= 0) {
-            // Update and move to top
-            const updated = {
-              ...oldData.conversations[existingIndex],
-              lastMessage: {
-                content: result.message.content,
-                timestamp: result.message.timestamp || 'Just now',
-                isSentByCurrentUser: true,
-              },
-            };
+          const updatedConversations = updateConversationAndMoveToTop(
+            oldData.conversations,
+            recipientId,
+            lastMessage
+          );
 
-            const newConversations = [
-              updated,
-              ...oldData.conversations.filter((_, i) => i !== existingIndex),
-            ];
-
-            return {
-              ...oldData,
-              conversations: newConversations,
-            };
-          }
-
-          return oldData;
+          return {
+            ...oldData,
+            conversations: updatedConversations,
+          };
         });
       }
     },
@@ -557,6 +519,91 @@ export function useSearchUsers(query) {
 // =============================================================================
 // Utility Functions
 // =============================================================================
+
+/**
+ * Find the index of a conversation by user ID
+ *
+ * @param {Array} conversations - Array of conversation objects
+ * @param {number} userId - The user ID to search for
+ * @returns {number} Index of the conversation, or -1 if not found
+ */
+function findConversationIndex(conversations, userId) {
+  if (!conversations) return -1;
+  return conversations.findIndex((conv) => conv.otherUser.id === userId);
+}
+
+/**
+ * Check if a conversation exists in the conversations list
+ *
+ * @param {Array} conversations - Array of conversation objects
+ * @param {number} userId - The user ID to check for
+ * @returns {boolean} True if conversation exists, false otherwise
+ */
+function conversationExists(conversations, userId) {
+  return findConversationIndex(conversations, userId) >= 0;
+}
+
+/**
+ * Create a lastMessage object
+ *
+ * @param {string} content - Message content
+ * @param {string} timestamp - Message timestamp (defaults to 'Just now')
+ * @param {boolean} isSentByCurrentUser - Whether message was sent by current user
+ * @returns {object} lastMessage object
+ */
+function createLastMessageObject(content, timestamp = 'Just now', isSentByCurrentUser = true) {
+  return {
+    content,
+    timestamp,
+    isSentByCurrentUser,
+  };
+}
+
+/**
+ * Update a conversation's last message and move it to the top of the list
+ *
+ * @param {Array} conversations - Array of conversation objects
+ * @param {number} recipientId - The user ID of the conversation to update
+ * @param {object} lastMessage - The new lastMessage object
+ * @returns {Array} New array with updated conversation moved to top
+ */
+function updateConversationAndMoveToTop(conversations, recipientId, lastMessage) {
+  const index = findConversationIndex(conversations, recipientId);
+
+  if (index < 0) {
+    // Conversation doesn't exist, return original array
+    return conversations;
+  }
+
+  // Create updated conversation
+  const updated = {
+    ...conversations[index],
+    lastMessage,
+  };
+
+  // Move to top: remove from current position and add to beginning
+  return [
+    updated,
+    ...conversations.filter((_, i) => i !== index),
+  ];
+}
+
+/**
+ * Add a new conversation to the top of the conversations list
+ *
+ * Creates the conversations data structure with the new conversation at the top.
+ * Handles both cases: when there are no previous conversations and when there are.
+ *
+ * @param {object} newConversation - The new conversation object to add
+ * @param {Array} previousConversations - Optional array of existing conversations
+ * @returns {object} The conversations data structure
+ */
+function addConversationToTop(newConversation, previousConversations = []) {
+  return {
+    success: true,
+    conversations: [newConversation, ...previousConversations],
+  };
+}
 
 /**
  * Mark conversation as read in cache

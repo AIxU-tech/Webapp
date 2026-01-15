@@ -58,7 +58,7 @@ export default function SharePopover({
   return (
     <div
       ref={popoverRef}
-      className="absolute right-0 top-full mt-1 z-50 min-w-[320px] bg-card border border-border rounded-lg shadow-lg p-4 animate-in fade-in zoom-in-95 duration-100"
+      className="absolute left-0 top-full mt-1 z-50 min-w-[320px] bg-card border border-border rounded-lg shadow-lg p-4 animate-in fade-in zoom-in-95 duration-100"
       role="dialog"
       aria-labelledby="share-popover-title"
     >
@@ -84,11 +84,10 @@ export default function SharePopover({
           />
           <button
             onClick={handleCopy}
-            className={`flex items-center justify-center w-9 h-9 rounded-md transition-colors ${
-              isCopied
-                ? 'bg-green-500/10 text-green-600'
-                : 'bg-accent text-foreground hover:bg-accent/80'
-            }`}
+            className={`flex items-center justify-center w-9 h-9 rounded-md transition-colors ${isCopied
+              ? 'bg-green-500/10 text-green-600'
+              : 'bg-accent text-foreground hover:bg-accent/80'
+              }`}
             aria-label={isCopied ? 'Copied!' : 'Copy link'}
             title={isCopied ? 'Copied!' : 'Copy link'}
           >

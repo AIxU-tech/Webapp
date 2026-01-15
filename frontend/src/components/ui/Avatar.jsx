@@ -34,9 +34,22 @@ export function Avatar({ user, src, name, size = 'md', className = '', alt }) {
     setImgError(false);
   }, [imageUrl]);
 
-  const initials = user ? getInitials(user) : getInitialsFromName(name);
+  // Get initials: prefer user object, but fall back to name prop or user.name if user doesn't have first_name/last_name
+  let initials;
+  if (user) {
+    const userInitials = getInitials(user);
+    // If getInitials returns '?', try using the name prop or user.name as fallback
+    if (userInitials === '?') {
+      initials = name ? getInitialsFromName(name) : (user.name ? getInitialsFromName(user.name) : '?');
+    } else {
+      initials = userInitials;
+    }
+  } else {
+    initials = getInitialsFromName(name);
+  }
+
   const sizeClass = SIZES[size] || SIZES.md;
-  const displayName = name || (user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : '');
+  const displayName = name || (user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : '') || (user?.name || '');
   const altText = alt || displayName || 'User avatar';
   const gradientClass = getAvatarGradient(user, name);
 
