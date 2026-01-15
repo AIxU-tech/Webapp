@@ -9,8 +9,10 @@
  * Universities:
  * - useUniversities() - Get all universities
  * - useUniversity(id) - Get single university
+ * - useCreateUniversity() - Create university mutation (site admin only)
  * - useRemoveMember() - Remove member mutation (admin only)
  * - useUpdateMemberRole() - Update member role mutation (admin only)
+ * - useUpdateUniversity() - Update university details mutation
  * - prefetchUniversities() - Prefetch universities list
  *
  * Notes/Community:
@@ -78,9 +80,11 @@
 export {
   useUniversities,
   useUniversity,
+  useCreateUniversity,
   useRemoveMember,
   useUpdateMemberRole,
   useUpdateUniversity,
+  useUploadUniversityLogo,
   universityKeys,
   prefetchUniversities,
 } from './useUniversities';
@@ -196,6 +200,7 @@ export {
   useDelayedLoading,
   useInfiniteScroll,
   useModal,
+  useBeforeUnload,
 } from './useUI';
 
 // =============================================================================

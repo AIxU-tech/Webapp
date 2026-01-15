@@ -23,6 +23,7 @@ import FormLabel from '../components/FormLabel';
 import FormSection from '../components/FormSection';
 import FormButton from '../components/FormButton';
 import CitySearchInput from '../components/CitySearchInput';
+import SocialLinksInput from '../components/SocialLinksInput';
 
 // =============================================================================
 // Sub-Components
@@ -66,6 +67,7 @@ export default function UniversityRequestDetailsPage() {
       universityLocation: '',
       clubName: '',
       clubDescription: '',
+      socialLinks: [],
     },
 
     onSubmit: async (data) => {
@@ -75,6 +77,7 @@ export default function UniversityRequestDetailsPage() {
         clubName: data.clubName.trim(),
         clubDescription: data.clubDescription.trim(),
         clubTags: [],
+        socialLinks: data.socialLinks.length > 0 ? data.socialLinks : undefined,
       });
 
       navigate('/request-university/submitted', {
@@ -167,6 +170,15 @@ export default function UniversityRequestDetailsPage() {
                 rows={4}
                 disabled={loading}
                 required
+              />
+            </div>
+
+            <div>
+              <FormLabel>Social Links</FormLabel>
+              <SocialLinksInput
+                value={formData.socialLinks}
+                onChange={(links) => setFieldValue('socialLinks', links)}
+                disabled={loading}
               />
             </div>
           </FormSection>

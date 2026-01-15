@@ -56,6 +56,54 @@ def validate_edu_email(email: str) -> tuple[bool, str | None, str | None]:
     return True, None, domain_identifier
 
 
+def validate_url(url: str) -> bool:
+    """
+    Validate that a URL is properly formed with scheme and domain.
+
+    Args:
+        url: The URL to validate
+
+    Returns:
+        True if URL is valid, False otherwise
+    """
+    if not url:
+        return False
+    from urllib.parse import urlparse
+    try:
+        result = urlparse(url)
+        # Must have scheme (http/https) and netloc (domain)
+        return result.scheme in ('http', 'https') and bool(result.netloc)
+    except Exception:
+        return False
+
+
+def validate_social_links(social_links: list | None) -> tuple[bool, str | None]:
+    """
+    Validate social links array format and URLs.
+
+    Args:
+        social_links: List of social link dicts with 'type' and 'url' keys
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not social_links:
+        return True, None
+
+    if not isinstance(social_links, list):
+        return False, 'socialLinks must be an array'
+
+    for link in social_links:
+        if not isinstance(link, dict) or 'type' not in link or 'url' not in link:
+            return False, 'Each social link must have type and url'
+
+        url = link.get('url', '')
+        if url and not validate_url(url):
+            return False, f'Invalid URL: {url}'
+
+    return True, None
+
+
 def validate_required_fields(data: dict, fields: list) -> tuple[bool, str | None]:
     """
     Validate that all required fields are present and non-empty.

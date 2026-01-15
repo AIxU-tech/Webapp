@@ -2,22 +2,27 @@
  * UniversityAboutTab
  *
  * Displays university description and detailed information in card format.
+ * Presidents and site admins can edit the description inline.
  */
 
 import { Card } from '../ui';
+import UniversityAboutSection from './UniversityAboutSection';
 
-export default function UniversityAboutTab({ university }) {
+export default function UniversityAboutTab({
+  university,
+  canEdit = false,
+  onSaveDescription,
+}) {
   const { description, location, memberCount = 0 } = university;
 
   return (
     <div className="space-y-6">
-      {/* About Section */}
-      <Card padding="md">
-        <h3 className="text-lg font-semibold text-foreground mb-4">About</h3>
-        <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-          {description || 'No description available.'}
-        </p>
-      </Card>
+      {/* About Section - with inline editing for presidents/admins */}
+      <UniversityAboutSection
+        description={description}
+        canEdit={canEdit}
+        onSave={onSaveDescription}
+      />
 
       {/* Details */}
       <Card padding="md">

@@ -104,14 +104,12 @@ export default function ProfilePage() {
 
   /**
    * Get initial form values from user object
+   * Note: about_section and skills are edited inline, not in modal
    */
   const getInitialFormValues = (userData) => ({
     first_name: userData?.first_name || '',
     last_name: userData?.last_name || '',
     location: userData?.location || '',
-    about_section: userData?.about_section || '',
-    skills: userData?.skills?.join(', ') || '',
-    interests: userData?.interests?.join(', ') || '',
   });
 
   const {
@@ -123,17 +121,8 @@ export default function ProfilePage() {
   } = useForm({
     initialValues: getInitialFormValues(user),
     onSubmit: async (data) => {
-      const updates = {
-        ...data,
-        skills: data.skills
-          ? data.skills.split(',').map((s) => s.trim()).filter(Boolean)
-          : [],
-        interests: data.interests
-          ? data.interests.split(',').map((i) => i.trim()).filter(Boolean)
-          : [],
-      };
-
-      const response = await updateProfileMutation.mutateAsync(updates);
+      // Note: skills are now edited inline via SkillsCard
+      const response = await updateProfileMutation.mutateAsync(data);
 
       // Update AuthContext for navbar
       if (response.user && isOwnProfile) {
@@ -156,6 +145,37 @@ export default function ProfilePage() {
   const openEditModal = () => {
     setFormData(getInitialFormValues(user));
     setShowEditModal(true);
+  };
+
+  /**
+   * Handle inline save of the About section
+   * Updates only the about_section field without opening the full modal
+   * Uses optimistic updates - assumes success immediately, shows error if fails
+   */
+  const handleSaveAbout = async (aboutText) => {
+    const response = await updateProfileMutation.mutateAsync({
+      about_section: aboutText,
+    });
+
+    // Update AuthContext if needed
+    if (response.user && isOwnProfile) {
+      setCurrentUser({ ...currentUser, ...response.user });
+    }
+  };
+
+  /**
+   * Handle inline save of skills from SkillsCard
+   * Updates only the skills field - editing is done inline in the component
+   */
+  const handleSaveSkills = async (skillsArray) => {
+    const response = await updateProfileMutation.mutateAsync({
+      skills: skillsArray,
+    });
+
+    // Update AuthContext if needed
+    if (response.user && isOwnProfile) {
+      setCurrentUser({ ...currentUser, ...response.user });
+    }
   };
 
   /**
@@ -264,7 +284,7 @@ export default function ProfilePage() {
             <AboutSection
               aboutText={user.about_section}
               isOwnProfile={isOwnProfile}
-              onEdit={openEditModal}
+              onSave={handleSaveAbout}
             />
 
             {/* TODO: Add projects, experience, and research sections */}
@@ -287,7 +307,7 @@ export default function ProfilePage() {
             <ProfileSidebar
               user={user}
               isOwnProfile={isOwnProfile}
-              onEditSkills={openEditModal}
+              onSaveSkills={handleSaveSkills}
             />
           </div>
         </div>
@@ -344,19 +364,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* University (Read-only) */}
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">
-                University
-              </label>
-              <div className="w-full px-4 py-3 bg-muted/50 border border-border rounded-lg text-foreground">
-                {user?.university || 'No university affiliated'}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                University is determined by your .edu email domain and cannot be changed.
-              </p>
-            </div>
-
             {/* Location */}
             <div>
               <label className="block text-sm text-muted-foreground mb-1">
@@ -370,46 +377,7 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* About */}
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">
-                About
-              </label>
-              <textarea
-                name="about_section"
-                rows="4"
-                value={formData.about_section || ''}
-                onChange={handleChange}
-                placeholder="Tell us about yourself..."
-                className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground"
-              />
-            </div>
-
-            {/* Skills */}
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">
-                Skills (comma-separated)
-              </label>
-              <FormInput
-                name="skills"
-                value={formData.skills || ''}
-                onChange={handleChange}
-                placeholder="Python, Machine Learning, Data Analysis"
-              />
-            </div>
-
-            {/* Interests */}
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">
-                Interests (comma-separated)
-              </label>
-              <FormInput
-                name="interests"
-                value={formData.interests || ''}
-                onChange={handleChange}
-                placeholder="NLP, Computer Vision, Robotics"
-              />
-            </div>
+            {/* Note: Skills editing moved to inline SkillsCard component */}
 
             {/* Form Actions */}
             <div className="flex items-center justify-end gap-3 pt-2">

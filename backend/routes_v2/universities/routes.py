@@ -16,6 +16,7 @@ Permission System:
 
 RESTful Endpoints:
 - GET /api/universities - List all universities
+- POST /api/universities - Create university (site admin only)
 - GET /api/universities/<id> - Get university details
 - DELETE /api/universities/<id> - Delete university (site admin only)
 - DELETE /api/universities/<id>/members/<user_id> - Remove member (executive+)
@@ -24,7 +25,7 @@ RESTful Endpoints:
 - DELETE /api/universities/<id>/roles/<user_id> - Remove user role (president or admin)
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from flask_login import login_required, current_user
 import json
 from backend.extensions import db
@@ -35,6 +36,8 @@ from backend.utils.permissions import (
     can_manage_executives,
     get_user_university_permissions,
 )
+from backend.utils.image import allowed_file, compress_image
+from backend.utils.validation import validate_social_links, validate_url
 
 universities_bp = Blueprint('universities', __name__)
 
@@ -60,9 +63,8 @@ def list_universities():
 
     universities_data = []
     for uni in universities:
-        # Update post count for accuracy
-        uni.update_post_count()
-
+        # NOTE: We use cached recent_posts value instead of calling update_post_count()
+        # to avoid N+1 query problem. Post counts are updated when posts are created/deleted.
         universities_data.append({
             'id': uni.id,
             'name': uni.name,
@@ -76,11 +78,108 @@ def list_universities():
             # (e.g., "uoregon" for uoregon.edu emails)
             'emailDomain': uni.email_domain or '',
             'websiteUrl': uni.website_url or '',
+            'socialLinks': uni.get_social_links_list(),
         })
 
     return jsonify({
         'universities': universities_data
     })
+
+
+# RESTful: POST collection creates new resource
+@universities_bp.route('/api/universities', methods=['POST'])
+@login_required
+def create_university():
+    """
+    Create a new university (site admin only).
+
+    This endpoint allows site admins to pre-create university pages before
+    onboarding calls. Universities start with no president - admin promotes
+    a member to president via the Members tab after they register.
+
+    Authorization:
+        - Site admin only (permission_level >= ADMIN)
+
+    Request body:
+        {
+            "name": "University of Oregon",        # Required
+            "clubName": "Oregon AI Club",          # Required
+            "emailDomain": "uoregon",              # Required, unique
+            "location": "Eugene, OR",              # Optional
+            "description": "...",                  # Optional
+            "websiteUrl": "https://..."            # Optional
+        }
+
+    Returns:
+        JSON response with created university details
+    """
+    # Auth: site admin only
+    if not current_user.is_site_admin():
+        return jsonify({'error': 'Only site admins can create universities'}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body required'}), 400
+
+    # Validate required fields
+    name = (data.get('name') or '').strip()
+    club_name = (data.get('clubName') or '').strip()
+    email_domain = (data.get('emailDomain') or '').strip().lower()
+
+    if not name:
+        return jsonify({'error': 'University name is required'}), 400
+    if not club_name:
+        return jsonify({'error': 'Club name is required'}), 400
+    if not email_domain:
+        return jsonify({'error': 'Email domain is required'}), 400
+
+    # Check email domain is unique
+    existing = University.query.filter(
+        db.func.lower(University.email_domain) == email_domain
+    ).first()
+    if existing:
+        return jsonify({'error': 'A university with this email domain already exists'}), 400
+
+    # Validate URL format if provided
+    website_url = (data.get('websiteUrl') or '').strip() or None
+    if website_url and not validate_url(website_url):
+        return jsonify({'error': 'Invalid website URL'}), 400
+
+    # Validate social links if provided
+    social_links = data.get('socialLinks', [])
+    valid, error = validate_social_links(social_links)
+    if not valid:
+        return jsonify({'error': error}), 400
+
+    # Create university
+    uni = University(
+        name=name,
+        clubName=club_name,
+        email_domain=email_domain,
+        location=(data.get('location') or '').strip() or None,
+        description=(data.get('description') or '').strip() or None,
+        website_url=website_url,
+    )
+
+    # Set social links if provided
+    if social_links:
+        uni.set_social_links_list(social_links)
+
+    db.session.add(uni)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'university': {
+            'id': uni.id,
+            'name': uni.name,
+            'clubName': uni.clubName,
+            'location': uni.location or '',
+            'emailDomain': uni.email_domain,
+            'websiteUrl': uni.website_url or '',
+            'socialLinks': uni.get_social_links_list(),
+        }
+    }), 201
 
 
 @universities_bp.route('/api/universities/<int:university_id>', methods=['GET'])
@@ -126,7 +225,6 @@ def get_university(university_id: int):
             'location': m.location or '',
             'about': m.about_section or '',
             'skills': m.get_skills_list(),
-            'interests': m.get_interests_list(),
             'postCount': m.post_count or 0,
             'role': role.role,
             'roleName': role.role_name,
@@ -156,6 +254,8 @@ def get_university(university_id: int):
         'isMember': is_member,
         'permissions': user_permissions,
         'websiteUrl': uni.website_url or '',
+        'socialLinks': uni.get_social_links_list(),
+        'hasLogo': uni.logo is not None,
     }
     return jsonify(detail)
 
@@ -486,8 +586,8 @@ def update_university(university_id: int):
                 # Validate URL if provided
                 if value:
                     value = value.strip()
-                    if value and not (value.startswith('http://') or value.startswith('https://')):
-                        return jsonify({'error': 'Website URL must start with http:// or https://'}), 400
+                    if value and not validate_url(value):
+                        return jsonify({'error': 'Invalid website URL'}), 400
                 uni.website_url = value or None
             else:
                 # Standard string fields
@@ -497,6 +597,17 @@ def update_university(university_id: int):
                     setattr(uni, model_field, None)
                 else:
                     return jsonify({'error': f'{json_field} must be a string'}), 400
+
+    # Handle social links separately (array field)
+    if 'socialLinks' in data:
+        social_links = data['socialLinks']
+        if social_links is None:
+            uni.set_social_links_list([])
+        else:
+            valid, error = validate_social_links(social_links)
+            if not valid:
+                return jsonify({'error': error}), 400
+            uni.set_social_links_list(social_links)
 
     db.session.commit()
 
@@ -510,7 +621,117 @@ def update_university(university_id: int):
             'location': uni.location or '',
             'description': uni.description or '',
             'websiteUrl': uni.website_url or '',
+            'socialLinks': uni.get_social_links_list(),
             'memberCount': uni.member_count or 0,
+            'hasLogo': uni.logo is not None,
         }
     })
+
+
+# =============================================================================
+# University Logo Endpoints
+# =============================================================================
+
+@universities_bp.route('/api/universities/<int:university_id>/logo', methods=['PUT'])
+@login_required
+def upload_university_logo(university_id: int):
+    """
+    Upload or replace university logo.
+
+    Authorization:
+        - Executive+ at THIS university, or site admin
+
+    Request:
+        multipart/form-data with 'logo' file field
+
+    Returns:
+        JSON response with success status
+    """
+    uni = University.query.get(university_id)
+    if not uni:
+        return jsonify({'error': 'University not found'}), 404
+
+    # Check authorization
+    if not can_manage_university_members(current_user, university_id):
+        return jsonify({'error': 'Not authorized to update this university'}), 403
+
+    # Check for file in request
+    if 'logo' not in request.files:
+        return jsonify({'error': 'No logo file provided'}), 400
+
+    file = request.files['logo']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    # Validate file type
+    if not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp'}), 400
+
+    # Check Content-Length header first to reject oversized files early
+    max_size = 5 * 1024 * 1024  # 5MB
+    content_length = request.content_length
+    if content_length and content_length > max_size:
+        return jsonify({'error': 'File size must be less than 5MB'}), 400
+
+    # Read with size limit to prevent memory exhaustion
+    file_data = file.read(max_size + 1)
+    if len(file_data) > max_size:
+        return jsonify({'error': 'File size must be less than 5MB'}), 400
+
+    try:
+        # Compress and resize the image
+        compressed_data = compress_image(file_data, max_size=(400, 400), quality=90)
+
+        # Sanitize filename to prevent path traversal or special character issues
+        import os
+        from urllib.parse import quote
+        safe_filename = quote(os.path.basename(file.filename), safe='.-_')
+
+        # Update university logo
+        uni.logo = compressed_data
+        uni.logo_filename = safe_filename
+        uni.logo_mimetype = 'image/jpeg'  # compress_image converts to JPEG
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Logo uploaded successfully',
+            'hasLogo': True,
+        })
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to process image'}), 500
+
+
+@universities_bp.route('/university/<int:university_id>/logo', methods=['GET'])
+def get_university_logo(university_id: int):
+    """
+    Serve university logo image.
+
+    This route is public (no authentication required) to allow
+    embedding logos in img tags.
+
+    Returns:
+        Binary image data with appropriate MIME type, or 404 if no logo
+    """
+    uni = University.query.get(university_id)
+    if not uni:
+        return jsonify({'error': 'University not found'}), 404
+
+    if not uni.logo:
+        return jsonify({'error': 'No logo available'}), 404
+
+    return Response(
+        uni.logo,
+        mimetype=uni.logo_mimetype or 'image/jpeg',
+        headers={
+            'Cache-Control': 'public, max-age=86400',  # Cache for 24 hours
+        }
+    )
+
+
 

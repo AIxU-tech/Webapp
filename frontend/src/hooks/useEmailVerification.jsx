@@ -41,7 +41,7 @@
  * });
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usePageTitle } from './useUI';
 import { LoadingState, ErrorState } from '../components/ui';
@@ -111,6 +111,11 @@ export function useEmailVerification(config) {
   const [initializing, setInitializing] = useState(Boolean(initFn));
   const [initError, setInitError] = useState('');
 
+  // Track if initialization has been attempted to prevent double execution
+  // Use a ref with a key based on state data to ensure we only initialize once per unique state
+  const initAttemptedRef = useRef(false);
+  const initStateKeyRef = useRef(null);
+
   // Set browser tab title
   usePageTitle(pageTitle);
 
@@ -122,8 +127,22 @@ export function useEmailVerification(config) {
   }, [hasRequiredFields, navigate, redirectTo]);
 
   // Run initialization function on mount (if provided)
+  // Use refs to prevent double execution in React.StrictMode
   useEffect(() => {
     if (!initFn || !hasRequiredFields) return;
+
+    // Create a unique key from state data to track initialization per unique state
+    const stateKey = JSON.stringify(stateData);
+
+    // Skip if we've already initialized for this exact state (prevents StrictMode double-mount)
+    if (initStateKeyRef.current === stateKey) {
+      return;
+    }
+
+    // Mark as attempted and store the state key BEFORE async call
+    // This prevents the effect from running again even if it re-runs before the promise resolves
+    initStateKeyRef.current = stateKey;
+    initAttemptedRef.current = true;
 
     let cancelled = false;
 

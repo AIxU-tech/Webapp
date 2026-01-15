@@ -40,7 +40,7 @@ export default function LeadershipCard({ members = [], onViewAll }) {
           <Link
             key={member.id}
             to={`/users/${member.id}`}
-            className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-accent transition-colors"
+            className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-muted transition-colors"
           >
             {/* Avatar */}
             <Avatar user={member} size="md" />

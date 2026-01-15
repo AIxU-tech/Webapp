@@ -5,32 +5,54 @@
  * name, and action buttons. Slight translucency for modern look.
  */
 
-import { UniversitiesIcon, ExternalLinkIcon } from '../icons';
-import { SecondaryButton } from '../ui';
+import { UniversitiesIcon, EditIcon, SocialLinkIcon } from '../icons';
+import { IconButton } from '../ui';
+import { getUniversityLogoUrl } from '../../api/universities';
+import { getPlatformDisplayName, PLATFORM_ICON_COLORS } from '../../utils/socialLinks';
 
 export default function UniversityIdentityBar({
   university,
-  isAdmin,
-  onDelete,
-  deleteLoading,
+  canEdit,
+  onEdit,
+  logoKey,
 }) {
-  const { name, clubName, websiteUrl } = university;
+  const { id, name, clubName, socialLinks, hasLogo } = university;
+  const logoUrl = hasLogo ? getUniversityLogoUrl(id, logoKey) : null;
 
   return (
     <div className="relative -mt-8 z-10">
       <div className="container mx-auto px-4">
         {/* Card with slight translucency */}
         <div className="bg-card/100 border border-border rounded-lg shadow-md p-6 flex items-center gap-6">
-          {/* University Avatar */}
-          <div className="w-20 h-20 rounded-full border-4 border-card bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] flex items-center justify-center -mt-12 shadow-lg flex-shrink-0">
-            <UniversitiesIcon className="h-10 w-10 text-white" />
-          </div>
+          {/* University Avatar/Logo */}
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={`${clubName || name} logo`}
+              className="w-20 h-20 rounded-full border-4 border-card object-cover -mt-12 shadow-lg flex-shrink-0"
+            />
+          ) : (
+            <div className="w-20 h-20 rounded-full border-4 border-card bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] flex items-center justify-center -mt-12 shadow-lg flex-shrink-0">
+              <UniversitiesIcon className="h-10 w-10 text-white" />
+            </div>
+          )}
 
           {/* University Name */}
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-foreground truncate">
-              {name}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-foreground truncate">
+                {name}
+              </h1>
+              {canEdit && (
+                <IconButton
+                  icon={EditIcon}
+                  onClick={onEdit}
+                  variant="ghost"
+                  size="md"
+                  label="Edit club identity"
+                />
+              )}
+            </div>
             {clubName && clubName !== name && (
               <p className="text-sm text-muted-foreground">
                 {clubName}
@@ -39,43 +61,24 @@ export default function UniversityIdentityBar({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 flex-shrink-0">
-            {/* Website button - enabled when URL exists */}
-            {websiteUrl ? (
-              <a
-                href={websiteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex"
-              >
-                <SecondaryButton
-                  variant="outline"
-                  icon={<ExternalLinkIcon className="h-4 w-4" />}
-                >
-                  Website
-                </SecondaryButton>
-              </a>
-            ) : (
-              <SecondaryButton
-                variant="outline"
-                icon={<ExternalLinkIcon className="h-4 w-4" />}
-                disabled
-                title="No website available"
-              >
-                Website
-              </SecondaryButton>
-            )}
-
-            {/* Delete button - admin only */}
-            {isAdmin && (
-              <SecondaryButton
-                variant="danger"
-                onClick={onDelete}
-                loading={deleteLoading}
-                loadingText="Deleting..."
-              >
-                Delete
-              </SecondaryButton>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {/* Social Links - display as icon buttons */}
+            {socialLinks && socialLinks.length > 0 && (
+              <div className="flex items-center gap-2">
+                {socialLinks.map((link) => (
+                  <a
+                    key={link.url}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`p-2 rounded-lg hover:bg-muted transition-colors ${PLATFORM_ICON_COLORS[link.type] || 'text-muted-foreground'}`}
+                    title={getPlatformDisplayName(link.type)}
+                    aria-label={`${getPlatformDisplayName(link.type)} (opens in new window)`}
+                  >
+                    <SocialLinkIcon type={link.type} size="lg" logoUrl={logoUrl} />
+                  </a>
+                ))}
+              </div>
             )}
           </div>
         </div>

@@ -162,4 +162,37 @@ export const api = {
    * @returns {Promise<any>}
    */
   delete: (endpoint) => apiRequest(endpoint, { method: 'DELETE' }),
+
+  /**
+   * Upload file via FormData (multipart/form-data)
+   * Note: Don't set Content-Type header - browser sets it with boundary
+   * @param {string} endpoint - API endpoint
+   * @param {FormData} formData - FormData with file(s)
+   * @param {string} method - HTTP method (default: 'PUT')
+   * @returns {Promise<any>}
+   */
+  upload: async (endpoint, formData, method = 'PUT') => {
+    const url = `/api${endpoint}`;
+
+    const response = await fetch(url, {
+      method,
+      credentials: 'include',
+      body: formData,
+      // Don't set Content-Type - browser sets it with boundary for FormData
+    });
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      data = {};
+    }
+
+    if (!response.ok) {
+      const message = data.error || data.message || `HTTP ${response.status} error`;
+      throw new ApiError(message, response.status, data);
+    }
+
+    return data;
+  },
 };
