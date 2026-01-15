@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useUniversities, usePageTitle, useDelayedLoading } from '../hooks';
-import { ErrorState, EmptyState, UniversityCardSkeleton } from '../components/ui';
-import { SearchIcon, BuildingIcon } from '../components/icons';
+import { useAuth } from '../contexts/AuthContext';
+import { ErrorState, EmptyState, UniversityCardSkeleton, GradientButton } from '../components/ui';
+import { SearchIcon, BuildingIcon, PlusIcon } from '../components/icons';
 import UniversityCard from '../components/UniversityCard';
+import CreateUniversityModal from '../components/CreateUniversityModal';
 
 function LoadingSkeleton() {
   return (
@@ -23,6 +25,12 @@ export default function UniversitiesPage() {
   usePageTitle('Universities');
 
   // ---------------------------------------------------------------------------
+  // Auth Context - Check if user is site admin
+  // ---------------------------------------------------------------------------
+  const { user } = useAuth();
+  const isAdmin = user?.permissionLevel >= 1;
+
+  // ---------------------------------------------------------------------------
   // Data Fetching with React Query
   // ---------------------------------------------------------------------------
   const { data: universities = [], isLoading, error: queryError } = useUniversities();
@@ -37,6 +45,7 @@ export default function UniversitiesPage() {
   // Local UI State
   // ---------------------------------------------------------------------------
   const [searchTerm, setSearchTerm] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Filter Universities by Search Term
@@ -61,7 +70,7 @@ export default function UniversitiesPage() {
   if (showLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <PageHeader />
+        <PageHeader isAdmin={isAdmin} onCreateClick={() => setShowCreateModal(true)} />
         <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         <LoadingSkeleton />
       </div>
@@ -74,7 +83,7 @@ export default function UniversitiesPage() {
   if (error && universities.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <PageHeader />
+        <PageHeader isAdmin={isAdmin} onCreateClick={() => setShowCreateModal(true)} />
         <ErrorState
           message={error}
           onRetry={() => window.location.reload()}
@@ -88,7 +97,7 @@ export default function UniversitiesPage() {
   // ---------------------------------------------------------------------------
   return (
     <div className="container mx-auto px-4 py-8">
-      <PageHeader />
+      <PageHeader isAdmin={isAdmin} onCreateClick={() => setShowCreateModal(true)} />
 
       <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
 
@@ -119,6 +128,12 @@ export default function UniversitiesPage() {
           }
         />
       )}
+
+      {/* Create University Modal (admin only) */}
+      <CreateUniversityModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+      />
     </div>
   );
 }
@@ -128,17 +143,28 @@ export default function UniversitiesPage() {
 // =============================================================================
 
 /**
- * PageHeader - Displays the page title and description
+ * PageHeader - Displays the page title, description, and admin create button
+ *
+ * @param {Object} props - Component props
+ * @param {boolean} props.isAdmin - Whether the current user is a site admin
+ * @param {function} props.onCreateClick - Callback when create button is clicked
  */
-function PageHeader() {
+function PageHeader({ isAdmin, onCreateClick }) {
   return (
-    <div className="mb-8">
-      <h1 className="text-3xl font-bold text-foreground mb-2">
-        University AI Clubs
-      </h1>
-      <p className="text-muted-foreground text-lg">
-        Discover and connect with AI communities across universities worldwide
-      </p>
+    <div className="mb-8 flex items-start justify-between">
+      <div>
+        <h1 className="text-3xl font-bold text-foreground mb-2">
+          University AI Clubs
+        </h1>
+        <p className="text-muted-foreground text-lg">
+          Discover and connect with AI communities across universities worldwide
+        </p>
+      </div>
+      {isAdmin && (
+        <GradientButton onClick={onCreateClick} icon={<PlusIcon />}>
+          Create University
+        </GradientButton>
+      )}
     </div>
   );
 }

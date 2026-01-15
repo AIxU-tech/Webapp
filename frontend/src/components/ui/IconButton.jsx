@@ -22,9 +22,9 @@
  */
 
 const SIZE_CLASSES = {
-  sm: 'p-1',
-  md: 'p-1.5',
-  lg: 'px-3 py-2',
+  sm: 'p-1.5',
+  md: 'p-2',
+  lg: 'px-3 py-2.5',
 };
 
 const ICON_SIZE_CLASSES = {
@@ -74,7 +74,7 @@ export default function IconButton({
       } ${
         active ? ACTIVE_CLASSES[activeColor] : VARIANT_CLASSES[variant]
       } ${
-        disabled ? 'opacity-50 cursor-not-allowed' : ''
+        disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
       } ${className}`}
       aria-label={label}
       {...props}

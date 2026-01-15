@@ -20,7 +20,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { deleteUniversity } from '../api/universities';
 
 // Hooks
-import { useUniversity, usePageTitle, useRemoveMember, useUpdateMemberRole } from '../hooks';
+import {
+  useUniversity,
+  usePageTitle,
+  useRemoveMember,
+  useUpdateMemberRole,
+  useUpdateUniversity,
+  useUploadUniversityLogo,
+} from '../hooks';
 
 // UI Components
 import { BaseModal, LoadingState, SecondaryButton } from '../components/ui';
@@ -36,6 +43,7 @@ import {
   UniversityOpportunitiesTab,
   UniversityMembersTab,
   UniversityAboutTab,
+  EditUniversityIdentityModal,
   LeadershipCard,
   UpcomingEventsCard,
 } from '../components/university';
@@ -59,12 +67,18 @@ export default function UniversityDetailPage() {
   const removeMemberMutation = useRemoveMember();
   const updateRoleMutation = useUpdateMemberRole();
 
+  // University editing mutations
+  const updateUniversityMutation = useUpdateUniversity();
+  const uploadLogoMutation = useUploadUniversityLogo();
+
   // ---------------------------------------------------------------------------
   // Local State
   // ---------------------------------------------------------------------------
 
   const [activeTab, setActiveTab] = useState('about');
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showEditIdentityModal, setShowEditIdentityModal] = useState(false);
+  const [logoKey, setLogoKey] = useState(Date.now());
 
   // Error modal state
   const [errorModal, setErrorModal] = useState({
@@ -94,10 +108,13 @@ export default function UniversityDetailPage() {
   // ---------------------------------------------------------------------------
 
   const permissions = university?.permissions || {};
-  const { isSiteAdmin, canManageMembers } = permissions;
+  const { isSiteAdmin, canManageMembers, canEditUniversity } = permissions;
 
   // Admin check for delete button
   const isAdmin = isAuthenticated && (isSiteAdmin || user?.permissionLevel >= 1);
+
+  // Can edit university: president or site admin
+  const canEdit = isAuthenticated && canEditUniversity;
 
   // Can create events: executives+ or site admin
   const canCreateEvent = isAuthenticated && (canManageMembers || isSiteAdmin);
@@ -122,25 +139,31 @@ export default function UniversityDetailPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this university? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      setDeleteLoading(true);
-      await deleteUniversity(id);
-      navigate('/universities');
-    } catch (error) {
-      console.error('Error deleting university:', error);
-      setErrorModal({
-        isOpen: true,
-        title: 'Delete Failed',
-        message: error.message || 'Failed to delete university.',
-        navigateOnClose: false,
-      });
-      setDeleteLoading(false);
-    }
+  const handleDelete = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete University',
+      message: `Are you sure you want to delete ${university?.name || 'this university'}? This will permanently remove the university and all associated data. This action cannot be undone.`,
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          setDeleteLoading(true);
+          setConfirmModal({ ...confirmModal, isOpen: false });
+          setShowEditIdentityModal(false);
+          await deleteUniversity(id);
+          navigate('/universities');
+        } catch (error) {
+          console.error('Error deleting university:', error);
+          setErrorModal({
+            isOpen: true,
+            title: 'Delete Failed',
+            message: error.message || 'Failed to delete university.',
+            navigateOnClose: false,
+          });
+          setDeleteLoading(false);
+        }
+      },
+    });
   };
 
   // Navigate to Members tab when View All is clicked
@@ -230,6 +253,70 @@ export default function UniversityDetailPage() {
     });
   };
 
+  // Handle opening edit identity modal
+  const handleOpenEditIdentity = () => {
+    setShowEditIdentityModal(true);
+  };
+
+  // Handle saving university identity (club name, website URL)
+  const handleSaveIdentity = async (updates) => {
+    try {
+      await updateUniversityMutation.mutateAsync({
+        universityId: id,
+        updates,
+      });
+    } catch (error) {
+      console.error('Failed to save identity:', error);
+      setErrorModal({
+        isOpen: true,
+        title: 'Save Failed',
+        message: error.message || 'Failed to save club identity.',
+        navigateOnClose: false,
+      });
+      throw error; // Re-throw so modal knows save failed
+    }
+  };
+
+  // Handle uploading university logo
+  const handleUploadLogo = async (blob) => {
+    try {
+      await uploadLogoMutation.mutateAsync({
+        universityId: id,
+        file: blob,
+      });
+      // Bust browser cache for the logo image
+      setLogoKey(Date.now());
+    } catch (error) {
+      console.error('Failed to upload logo:', error);
+      setErrorModal({
+        isOpen: true,
+        title: 'Upload Failed',
+        message: error.message || 'Failed to upload logo.',
+        navigateOnClose: false,
+      });
+      throw error;
+    }
+  };
+
+  // Handle saving description (inline edit in About tab)
+  const handleSaveDescription = async (description) => {
+    try {
+      await updateUniversityMutation.mutateAsync({
+        universityId: id,
+        updates: { description },
+      });
+    } catch (error) {
+      console.error('Failed to save description:', error);
+      setErrorModal({
+        isOpen: true,
+        title: 'Save Failed',
+        message: error.message || 'Failed to save description.',
+        navigateOnClose: false,
+      });
+      throw error;
+    }
+  };
+
   // ---------------------------------------------------------------------------
   // Render: Loading State
   // ---------------------------------------------------------------------------
@@ -312,7 +399,13 @@ export default function UniversityDetailPage() {
           />
         );
       case 'about':
-        return <UniversityAboutTab university={university} />;
+        return (
+          <UniversityAboutTab
+            university={university}
+            canEdit={canEdit}
+            onSaveDescription={handleSaveDescription}
+          />
+        );
       default:
         return null;
     }
@@ -352,6 +445,20 @@ export default function UniversityDetailPage() {
         onConfirm={confirmModal.onConfirm}
       />
 
+      {/* Edit University Identity Modal */}
+      <EditUniversityIdentityModal
+        isOpen={showEditIdentityModal}
+        onClose={() => setShowEditIdentityModal(false)}
+        university={university}
+        onSave={handleSaveIdentity}
+        onUploadLogo={handleUploadLogo}
+        onDelete={handleDelete}
+        isLoading={updateUniversityMutation.isPending}
+        isUploadingLogo={uploadLogoMutation.isPending}
+        isDeleting={deleteLoading}
+        isAdmin={isAdmin}
+      />
+
       {university && (
         <div className="min-h-screen bg-background">
           {/* Hero Banner */}
@@ -360,9 +467,9 @@ export default function UniversityDetailPage() {
           {/* Identity Bar */}
           <UniversityIdentityBar
             university={university}
-            isAdmin={isAdmin}
-            onDelete={handleDelete}
-            deleteLoading={deleteLoading}
+            canEdit={canEdit}
+            onEdit={handleOpenEditIdentity}
+            logoKey={logoKey}
           />
 
           {/* Navigation Tabs */}

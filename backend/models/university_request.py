@@ -104,6 +104,7 @@ class UniversityRequest(db.Model):
     club_name = db.Column(db.String(200), nullable=False)
     club_description = db.Column(db.Text, nullable=False)
     club_tags = db.Column(db.Text, nullable=True)  # JSON array
+    social_links = db.Column(db.Text, nullable=True)  # JSON array of {type, url}
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -149,6 +150,7 @@ class UniversityRequest(db.Model):
             'clubName': self.club_name,
             'clubDescription': self.club_description,
             'clubTags': json.loads(self.club_tags) if self.club_tags else [],
+            'socialLinks': json.loads(self.social_links) if self.social_links else [],
             'createdAt': self.created_at.isoformat() if self.created_at else None,
             'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
             'reviewedAt': self.reviewed_at.isoformat() if self.reviewed_at else None,
