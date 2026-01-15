@@ -104,13 +104,12 @@ export default function ProfilePage() {
 
   /**
    * Get initial form values from user object
-   * Note: about_section is edited inline, not in modal
+   * Note: about_section and skills are edited inline, not in modal
    */
   const getInitialFormValues = (userData) => ({
     first_name: userData?.first_name || '',
     last_name: userData?.last_name || '',
     location: userData?.location || '',
-    skills: userData?.skills?.join(', ') || '',
   });
 
   const {
@@ -122,14 +121,8 @@ export default function ProfilePage() {
   } = useForm({
     initialValues: getInitialFormValues(user),
     onSubmit: async (data) => {
-      const updates = {
-        ...data,
-        skills: data.skills
-          ? data.skills.split(',').map((s) => s.trim()).filter(Boolean)
-          : [],
-      };
-
-      const response = await updateProfileMutation.mutateAsync(updates);
+      // Note: skills are now edited inline via SkillsCard
+      const response = await updateProfileMutation.mutateAsync(data);
 
       // Update AuthContext for navbar
       if (response.user && isOwnProfile) {
@@ -162,6 +155,21 @@ export default function ProfilePage() {
   const handleSaveAbout = async (aboutText) => {
     const response = await updateProfileMutation.mutateAsync({
       about_section: aboutText,
+    });
+
+    // Update AuthContext if needed
+    if (response.user && isOwnProfile) {
+      setCurrentUser({ ...currentUser, ...response.user });
+    }
+  };
+
+  /**
+   * Handle inline save of skills from SkillsCard
+   * Updates only the skills field - editing is done inline in the component
+   */
+  const handleSaveSkills = async (skillsArray) => {
+    const response = await updateProfileMutation.mutateAsync({
+      skills: skillsArray,
     });
 
     // Update AuthContext if needed
@@ -299,7 +307,7 @@ export default function ProfilePage() {
             <ProfileSidebar
               user={user}
               isOwnProfile={isOwnProfile}
-              onEditSkills={openEditModal}
+              onSaveSkills={handleSaveSkills}
             />
           </div>
         </div>
@@ -369,18 +377,7 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* Skills */}
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">
-                Skills (comma-separated)
-              </label>
-              <FormInput
-                name="skills"
-                value={formData.skills || ''}
-                onChange={handleChange}
-                placeholder="Python, Machine Learning, Data Analysis"
-              />
-            </div>
+            {/* Note: Skills editing moved to inline SkillsCard component */}
 
             {/* Form Actions */}
             <div className="flex items-center justify-end gap-3 pt-2">

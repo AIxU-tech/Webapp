@@ -9,7 +9,7 @@ import ActivityCard from './ActivityCard';
 import AIClubsCard from './AIClubsCard';
 import SkillsCard from './SkillsCard';
 
-export default function ProfileSidebar({ user, isOwnProfile, onEditSkills }) {
+export default function ProfileSidebar({ user, isOwnProfile, onSaveSkills }) {
   // Extract relevant data from user object
   const {
     id,
@@ -41,7 +41,7 @@ export default function ProfileSidebar({ user, isOwnProfile, onEditSkills }) {
       <SkillsCard
         skills={skills}
         isOwnProfile={isOwnProfile}
-        onEdit={onEditSkills}
+        onSave={onSaveSkills}
       />
     </aside>
   );

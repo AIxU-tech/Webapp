@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { useUniversities, usePageTitle } from '../hooks';
-import { ErrorState, EmptyState, Alert, UniversityCardSkeleton } from '../components/ui';
-import { SearchIcon, BuildingIcon, SpinnerIcon } from '../components/icons';
+import { useUniversities, usePageTitle, useDelayedLoading } from '../hooks';
+import { ErrorState, EmptyState, UniversityCardSkeleton } from '../components/ui';
+import { SearchIcon, BuildingIcon } from '../components/icons';
 import UniversityCard from '../components/UniversityCard';
 
 function LoadingSkeleton() {
@@ -25,12 +25,10 @@ export default function UniversitiesPage() {
   // ---------------------------------------------------------------------------
   // Data Fetching with React Query
   // ---------------------------------------------------------------------------
-  const {
-    data: universities = [],
-    isLoading,
-    error: queryError,
-    isFetching,
-  } = useUniversities();
+  const { data: universities = [], isLoading, error: queryError } = useUniversities();
+
+  // Delay loading state by 200ms to prevent flash when data loads from cache
+  const showLoading = useDelayedLoading(isLoading);
 
   // Convert error to string for display
   const error = queryError?.message || null;
@@ -58,9 +56,9 @@ export default function UniversitiesPage() {
   }, [universities, searchTerm]);
 
   // ---------------------------------------------------------------------------
-  // Render: Loading State
+  // Render: Loading State (delayed to prevent flash on cached data)
   // ---------------------------------------------------------------------------
-  if (isLoading) {
+  if (showLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <PageHeader />
@@ -93,16 +91,6 @@ export default function UniversitiesPage() {
       <PageHeader />
 
       <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
-
-      {/* Background refresh indicator */}
-      {isFetching && !isLoading && (
-        <Alert variant="info" className="mb-6">
-          <span className="flex items-center gap-2">
-            <SpinnerIcon className="h-4 w-4" />
-            Refreshing data...
-          </span>
-        </Alert>
-      )}
 
       {/* Universities Grid or Empty State */}
       {filteredUniversities.length > 0 ? (
