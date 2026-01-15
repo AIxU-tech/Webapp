@@ -50,6 +50,7 @@ export default function CreateUniversityModal({ isOpen, onClose }) {
     },
 
     onSubmit: async (data) => {
+
       try {
         await createMutation.mutateAsync({
           name: data.name.trim(),
@@ -172,6 +173,7 @@ export default function CreateUniversityModal({ isOpen, onClose }) {
             type="submit"
             loading={loading}
             loadingText="Creating University..."
+            disabled={loading}
           >
             Create University
           </FormButton>

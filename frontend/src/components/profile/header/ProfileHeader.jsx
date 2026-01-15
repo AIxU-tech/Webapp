@@ -26,7 +26,7 @@ export default function ProfileHeader({
   onMessage,
 }) {
   // Compose headline from university
-  const headline = user?.university ? `AI Researcher · ${user.university}` : 'AI Enthusiast';
+  const headline = user?.university ? `${user.university}` : 'AI Enthusiast';
 
   return (
     <div className="relative">
