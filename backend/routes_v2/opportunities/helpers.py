@@ -103,6 +103,37 @@ def _apply_additional_tags_filter(query: Query, tags_filter: str) -> Query:
     return query
 
 
+def _apply_bookmarked_filter(query: Query, user_id: int) -> Query:
+    """
+    Apply bookmarked filter to query.
+    
+    Returns opportunities that are bookmarked by the current user.
+    
+    Uses EXISTS subquery for better performance - stops after finding first match
+    and avoids potential duplicate rows from JOIN.
+    
+    Args:
+        query: SQLAlchemy query object
+        user_id: User ID to filter by
+    
+    Returns:
+        Query with bookmarked filter applied
+    """
+    if not user_id:
+        return query
+    
+    # Use EXISTS subquery instead of JOIN for better performance
+    # EXISTS stops after finding one match and avoids row multiplication
+    return query.filter(
+        db.exists().where(
+            db.and_(
+                OpportunityBookmark.opportunity_id == Opportunity.id,
+                OpportunityBookmark.user_id == user_id
+            )
+        )
+    )
+
+
 def build_opportunities_query(query_dict: dict, user) -> Query:
     """
     Build a query with all filters applied.
@@ -114,6 +145,7 @@ def build_opportunities_query(query_dict: dict, user) -> Query:
     - Location filtering (by location tag)
     - Paid filtering (Paid/Unpaid tag)
     - Additional tags filtering (comma-separated tags)
+    - Bookmarked filtering (opportunities bookmarked by current user)
     - Ordering (created_at desc, id desc)
     
     Args:
@@ -124,6 +156,7 @@ def build_opportunities_query(query_dict: dict, user) -> Query:
             - paid_filter: 'true' or 'false' for Paid/Unpaid
             - tags_filter: Comma-separated list of additional tags
             - university_id: University ID to filter by
+            - bookmarked: Boolean flag to filter to only bookmarked opportunities
         user: Current user (authenticated or anonymous)
     
     Returns:
@@ -156,7 +189,12 @@ def build_opportunities_query(query_dict: dict, user) -> Query:
     if query_dict.get('tags_filter'):
         query = _apply_additional_tags_filter(query, query_dict['tags_filter'])
     
-    # 7. Always apply ordering (most recent first)
+    # 7. Apply bookmarked filter
+    if query_dict.get('bookmarked'):
+        if hasattr(user, 'is_authenticated') and user.is_authenticated:
+            query = _apply_bookmarked_filter(query, user.id)
+    
+    # 8. Always apply ordering (most recent first)
     query = query.order_by(Opportunity.created_at.desc(), Opportunity.id.desc())
     
     return query
@@ -230,6 +268,76 @@ def get_db_opportunities(search_query=None, my_university=False,
     # Build and execute query
     query = build_opportunities_query(query_dict, current_user)
     return query.all()
+
+
+def get_paginated_opportunities(query_dict: dict, user):
+    """
+    Get opportunities with optional pagination.
+    
+    This function:
+    1. Builds the base query with all filters
+    2. Applies pagination if page/page_size are provided
+    3. Converts opportunities to dictionaries with user interactions
+    4. Returns appropriate response format
+    
+    Args:
+        query_dict: Dictionary with optional keys:
+            - page: Page number (1-indexed)
+            - page_size: Number of items per page
+            - search: Search query string
+            - my_university: Boolean flag to filter by current user's university
+            - location_filter: Location tag to filter by
+            - paid_filter: 'true' or 'false' for Paid/Unpaid
+            - tags_filter: Comma-separated list of additional tags
+            - university_id: University ID to filter by
+        user: Current user (authenticated or anonymous)
+    
+    Returns:
+        Tuple of (opportunities_list, pagination_dict):
+        - If pagination params provided: (opportunities_list, pagination_dict)
+        - If no pagination: (opportunities_list, None)
+    
+    Example:
+        opportunities, pagination = get_paginated_opportunities({
+            'page': 1,
+            'page_size': 20,
+            'search': 'AI'
+        }, current_user)
+    """
+    # Build base query with all filters
+    base_query = build_opportunities_query(query_dict, user)
+    
+    # Check if pagination requested
+    page = query_dict.get('page')
+    page_size = query_dict.get('page_size')
+    
+    if page is not None and page_size is not None:
+        # Paginated mode
+        # Get total count BEFORE applying limit/offset
+        total = base_query.count()
+        
+        # Apply pagination
+        offset = (page - 1) * page_size
+        db_opportunities = base_query.limit(page_size).offset(offset).all()
+        
+        # Convert to dictionaries
+        opportunities = opportunities_to_dict(db_opportunities, user)
+        
+        # Build pagination metadata
+        pagination = {
+            'page': page,
+            'pageSize': page_size,
+            'total': total,
+            'totalPages': (total + page_size - 1) // page_size if total > 0 else 0,
+            'hasMore': page * page_size < total
+        }
+        
+        return opportunities, pagination
+    else:
+        # Non-paginated mode (backward compatible)
+        db_opportunities = base_query.all()
+        opportunities = opportunities_to_dict(db_opportunities, user)
+        return opportunities, None
 
 
 def check_opportunity_visibility(opportunity, user):

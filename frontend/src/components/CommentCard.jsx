@@ -30,9 +30,10 @@ import ConfirmationModal from './ConfirmationModal';
  * @returns {React.ReactNode} Text with @mention as a link if present
  */
 function renderTextWithMention(text) {
-  // Match @Name at the very start of the text (supports multi-word names)
-  // Pattern: @ followed by words (with spaces between) until we hit common punctuation or end
-  const mentionMatch = text.match(/^@([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+/);
+  // Match @Name at the very start of the text (highlights first two words)
+  // Pattern: @ followed by first word, then space and second word (can include hyphens)
+  // Matches exactly two words separated by a space (e.g., "Oliver Stoner-German")
+  const mentionMatch = text.match(/^@([A-Za-z]+\s+[A-Za-z]+(?:-[A-Za-z]+)*)\s+/);
 
   if (!mentionMatch) {
     return text;

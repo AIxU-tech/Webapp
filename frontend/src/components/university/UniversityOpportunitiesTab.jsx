@@ -2,11 +2,11 @@
  * UniversityOpportunitiesTab
  *
  * Displays opportunities posted by members of this university.
- * Integrates with useOpportunities hook to fetch filtered by university_id.
+ * Integrates with useInfiniteOpportunities hook to fetch filtered by university_id.
  */
 
-import { useState } from 'react';
-import { useOpportunities, useBookmarkOpportunity, useDeleteOpportunity } from '../../hooks';
+import { useState, useMemo } from 'react';
+import { useInfiniteOpportunities, useBookmarkOpportunity, useDeleteOpportunity, useInfiniteScroll } from '../../hooks';
 import OpportunityCard from '../OpportunityCard';
 import { LoadingState, EmptyState } from '../ui';
 import { OpportunitiesIcon } from '../icons';
@@ -21,10 +21,26 @@ export default function UniversityOpportunitiesTab({
   // Message modal state - tracks which user to open chat with
   const [messageUserId, setMessageUserId] = useState(null);
 
-  // Fetch opportunities for this university
-  const { data: opportunities, isLoading, error } = useOpportunities({
+  // Fetch opportunities for this university with infinite scroll
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteOpportunities({
     university_id: universityId,
   });
+
+  // Extract and flatten opportunities from infinite query data
+  const opportunities = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap((page) => page.opportunities || []);
+  }, [data]);
+
+  // Infinite scroll - Auto-load when user scrolls to bottom
+  const loadMoreRef = useInfiniteScroll({ hasNextPage, isFetchingNextPage, fetchNextPage });
 
   // Mutation hooks for interactions
   const bookmarkMutation = useBookmarkOpportunity();
@@ -99,6 +115,13 @@ export default function UniversityOpportunitiesTab({
           />
         ))}
       </div>
+
+      {/* Infinite scroll trigger */}
+      {hasNextPage && (
+        <div ref={loadMoreRef} className="py-4 text-center text-muted-foreground">
+          {isFetchingNextPage ? 'Loading more...' : ''}
+        </div>
+      )}
 
       {/* Message Modal - opens chat without leaving the page */}
       <ConversationModal

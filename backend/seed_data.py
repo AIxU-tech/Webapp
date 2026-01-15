@@ -44,6 +44,7 @@ from backend.models.relationships import UserFollows
 from backend.models.university_role import UniversityRole
 from backend.models.ai_news import AINewsStory, AINewsSource, AIResearchPaper, AINewsChatMessage
 from backend.models.opportunity import Opportunity
+from backend.models.event import Event, EventAttendee
 from backend.constants import UniversityRoles, ADMIN
 
 
@@ -128,6 +129,9 @@ def clear_existing_data():
     """Clear existing seed data (preserving any real data you want to keep)."""
     print("Clearing existing data...")
     # Delete in order to respect foreign key constraints
+    # Delete child records first (those with foreign keys)
+    EventAttendee.query.delete()  # References Event
+    Event.query.delete()  # References User
     UserFollows.query.delete()
     UniversityRole.query.delete()
     Message.query.delete()

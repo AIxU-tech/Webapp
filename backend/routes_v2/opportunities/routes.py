@@ -18,9 +18,11 @@ from backend.models import Opportunity
 from backend.routes_v2.opportunities.helpers import (
     create_db_opportunity,
     get_db_opportunities,
+    get_paginated_opportunities,
     opportunities_to_dict,
     toggle_bookmark_status
 )
+from backend.services.content_moderator import moderate_content
 
 opportunities_bp = Blueprint('opportunities', __name__)
 
@@ -53,6 +55,19 @@ def create_opportunity():
                 'error': 'Title and description are required'
             }), 400
 
+        # Content moderation - check title first, then description, then compensation
+        title = data.get('title', '').strip()
+        if not moderate_content(title):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
+        
+        description = data.get('description', '').strip()
+        if not moderate_content(description):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
+        
+        compensation = data.get('compensation', '').strip() if data.get('compensation') else ''
+        if compensation and not moderate_content(compensation):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
+
         # Create opportunity using helper
         opportunity = create_db_opportunity(data)
 
@@ -69,7 +84,7 @@ def create_opportunity():
 @opportunities_bp.route('/api/opportunities')
 def list_opportunities():
     """
-    Get all opportunities with optional filtering.
+    Get all opportunities with optional filtering and pagination.
 
     Query parameters:
         - search: Search in title, description, or author name
@@ -78,6 +93,14 @@ def list_opportunities():
         - myUniversity: If 'true', only show opportunities from same university
         - university_id: Filter by specific university (returns opportunities from members)
         - tags: Comma-separated list of tags to filter by
+        - tag: Single tag to filter by (alternative to tags)
+        - bookmarked: Filter to only bookmarked opportunities (requires authentication)
+        - page: Page number (1-indexed, optional - enables pagination)
+        - page_size: Number of items per page (optional, default 20 when page is provided)
+
+    Response format:
+        - If pagination params provided: { opportunities: [...], pagination: {...} }
+        - If no pagination: [...opportunities] (backward compatible flat array)
 
     Returns:
         Array of opportunity objects with author info and bookmark status.
@@ -87,25 +110,47 @@ def list_opportunities():
           - Users from the same university as the author
           - Site admins
     """
-    search_query = request.args.get('search', '').strip() or None
-    location_filter = request.args.get('location', '').strip() or None
-    paid_filter = request.args.get('paid', '').strip() or None
-    my_university = request.args.get('myUniversity', '').lower() == 'true'
-    tags_filter = request.args.get('tags', '').strip() or None
-    university_id = request.args.get('university_id', type=int)
+    # Bookmarked filter requires authentication
+    if request.args.get('bookmarked') and not current_user.is_authenticated:
+        return jsonify({'error': 'Authentication required to view bookmarked opportunities'}), 401
 
-    # All filtering happens at database level
-    db_opportunities = get_db_opportunities(
-        search_query=search_query,
-        my_university=my_university,
-        location_filter=location_filter,
-        paid_filter=paid_filter,
-        tags_filter=tags_filter,
-        university_id=university_id
-    )
-
-    opportunities = opportunities_to_dict(db_opportunities, current_user)
-    return jsonify(opportunities)
+    # Extract query parameters
+    query_dict = {
+        'page': request.args.get('page', type=int),
+        'page_size': request.args.get('page_size', type=int),
+        'search': request.args.get('search', '').strip() or None,
+        'my_university': request.args.get('myUniversity', '').lower() == 'true',
+        'location_filter': request.args.get('location', '').strip() or None,
+        'paid_filter': request.args.get('paid', '').strip() or None,
+        'tags_filter': request.args.get('tags', '').strip() or request.args.get('tag', '').strip() or None,
+        'university_id': request.args.get('university_id', type=int),
+        'bookmarked': request.args.get('bookmarked', type=bool),
+    }
+    
+    # Validate pagination parameters if provided
+    if query_dict['page'] is not None:
+        if query_dict['page'] < 1:
+            return jsonify({'error': 'page must be >= 1'}), 400
+        
+        # Set default page_size if page is provided but page_size is not
+        if query_dict['page_size'] is None:
+            query_dict['page_size'] = 20
+        elif query_dict['page_size'] < 1:
+            return jsonify({'error': 'page_size must be >= 1'}), 400
+    
+    # Get opportunities (with or without pagination)
+    opportunities, pagination = get_paginated_opportunities(query_dict, current_user)
+    
+    # Return appropriate response format
+    if pagination:
+        # Paginated response
+        return jsonify({
+            'opportunities': opportunities,
+            'pagination': pagination
+        })
+    else:
+        # Non-paginated response (backward compatible)
+        return jsonify(opportunities)
 
 
 @opportunities_bp.route('/api/opportunities/<int:opportunity_id>/bookmark', methods=['POST'])

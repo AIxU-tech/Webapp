@@ -143,6 +143,10 @@ def create_event(university_id):
             end_time = datetime.fromisoformat(data['endTime'].replace('Z', '+00:00'))
         except (ValueError, AttributeError):
             return jsonify({'error': 'Invalid end time format'}), 400
+        
+        # Validate that start time is before end time
+        if start_time >= end_time:
+            return jsonify({'error': 'Start time must be before end time'}), 400
 
     # Create event
     event = Event(

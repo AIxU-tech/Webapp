@@ -23,11 +23,13 @@
  * - prefetchNotes() - Prefetch notes list
  *
  * Opportunities:
- * - useOpportunities(params) - Get opportunities with filters
+ * - useInfiniteOpportunities(params) - Get opportunities with infinite scroll pagination
+ * - useOpportunities(params) - Get opportunities with filters (backward compatible)
  * - useCreateOpportunity() - Create mutation
  * - useBookmarkOpportunity() - Bookmark mutation
  * - useDeleteOpportunity() - Delete mutation
  * - prefetchOpportunities() - Prefetch opportunities list
+ * - prefetchInfiniteOpportunities() - Prefetch infinite opportunities query
  *
  * Messages:
  * - useConversations() - Get conversations with real-time updates
@@ -119,12 +121,14 @@ export {
 // Opportunities Hooks
 // =============================================================================
 export {
+  useInfiniteOpportunities,
   useOpportunities,
   useCreateOpportunity,
   useBookmarkOpportunity,
   useDeleteOpportunity,
   opportunityKeys,
   prefetchOpportunities,
+  prefetchInfiniteOpportunities,
 } from './useOpportunities';
 
 // =============================================================================

@@ -15,6 +15,7 @@ from backend.routes_v2.community.helpers import (
     delete_comment,
     toggle_comment_like_status,
 )
+from backend.services.content_moderator import moderate_content
 
 community_bp = Blueprint('community', __name__)
 
@@ -30,6 +31,15 @@ def create_note():
         # Validate required fields
         if not data.get('title') or not data.get('content'):
             return jsonify({'success': False, 'error': 'Title and content are required'}), 400
+
+        # Content moderation - check title first, then content
+        title = data.get('title', '').strip()
+        if not moderate_content(title):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
+        
+        content = data.get('content', '').strip()
+        if not moderate_content(content):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
 
         # Create new note
         note = create_db_note(data)
@@ -268,6 +278,10 @@ def add_comment(note_id):
         if not text:
             return jsonify({'success': False, 'error': 'Comment text is required'}), 400
         
+        # Content moderation
+        if not moderate_content(text):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
+        
         # Resolve the parent_id based on threading rules
         try:
             parent_id = resolve_parent_id(reply_to_id)
@@ -318,6 +332,10 @@ def edit_comment(note_id, comment_id):
         
         if not text:
             return jsonify({'success': False, 'error': 'Comment text is required'}), 400
+        
+        # Content moderation
+        if not moderate_content(text):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
         
         update_comment(comment, text)
         db.session.commit()
