@@ -2,26 +2,44 @@
  * UniversityHeroBanner
  *
  * Compact hero section with campus background image, subtle rounded corners,
- * and gradient overlay. Minimal padding from screen edges.
+ * and gradient overlay. Supports custom banner uploads with edit button.
+ *
+ * @param {object} university - University data with banner URL
+ * @param {boolean} canEdit - Whether to show edit button
+ * @param {function} onEditBanner - Callback when edit button clicked
+ * @param {string} bannerPreviewUrl - Optimistic preview URL during upload
+ * @param {number} bannerKey - Cache-busting key (timestamp) for banner URL
  */
 
-// Placeholder campus image
-const CAMPUS_IMAGE = 'https://images.unsplash.com/photo-1562774053-701939374585?w=1920&q=80';
+import { BannerImage } from '../ui';
+import { getUniversityBannerUrl } from '../../api/universities';
 
-export default function UniversityHeroBanner() {
+// Default campus image
+const DEFAULT_BANNER = 'https://images.unsplash.com/photo-1562774053-701939374585?w=1920&q=80';
+
+export default function UniversityHeroBanner({
+  university,
+  canEdit = false,
+  onEditBanner,
+  bannerPreviewUrl,
+  bannerKey,
+}) {
+  // Use preview URL for optimistic update, otherwise construct URL with cache-buster
+  const bannerUrl = bannerPreviewUrl ||
+    (university?.hasBanner ? getUniversityBannerUrl(university.id, bannerKey) : null);
+
   return (
     <div className="px-1 pt-1">
-      <div className="relative w-full h-56 overflow-hidden rounded-lg">
-        {/* Background image */}
-        <img
-          src={CAMPUS_IMAGE}
-          alt="University campus"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-
-        {/* Dark gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/25 to-black/10" />
-      </div>
+      <BannerImage
+        imageUrl={bannerUrl}
+        defaultImage={DEFAULT_BANNER}
+        canEdit={canEdit}
+        onEdit={onEditBanner}
+        height="h-56"
+        rounded="rounded-lg"
+        hasOverlay={true}
+        altText={`${university?.name || 'University'} campus`}
+      />
     </div>
   );
 }

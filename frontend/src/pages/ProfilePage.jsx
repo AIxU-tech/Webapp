@@ -26,6 +26,7 @@ import {
   usePageTitle,
   useUpdateProfile,
   useUploadProfilePicture,
+  useUploadProfileBanner,
   useForm,
 } from '../hooks';
 import { ConversationModal } from '../components/messages';
@@ -38,6 +39,7 @@ import {
   ErrorState,
   GradientButton,
   SecondaryButton,
+  BannerUploadModal,
 } from '../components/ui';
 import ConfirmationModal from '../components/ConfirmationModal';
 import FormInput from '../components/FormInput';
@@ -80,6 +82,7 @@ export default function ProfilePage() {
 
   const updateProfileMutation = useUpdateProfile();
   const uploadPictureMutation = useUploadProfilePicture();
+  const uploadBannerMutation = useUploadProfileBanner();
 
   // ---------------------------------------------------------------------------
   // Modal States
@@ -88,6 +91,9 @@ export default function ProfilePage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showMessageModal, setShowMessageModal] = useState(false);
+  const [showBannerModal, setShowBannerModal] = useState(false);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState(null);
+  const [bannerKey, setBannerKey] = useState(Date.now());
 
   // ---------------------------------------------------------------------------
   // Feedback State (for success/error notifications)
@@ -203,6 +209,27 @@ export default function ProfilePage() {
   };
 
   /**
+   * Handle banner upload with optimistic preview
+   * Receives { blob, previewUrl } from BannerUploadModal
+   */
+  const handleUploadBanner = async ({ blob, previewUrl }) => {
+    // Show optimistic preview immediately
+    setBannerPreviewUrl(previewUrl);
+
+    try {
+      await uploadBannerMutation.mutateAsync(blob);
+      // Success - bust browser cache and clear preview
+      setBannerKey(Date.now());
+      setBannerPreviewUrl(null);
+    } catch (err) {
+      console.error('Error uploading banner:', err);
+      // Revert optimistic preview on error
+      setBannerPreviewUrl(null);
+      setFeedback({ type: 'error', message: 'Failed to upload banner' });
+    }
+  };
+
+  /**
    * Handle logout confirmation
    */
   const handleLogoutConfirm = async () => {
@@ -280,6 +307,9 @@ export default function ProfilePage() {
               onEditProfile={openEditModal}
               onLogout={() => setShowLogoutModal(true)}
               onMessage={handleMessage}
+              onEditBanner={() => setShowBannerModal(true)}
+              bannerPreviewUrl={bannerPreviewUrl}
+              bannerKey={bannerKey}
             />
             <AboutSection
               aboutText={user.about_section}
@@ -409,6 +439,15 @@ export default function ProfilePage() {
         confirmText="Log Out"
         cancelText="Stay Logged In"
         variant="warning"
+      />
+
+      {/* Banner Upload Modal */}
+      <BannerUploadModal
+        isOpen={showBannerModal}
+        onClose={() => setShowBannerModal(false)}
+        onUpload={handleUploadBanner}
+        isUploading={uploadBannerMutation.isPending}
+        title="Update Profile Banner"
       />
 
       {/* Message Modal - for messaging other users */}

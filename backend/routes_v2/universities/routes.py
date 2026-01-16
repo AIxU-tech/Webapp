@@ -36,7 +36,7 @@ from backend.utils.permissions import (
     can_manage_executives,
     get_user_university_permissions,
 )
-from backend.utils.image import allowed_file, compress_image
+from backend.utils.image import allowed_file, compress_image, compress_banner_image
 from backend.utils.validation import validate_social_links, validate_url
 
 universities_bp = Blueprint('universities', __name__)
@@ -79,6 +79,7 @@ def list_universities():
             'emailDomain': uni.email_domain or '',
             'websiteUrl': uni.website_url or '',
             'socialLinks': uni.get_social_links_list(),
+            'hasLogo': uni.logo is not None,
         })
 
     return jsonify({
@@ -256,6 +257,8 @@ def get_university(university_id: int):
         'websiteUrl': uni.website_url or '',
         'socialLinks': uni.get_social_links_list(),
         'hasLogo': uni.logo is not None,
+        'hasBanner': uni.banner is not None,
+        'bannerUrl': uni.get_banner_url(),
     }
     return jsonify(detail)
 
@@ -728,6 +731,108 @@ def get_university_logo(university_id: int):
     return Response(
         uni.logo,
         mimetype=uni.logo_mimetype or 'image/jpeg',
+        headers={
+            'Cache-Control': 'public, max-age=86400',  # Cache for 24 hours
+        }
+    )
+
+
+# =============================================================================
+# University Banner Endpoints
+# =============================================================================
+
+@universities_bp.route('/api/universities/<int:university_id>/banner', methods=['PUT'])
+@login_required
+def upload_university_banner(university_id: int):
+    """
+    Upload or replace university banner image.
+
+    Authorization:
+        - Executive+ at THIS university, or site admin
+
+    Request:
+        multipart/form-data with 'banner' file field
+
+    Images are automatically center-cropped to 5:1 aspect ratio
+    and compressed to 1500x300.
+
+    Returns:
+        JSON response with success status
+    """
+    uni = University.query.get(university_id)
+    if not uni:
+        return jsonify({'error': 'University not found'}), 404
+
+    # Check authorization
+    if not can_manage_university_members(current_user, university_id):
+        return jsonify({'error': 'Not authorized to update this university'}), 403
+
+    # Check for file in request
+    if 'banner' not in request.files:
+        return jsonify({'error': 'No banner file provided'}), 400
+
+    file = request.files['banner']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    # Validate file type
+    if not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp'}), 400
+
+    # Read file data
+    file_data = file.read()
+
+    try:
+        # Compress and crop to banner dimensions (1500x300, 5:1 ratio)
+        compressed_data = compress_banner_image(file_data)
+
+        # Sanitize filename
+        import os
+        from urllib.parse import quote
+        safe_filename = quote(os.path.basename(file.filename), safe='.-_')
+
+        # Update university banner
+        uni.banner = compressed_data
+        uni.banner_filename = safe_filename
+        uni.banner_mimetype = 'image/jpeg'
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Banner uploaded successfully',
+            'hasBanner': True,
+            'bannerUrl': uni.get_banner_url(),
+        })
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to process image'}), 500
+
+
+@universities_bp.route('/university/<int:university_id>/banner', methods=['GET'])
+def get_university_banner(university_id: int):
+    """
+    Serve university banner image.
+
+    This route is public (no authentication required) to allow
+    embedding banners in img tags.
+
+    Returns:
+        Binary image data with appropriate MIME type, or 404 if no banner
+    """
+    uni = University.query.get(university_id)
+    if not uni:
+        return jsonify({'error': 'University not found'}), 404
+
+    if not uni.banner:
+        return jsonify({'error': 'No banner available'}), 404
+
+    return Response(
+        uni.banner,
+        mimetype=uni.banner_mimetype or 'image/jpeg',
         headers={
             'Cache-Control': 'public, max-age=86400',  # Cache for 24 hours
         }

@@ -31,6 +31,7 @@ whenever members are added or removed.
 import json
 import logging
 
+from flask import url_for
 from sqlalchemy import func
 
 from backend.extensions import db
@@ -94,6 +95,11 @@ class University(db.Model):
     logo = db.Column(db.LargeBinary, nullable=True)
     logo_filename = db.Column(db.String(255), nullable=True)
     logo_mimetype = db.Column(db.String(100), nullable=True)
+
+    # Banner image storage
+    banner = db.Column(db.LargeBinary, nullable=True)
+    banner_filename = db.Column(db.String(255), nullable=True)
+    banner_mimetype = db.Column(db.String(100), nullable=True)
 
     # DEPRECATED: members column is no longer used. Membership is tracked via UniversityRole.
     # This column is kept for backwards compatibility during migration but should not be used.
@@ -293,6 +299,16 @@ class University(db.Model):
         """
         self.social_links = json.dumps(links) if links else None
 
+    # -------------------------------------------------------------------------
+    # Banner Methods
+    # -------------------------------------------------------------------------
+
+    def get_banner_url(self):
+        """Return banner image URL or None (frontend handles fallback)."""
+        if self.banner:
+            return url_for('universities.get_university_banner', university_id=self.id)
+        return None
+
     def to_dict(self):
         """Serialize university to dictionary for API responses."""
         return {
@@ -306,6 +322,8 @@ class University(db.Model):
             'websiteUrl': self.website_url,
             'socialLinks': self.get_social_links_list(),
             'hasLogo': self.logo is not None,
+            'hasBanner': self.banner is not None,
+            'bannerUrl': self.get_banner_url(),
         }
 
     # -------------------------------------------------------------------------

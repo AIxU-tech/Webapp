@@ -189,3 +189,38 @@ export function getUniversityLogoUrl(universityId, version) {
   const baseUrl = `/university/${universityId}/logo`;
   return version ? `${baseUrl}?v=${version}` : baseUrl;
 }
+
+// =============================================================================
+// Banner Management API Functions
+// =============================================================================
+
+/**
+ * Upload or replace university banner
+ *
+ * Images are automatically center-cropped to 5:1 aspect ratio
+ * and compressed to 1500x300.
+ *
+ * @param {number} universityId - University ID
+ * @param {Blob} file - Banner image file
+ * @returns {Promise<object>} Response with success status and hasBanner
+ * @throws {ApiError} If not authorized (403) or invalid file (400)
+ */
+export async function uploadUniversityBanner(universityId, file) {
+  const formData = new FormData();
+  const filename = file.name || 'banner.jpg';
+  formData.append('banner', file, filename);
+
+  return api.upload(`/universities/${universityId}/banner`, formData, 'PUT');
+}
+
+/**
+ * Get URL for university banner
+ *
+ * @param {number} universityId - University ID
+ * @param {number} [version] - Optional cache-busting version (timestamp)
+ * @returns {string} URL to fetch the banner image
+ */
+export function getUniversityBannerUrl(universityId, version) {
+  const baseUrl = `/university/${universityId}/banner`;
+  return version ? `${baseUrl}?v=${version}` : baseUrl;
+}

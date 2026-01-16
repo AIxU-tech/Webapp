@@ -46,7 +46,7 @@ export default function FeedCard({
           {canDelete && (
             <button
               onClick={() => onDelete(item.id)}
-              className="text-muted-foreground hover:text-red-500 transition-colors p-1"
+              className="text-muted-foreground hover:text-red-500 transition-colors p-1 cursor-pointer"
               title="Delete"
               aria-label="Delete"
             >
@@ -81,7 +81,7 @@ export default function FeedCard({
         {/* Bookmark Button (right side) */}
         <button
           onClick={() => onBookmark(item.id)}
-          className={`p-2 rounded-lg transition-all duration-200 ${
+          className={`p-2 rounded-lg transition-all duration-200 cursor-pointer ${
             isBookmarked
               ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted'

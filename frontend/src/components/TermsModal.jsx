@@ -15,7 +15,7 @@
  */
 
 import FormButton from './FormButton';
-import { XIcon } from './icons';
+import { CloseButton } from './ui';
 import { useEscapeKey, useScrollLock } from '../hooks';
 import { useAuthModal } from '../contexts/AuthModalContext';
 
@@ -68,12 +68,10 @@ export default function TermsModal({ isOpen, onClose, parentModalType = null }) 
             <h2 className="text-2xl font-bold text-foreground">
               Terms and Conditions
             </h2>
-            <button
+            <CloseButton
               onClick={handleClose}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <XIcon />
-            </button>
+              ariaLabel="Close terms"
+            />
           </div>
 
           {/* Modal Content (Scrollable) */}

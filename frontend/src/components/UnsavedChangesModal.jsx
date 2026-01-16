@@ -20,7 +20,8 @@
  * />
  */
 
-import { XIcon, AlertTriangleIcon } from './icons';
+import { AlertTriangleIcon } from './icons';
+import { CloseButton } from './ui';
 import { useEscapeKey, useScrollLock } from '../hooks';
 
 export default function UnsavedChangesModal({
@@ -71,14 +72,11 @@ export default function UnsavedChangesModal({
           </div>
 
           {/* Close Button */}
-          <button
-            type="button"
+          <CloseButton
             onClick={onCancel}
-            className="p-2 hover:bg-accent rounded-md transition-colors -mt-1 -mr-1"
-            aria-label="Return to editing"
-          >
-            <XIcon className="h-5 w-5" />
-          </button>
+            ariaLabel="Return to editing"
+            className="-mt-1 -mr-1"
+          />
         </div>
 
         {/* Message */}

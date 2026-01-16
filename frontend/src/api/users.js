@@ -164,3 +164,48 @@ export async function searchUsers(query) {
 export async function toggleFollowUser(userId) {
   return api.post(`/users/${userId}/follow`);
 }
+
+/**
+ * Upload profile banner image
+ *
+ * Images are automatically center-cropped to 5:1 aspect ratio
+ * and compressed to 1500x300.
+ *
+ * @param {File|Blob} file - Image file or blob to upload
+ * @returns {Promise<object>} Response with hasBanner status
+ * @throws {ApiError} If not authenticated or file is invalid
+ *
+ * @example
+ * const croppedBlob = await cropImageToBanner(file);
+ * await uploadProfileBanner(croppedBlob);
+ */
+export async function uploadProfileBanner(file) {
+  const formData = new FormData();
+  const filename = file.name || 'banner.jpg';
+  formData.append('banner', file, filename);
+
+  const response = await fetch('/api/profile/banner', {
+    method: 'PUT',
+    credentials: 'include',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Upload failed');
+  }
+
+  return response.json();
+}
+
+/**
+ * Get URL for user's banner image
+ *
+ * @param {number} userId - User ID
+ * @param {string|number} version - Optional cache-busting version/timestamp
+ * @returns {string} Banner image URL
+ */
+export function getProfileBannerUrl(userId, version) {
+  const baseUrl = `/user/${userId}/banner`;
+  return version ? `${baseUrl}?v=${version}` : baseUrl;
+}

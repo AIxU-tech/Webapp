@@ -74,7 +74,7 @@ export default function IconButton({
       } ${
         active ? ACTIVE_CLASSES[activeColor] : VARIANT_CLASSES[variant]
       } ${
-        disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+        disabled ? 'opacity-50' : 'cursor-pointer'
       } ${className}`}
       aria-label={label}
       {...props}

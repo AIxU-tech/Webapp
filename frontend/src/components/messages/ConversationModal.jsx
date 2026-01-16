@@ -24,8 +24,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useModal } from '../../hooks';
 import { useConversation, useSendMessage } from '../../hooks';
-import { XIcon, SendIcon } from '../icons';
-import { GradientButton, Avatar } from '../ui';
+import { SendIcon } from '../icons';
+import { GradientButton, Avatar, CloseButton } from '../ui';
 
 /**
  * MessageBubble - Displays a single message in the conversation
@@ -73,13 +73,10 @@ function ConversationHeader({ user, onClose }) {
           <p className="text-sm text-muted-foreground">{user.university}</p>
         </div>
       </div>
-      <button
+      <CloseButton
         onClick={onClose}
-        className="text-muted-foreground hover:text-foreground transition-colors p-2"
-        aria-label="Close conversation"
-      >
-        <XIcon />
-      </button>
+        ariaLabel="Close conversation"
+      />
     </div>
   );
 }

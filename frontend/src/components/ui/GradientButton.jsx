@@ -33,7 +33,7 @@
 
 import { forwardRef } from 'react';
 import { GRADIENT_PRIMARY, SHADOW_PRIMARY_HOVER } from '../../config/styles';
-import { LoaderIcon } from '../icons';
+import { SpinnerIcon } from '../icons';
 
 /**
  * Size variant class definitions
@@ -76,7 +76,7 @@ const GradientButton = forwardRef(function GradientButton(
     justify-center
     gap-2
     ${SIZE_CLASSES[size]}
-    ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}
+    ${isDisabled ? 'opacity-50' : 'hover:opacity-90 cursor-pointer'}
     ${className}
   `.trim().replace(/\s+/g, ' ');
 
@@ -85,7 +85,7 @@ const GradientButton = forwardRef(function GradientButton(
     <>
       {/* Loading spinner or left icon */}
       {loading ? (
-        <LoaderIcon className="h-4 w-4 animate-spin" />
+        <SpinnerIcon className="h-4 w-4" />
       ) : (
         icon && iconPosition === 'left' && icon
       )}

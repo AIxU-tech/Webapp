@@ -21,6 +21,7 @@ export { default as GradientButton } from './GradientButton';
 export { default as SecondaryButton } from './SecondaryButton';
 export { default as IconButton } from './IconButton';
 export { default as LikeButton } from './LikeButton';
+export { default as CloseButton } from './CloseButton';
 
 // Layout Components
 export { default as SectionHeader } from './SectionHeader';
@@ -31,6 +32,7 @@ export { default as Card } from './Card';
 export { default as StatCard } from './StatCard';
 export { default as StatItem } from './StatItem';
 export { default as UniversityCardSkeleton } from './UniversityCardSkeleton';
+export { default as UniversityLogo } from './UniversityLogo';
 
 // Generic UI Components
 export { default as Avatar, Avatar as AvatarComponent } from './Avatar';
@@ -44,3 +46,7 @@ export { default as UserListItem } from './UserListItem';
 // Feed Components
 export { default as FeedCard } from './FeedCard';
 export { default as FeedItemList } from './FeedItemList';
+
+// Banner Components
+export { default as BannerImage } from './BannerImage';
+export { default as BannerUploadModal } from './BannerUploadModal';
