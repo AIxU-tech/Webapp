@@ -33,7 +33,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { ExternalLinkIcon, ArrowLeftIcon, ChatBubbleIcon, SendIcon } from './icons';
+import { ExternalLinkIcon, ArrowLeftIcon, MessageCircleIcon, SendIcon } from './icons';
 import { useStoryChatMutation, usePaperChatMutation } from '../hooks/useNews';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
@@ -152,7 +152,7 @@ function ChatInterface({ messages, isLoading, onSendMessage }) {
           <button
             type="submit"
             disabled={!inputValue.trim()}
-            className="flex-shrink-0 p-2.5 rounded-xl bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white hover:shadow-lg hover:shadow-[hsl(220,85%,60%)]/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+            className="flex-shrink-0 p-2.5 rounded-xl bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white hover:shadow-lg hover:shadow-[hsl(220,85%,60%)]/30 transition-all duration-200 disabled:opacity-50 disabled:shadow-none"
             aria-label="Send message"
           >
             <SendIcon />
@@ -373,7 +373,7 @@ export default function ContentCard({
             <form onSubmit={handleStartChat} className="mt-4 pt-4 border-t border-border">
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <ChatBubbleIcon />
+                  <MessageCircleIcon className="h-5 w-5" />
                 </div>
                 <input
                   type="text"
@@ -386,7 +386,7 @@ export default function ContentCard({
                 <button
                   type="submit"
                   disabled={!summaryInput.trim() || mutation.isPending}
-                  className={`p-2 rounded-lg bg-gradient-to-br ${config.gradientFrom} ${config.gradientTo} text-white hover:shadow-lg hover:${config.shadowColor} transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none`}
+                  className={`p-2 rounded-lg bg-gradient-to-br ${config.gradientFrom} ${config.gradientTo} text-white hover:shadow-lg hover:${config.shadowColor} transition-all duration-200 disabled:opacity-50 disabled:shadow-none`}
                   aria-label="Start chat"
                 >
                   <SendIcon />

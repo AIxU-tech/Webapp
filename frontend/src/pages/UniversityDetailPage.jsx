@@ -27,10 +27,11 @@ import {
   useUpdateMemberRole,
   useUpdateUniversity,
   useUploadUniversityLogo,
+  useUploadUniversityBanner,
 } from '../hooks';
 
 // UI Components
-import { BaseModal, LoadingState, SecondaryButton } from '../components/ui';
+import { BaseModal, LoadingState, SecondaryButton, BannerUploadModal } from '../components/ui';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 // University Components
@@ -70,6 +71,7 @@ export default function UniversityDetailPage() {
   // University editing mutations
   const updateUniversityMutation = useUpdateUniversity();
   const uploadLogoMutation = useUploadUniversityLogo();
+  const uploadBannerMutation = useUploadUniversityBanner();
 
   // ---------------------------------------------------------------------------
   // Local State
@@ -78,7 +80,10 @@ export default function UniversityDetailPage() {
   const [activeTab, setActiveTab] = useState('about');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showEditIdentityModal, setShowEditIdentityModal] = useState(false);
+  const [showBannerModal, setShowBannerModal] = useState(false);
   const [logoKey, setLogoKey] = useState(Date.now());
+  const [bannerKey, setBannerKey] = useState(Date.now());
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState(null);
 
   // Error modal state
   const [errorModal, setErrorModal] = useState({
@@ -317,6 +322,32 @@ export default function UniversityDetailPage() {
     }
   };
 
+  // Handle uploading university banner with optimistic preview
+  const handleUploadBanner = async ({ blob, previewUrl }) => {
+    // Show optimistic preview immediately
+    setBannerPreviewUrl(previewUrl);
+
+    try {
+      await uploadBannerMutation.mutateAsync({
+        universityId: id,
+        file: blob,
+      });
+      // Success - bust browser cache and clear preview
+      setBannerKey(Date.now());
+      setBannerPreviewUrl(null);
+    } catch (error) {
+      console.error('Failed to upload banner:', error);
+      // Revert optimistic preview on error
+      setBannerPreviewUrl(null);
+      setErrorModal({
+        isOpen: true,
+        title: 'Upload Failed',
+        message: error.message || 'Failed to upload banner.',
+        navigateOnClose: false,
+      });
+    }
+  };
+
   // ---------------------------------------------------------------------------
   // Render: Loading State
   // ---------------------------------------------------------------------------
@@ -459,10 +490,25 @@ export default function UniversityDetailPage() {
         isAdmin={isAdmin}
       />
 
+      {/* Banner Upload Modal */}
+      <BannerUploadModal
+        isOpen={showBannerModal}
+        onClose={() => setShowBannerModal(false)}
+        onUpload={handleUploadBanner}
+        isUploading={uploadBannerMutation.isPending}
+        title="Update Club Banner"
+      />
+
       {university && (
         <div className="min-h-screen bg-background">
           {/* Hero Banner */}
-          <UniversityHeroBanner />
+          <UniversityHeroBanner
+            university={university}
+            canEdit={canEdit}
+            onEditBanner={() => setShowBannerModal(true)}
+            bannerPreviewUrl={bannerPreviewUrl}
+            bannerKey={bannerKey}
+          />
 
           {/* Identity Bar */}
           <UniversityIdentityBar

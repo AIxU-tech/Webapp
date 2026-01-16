@@ -19,7 +19,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PencilIcon, TrashIcon, XIcon, CheckIcon, ChatBubbleIcon } from './icons';
+import { PencilIcon, TrashIcon, XIcon, CheckIcon, MessageCircleIcon } from './icons';
 import { IconButton, LikeButton, Avatar } from './ui';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -165,7 +165,7 @@ export default function CommentCard({
             <button
               onClick={handleSaveEdit}
               disabled={!editText.trim()}
-              className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-white bg-primary rounded hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-white bg-primary rounded hover:bg-primary/90 disabled:opacity-50 transition-colors cursor-pointer"
             >
               <CheckIcon className="w-3 h-3" />
               <span>Save</span>
@@ -196,7 +196,7 @@ export default function CommentCard({
           />
           {onReply && isAuthenticated && (
             <IconButton
-              icon={ChatBubbleIcon}
+              icon={MessageCircleIcon}
               onClick={() => onReply(comment)}
               label="Reply to comment"
             />

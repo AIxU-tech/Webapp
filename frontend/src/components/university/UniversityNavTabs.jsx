@@ -66,7 +66,7 @@ export default function UniversityNavTabs({ activeTab, onTabChange, className = 
                 onClick={() => onTabChange(id)}
                 className={`
                   relative z-10 px-4 py-2 text-sm font-medium transition-colors rounded-md
-                  flex items-center gap-2
+                  flex items-center gap-2 cursor-pointer
                   ${isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}
                 `}
               >

@@ -93,7 +93,7 @@ export function ToggleTag({
     ? getSelectedStyles(variant)
     : 'bg-muted text-muted-foreground hover:bg-muted/80';
 
-  const disabledStyles = disabled ? 'opacity-50 cursor-not-allowed' : '';
+  const disabledStyles = disabled ? 'opacity-50' : '';
 
   // Size mapping to padding (matches Badge sizes but as buttons)
   const sizeStyles = {

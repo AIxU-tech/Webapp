@@ -63,7 +63,7 @@ export default function NoteCard({
       {/* Comment Button */}
       <button
         onClick={handleToggleComments}
-        className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 ${
+        className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer ${
           isCommentsExpanded
             ? 'text-primary bg-primary/10'
             : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -79,7 +79,7 @@ export default function NoteCard({
       <div className="relative">
         <button
           onClick={() => setIsSharePopoverOpen((prev) => !prev)}
-          className="flex items-center space-x-2 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+          className="flex items-center space-x-2 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 cursor-pointer"
           aria-label="Share note"
           aria-expanded={isSharePopoverOpen}
         >

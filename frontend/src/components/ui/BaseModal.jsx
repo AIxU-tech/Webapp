@@ -29,7 +29,7 @@
  */
 
 import { useModal } from '../../hooks';
-import { XIcon } from '../icons';
+import CloseButton from './CloseButton';
 
 /**
  * Size configurations for modal widths
@@ -97,14 +97,11 @@ export default function BaseModal({
             )}
             {!title && <div />}
             {showCloseButton && (
-              <button
-                type="button"
+              <CloseButton
                 onClick={onClose}
-                className="p-2 hover:bg-accent rounded-md transition-colors -mr-2"
-                aria-label="Close modal"
-              >
-                <XIcon />
-              </button>
+                ariaLabel="Close modal"
+                className="-mr-2"
+              />
             )}
           </div>
         )}

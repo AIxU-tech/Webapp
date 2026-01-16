@@ -41,7 +41,7 @@ export default function FormButton({
     bg-gradient-primary text-white
     px-6 py-3 rounded-lg font-semibold
     hover:shadow-hover transition-all duration-200
-    disabled:opacity-50 disabled:cursor-not-allowed
+    disabled:opacity-50
   `.trim();
 
   const widthClass = fullWidth ? 'w-full' : '';

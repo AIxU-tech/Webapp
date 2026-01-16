@@ -22,7 +22,8 @@
  * </Alert>
  */
 
-import { XIcon, InfoIcon, AlertCircleIcon, AlertTriangleIcon, CheckCircleIcon } from '../icons';
+import { InfoIcon, AlertCircleIcon, AlertTriangleIcon, CheckCircleIcon } from '../icons';
+import CloseButton from './CloseButton';
 
 /**
  * Variant configurations
@@ -97,14 +98,13 @@ export default function Alert({
         {/* Dismiss Button */}
         {dismissible && onDismiss && (
           <div className="ml-auto pl-3">
-            <button
-              type="button"
+            <CloseButton
               onClick={onDismiss}
-              className={`inline-flex rounded-md p-1.5 hover:bg-foreground/5 transition-colors ${config.iconClass}`}
-              aria-label="Dismiss"
-            >
-              <XIcon className="h-4 w-4" />
-            </button>
+              size="sm"
+              variant="subtle"
+              ariaLabel="Dismiss"
+              className={config.iconClass}
+            />
           </div>
         )}
       </div>

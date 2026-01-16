@@ -54,6 +54,11 @@ class User(UserMixin, db.Model):
     profile_picture_filename = db.Column(db.String(100), nullable=True)  # Original filename
     profile_picture_mimetype = db.Column(db.String(50), nullable=True)  # MIME type (image/jpeg, image/png, etc.)
 
+    # Banner image storage
+    banner_image = db.Column(db.LargeBinary, nullable=True)  # Store banner as binary data
+    banner_image_filename = db.Column(db.String(255), nullable=True)  # Original filename
+    banner_image_mimetype = db.Column(db.String(100), nullable=True)  # MIME type
+
     def get_university(self):
         from backend.models.university import University
         return University.query.filter_by(name=self.university).first()
@@ -139,6 +144,8 @@ class User(UserMixin, db.Model):
             'about_section': self.about_section,
             'avatar_url': self.avatar_url,
             'profile_picture_url': self.get_profile_picture_url(),
+            'banner_image_url': self.get_banner_image_url(),
+            'hasBanner': self.banner_image is not None,
             'location': self.location,
             'skills': self.get_skills_list(),
             'permissionLevel': self.permission_level,
@@ -170,6 +177,28 @@ class User(UserMixin, db.Model):
         self.profile_picture = None
         self.profile_picture_filename = None
         self.profile_picture_mimetype = None
+
+    # -------------------------------------------------------------------------
+    # Banner Image Methods
+    # -------------------------------------------------------------------------
+
+    def get_banner_image_url(self):
+        """Return banner image URL or None (frontend handles fallback)"""
+        if self.banner_image:
+            return url_for('profile.get_banner_image', user_id=self.id)
+        return None
+
+    def set_banner_image(self, image_data, filename, mimetype):
+        """Set banner image (image should be compressed before calling)"""
+        self.banner_image = image_data
+        self.banner_image_filename = filename
+        self.banner_image_mimetype = mimetype
+
+    def delete_banner_image(self):
+        """Remove banner image"""
+        self.banner_image = None
+        self.banner_image_filename = None
+        self.banner_image_mimetype = None
 
     # -------------------------------------------------------------------------
     # Note Like/Bookmark Methods

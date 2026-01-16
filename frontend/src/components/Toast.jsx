@@ -15,7 +15,8 @@
  */
 
 import { useEffect } from 'react';
-import { CheckCircleIcon, XIcon } from './icons';
+import { CheckCircleIcon } from './icons';
+import { CloseButton } from './ui';
 
 export default function Toast({ message, isVisible, onDismiss, duration = 3000 }) {
   useEffect(() => {
@@ -38,13 +39,13 @@ export default function Toast({ message, isVisible, onDismiss, duration = 3000 }
     >
       <CheckCircleIcon className="h-5 w-5 text-green-600 flex-shrink-0" />
       <span className="text-sm font-medium text-foreground">{message}</span>
-      <button
+      <CloseButton
         onClick={onDismiss}
-        className="ml-2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-        aria-label="Dismiss"
-      >
-        <XIcon className="h-4 w-4" />
-      </button>
+        size="sm"
+        variant="subtle"
+        ariaLabel="Dismiss"
+        className="ml-2"
+      />
     </div>
   );
 }

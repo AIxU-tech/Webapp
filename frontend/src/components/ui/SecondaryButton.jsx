@@ -32,7 +32,7 @@
  */
 
 import { forwardRef } from 'react';
-import { LoaderIcon } from '../icons';
+import { SpinnerIcon } from '../icons';
 
 /**
  * Size variant class definitions
@@ -102,7 +102,7 @@ const SecondaryButton = forwardRef(function SecondaryButton(
     justify-center
     gap-2
     ${SIZE_CLASSES[size]}
-    ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+    ${isDisabled ? 'opacity-50' : 'cursor-pointer'}
     ${className}
   `.trim().replace(/\s+/g, ' ');
 
@@ -111,7 +111,7 @@ const SecondaryButton = forwardRef(function SecondaryButton(
     <>
       {/* Loading spinner or left icon */}
       {loading ? (
-        <LoaderIcon className="h-4 w-4 animate-spin" />
+        <SpinnerIcon className="h-4 w-4" />
       ) : (
         icon && iconPosition === 'left' && icon
       )}

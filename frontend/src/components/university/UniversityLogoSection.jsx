@@ -76,7 +76,7 @@ export default function UniversityLogoSection({
             type="button"
             onClick={handleUploadClick}
             disabled={isUploading}
-            className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
+            className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
             aria-label="Change club logo"
           >
             <CameraIcon className="h-6 w-6 text-white" />

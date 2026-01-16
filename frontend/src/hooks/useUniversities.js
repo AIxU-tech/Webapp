@@ -23,6 +23,7 @@ import {
   updateMemberRole,
   updateUniversity,
   uploadUniversityLogo,
+  uploadUniversityBanner,
 } from '../api/universities';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
 
@@ -363,6 +364,75 @@ export function useUploadUniversityLogo() {
 
     onSettled: (_, __, { universityId }) => {
       // Invalidate to refetch with new logo URL (cache-busted)
+      queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
+    },
+  });
+}
+
+/**
+ * useUploadUniversityBanner Hook
+ *
+ * Mutation hook for uploading a university banner.
+ * Banner is automatically cropped to 5:1 aspect ratio.
+ * Handles cache invalidation after successful upload.
+ *
+ * @returns {object} React Query mutation result
+ *
+ * @example
+ * const uploadMutation = useUploadUniversityBanner();
+ * uploadMutation.mutate(
+ *   { universityId: 1, file: imageBlob },
+ *   { onSuccess: () => toast.success('Banner uploaded!') }
+ * );
+ */
+export function useUploadUniversityBanner() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ universityId, file }) => uploadUniversityBanner(universityId, file),
+
+    // Optimistic update: set hasBanner to true immediately
+    onMutate: async ({ universityId }) => {
+      await queryClient.cancelQueries({ queryKey: universityKeys.detail(universityId) });
+
+      const previousUniversity = queryClient.getQueryData(universityKeys.detail(universityId));
+
+      // Optimistically update hasBanner
+      if (previousUniversity) {
+        queryClient.setQueryData(universityKeys.detail(universityId), {
+          ...previousUniversity,
+          hasBanner: true,
+        });
+      }
+
+      return { previousUniversity, universityId };
+    },
+
+    // Update cache with new bannerUrl immediately on success (before invalidating)
+    onSuccess: (data, { universityId }) => {
+      if (data?.bannerUrl) {
+        const currentData = queryClient.getQueryData(universityKeys.detail(universityId));
+        if (currentData) {
+          queryClient.setQueryData(universityKeys.detail(universityId), {
+            ...currentData,
+            hasBanner: true,
+            bannerUrl: data.bannerUrl,
+          });
+        }
+      }
+    },
+
+    onError: (err, variables, context) => {
+      if (context?.previousUniversity) {
+        queryClient.setQueryData(
+          universityKeys.detail(context.universityId),
+          context.previousUniversity
+        );
+      }
+    },
+
+    onSettled: (_, __, { universityId }) => {
+      // Invalidate to refetch full data (ensures consistency)
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
     },
   });

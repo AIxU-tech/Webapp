@@ -85,6 +85,7 @@ export {
   useUpdateMemberRole,
   useUpdateUniversity,
   useUploadUniversityLogo,
+  useUploadUniversityBanner,
   universityKeys,
   prefetchUniversities,
 } from './useUniversities';
@@ -157,6 +158,7 @@ export {
   useUpdateProfile,
   useUploadProfilePicture,
   useDeleteProfilePicture,
+  useUploadProfileBanner,
   userKeys,
   prefetchUser,
 } from './useUsers';

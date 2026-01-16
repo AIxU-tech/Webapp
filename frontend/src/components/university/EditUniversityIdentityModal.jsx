@@ -1,16 +1,17 @@
 /**
  * EditUniversityIdentityModal Component
  *
- * Modal for editing university identity: logo, club name, and website URL.
- * University name is displayed but not editable (set during creation).
+ * Modal for editing university identity: logo, club name, and social links.
+ * Includes unsaved changes detection with confirmation dialog.
  *
  * @component
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { BaseModal, GradientButton, SecondaryButton, Alert } from '../ui';
 import UniversityLogoSection from './UniversityLogoSection';
 import SocialLinksInput from '../SocialLinksInput';
+import UnsavedChangesModal from '../UnsavedChangesModal';
 
 export default function EditUniversityIdentityModal({
   isOpen,
@@ -30,18 +31,46 @@ export default function EditUniversityIdentityModal({
   const [error, setError] = useState(null);
   const [logoError, setLogoError] = useState(null);
 
+  // Track initial values for unsaved changes detection
+  const [initialClubName, setInitialClubName] = useState('');
+  const [initialSocialLinks, setInitialSocialLinks] = useState([]);
+
+  // Unsaved changes modal state
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen && university) {
-      setClubName(university.clubName || '');
-      setSocialLinks(university.socialLinks || []);
+      const name = university.clubName || '';
+      const links = university.socialLinks || [];
+      setClubName(name);
+      setSocialLinks(links);
+      setInitialClubName(name);
+      setInitialSocialLinks(links);
       setError(null);
       setLogoError(null);
+      setShowUnsavedModal(false);
     }
   }, [isOpen, university]);
 
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    if (clubName !== initialClubName) return true;
+    if (JSON.stringify(socialLinks) !== JSON.stringify(initialSocialLinks)) return true;
+    return false;
+  }, [clubName, socialLinks, initialClubName, initialSocialLinks]);
+
+  // Handle close with unsaved changes check
+  const handleClose = useCallback(() => {
+    if (hasUnsavedChanges) {
+      setShowUnsavedModal(true);
+    } else {
+      onClose();
+    }
+  }, [hasUnsavedChanges, onClose]);
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setError(null);
 
     try {
@@ -68,13 +97,29 @@ export default function EditUniversityIdentityModal({
     setLogoError(message);
   };
 
+  // Unsaved changes modal handlers
+  const handleSaveAndClose = async () => {
+    setShowUnsavedModal(false);
+    await handleSubmit();
+  };
+
+  const handleDiscardAndClose = () => {
+    setShowUnsavedModal(false);
+    onClose();
+  };
+
+  const handleCancelClose = () => {
+    setShowUnsavedModal(false);
+  };
+
   if (!university) return null;
 
   return (
+    <>
     <BaseModal
       isOpen={isOpen}
-      onClose={onClose}
-      title="Edit Club Identity"
+      onClose={handleClose}
+      title="Edit Club Page"
       size="lg"
     >
       <div className="p-6">
@@ -108,22 +153,6 @@ export default function EditUniversityIdentityModal({
               {error}
             </Alert>
           )}
-
-          {/* University Name (read-only) */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              University Name
-            </label>
-            <input
-              type="text"
-              value={university.name}
-              disabled
-              className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-muted-foreground cursor-not-allowed"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              University name cannot be changed
-            </p>
-          </div>
 
           {/* Club Name */}
           <div>
@@ -159,15 +188,7 @@ export default function EditUniversityIdentityModal({
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
-            <SecondaryButton
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={isLoading}
-            >
-              Cancel
-            </SecondaryButton>
+          <div className="flex justify-end pt-4">
             <GradientButton
               type="submit"
               loading={isLoading}
@@ -193,5 +214,14 @@ export default function EditUniversityIdentityModal({
         )}
       </div>
     </BaseModal>
+
+    {/* Unsaved Changes Confirmation */}
+    <UnsavedChangesModal
+      isOpen={showUnsavedModal}
+      onSave={handleSaveAndClose}
+      onDiscard={handleDiscardAndClose}
+      onCancel={handleCancelClose}
+    />
+    </>
   );
 }

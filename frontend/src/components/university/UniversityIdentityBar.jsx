@@ -5,8 +5,8 @@
  * name, and action buttons. Slight translucency for modern look.
  */
 
-import { UniversitiesIcon, EditIcon, SocialLinkIcon } from '../icons';
-import { IconButton } from '../ui';
+import { EditIcon, SocialLinkIcon } from '../icons';
+import { IconButton, UniversityLogo } from '../ui';
 import { getUniversityLogoUrl } from '../../api/universities';
 import { getPlatformDisplayName, PLATFORM_ICON_COLORS } from '../../utils/socialLinks';
 
@@ -25,17 +25,13 @@ export default function UniversityIdentityBar({
         {/* Card with slight translucency */}
         <div className="bg-card/100 border border-border rounded-lg shadow-md p-6 flex items-center gap-6">
           {/* University Avatar/Logo */}
-          {logoUrl ? (
-            <img
-              src={logoUrl}
-              alt={`${clubName || name} logo`}
-              className="w-20 h-20 rounded-full border-4 border-card object-cover -mt-12 shadow-lg flex-shrink-0"
-            />
-          ) : (
-            <div className="w-20 h-20 rounded-full border-4 border-card bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] flex items-center justify-center -mt-12 shadow-lg flex-shrink-0">
-              <UniversitiesIcon className="h-10 w-10 text-white" />
-            </div>
-          )}
+          <UniversityLogo
+            university={university}
+            size="lg"
+            shape="circle"
+            cacheKey={logoKey}
+            className="border-4 border-card -mt-12 shadow-lg"
+          />
 
           {/* University Name */}
           <div className="flex-1 min-w-0">

@@ -218,6 +218,65 @@ export function useDeleteProfilePicture() {
   });
 }
 
+/**
+ * useUploadProfileBanner Hook
+ *
+ * Mutation hook for uploading a profile banner image.
+ * Banner is automatically cropped to 5:1 aspect ratio.
+ *
+ * @returns {object} React Query mutation result
+ *
+ * @example
+ * const uploadBannerMutation = useUploadProfileBanner();
+ *
+ * const handleUpload = async (blob) => {
+ *   await uploadBannerMutation.mutateAsync(blob);
+ * };
+ */
+export function useUploadProfileBanner() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (file) => {
+      const formData = new FormData();
+      const filename = file.name || 'banner.jpg';
+      formData.append('banner', file, filename);
+
+      const response = await fetch('/api/profile/banner', {
+        method: 'PUT',
+        credentials: 'include',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to upload banner');
+      }
+
+      return response.json();
+    },
+
+    // Update cache with new banner URL immediately on success (prevents flash)
+    onSuccess: (data) => {
+      if (data?.banner_image_url) {
+        // Update all user detail queries that might have this user
+        queryClient.setQueriesData({ queryKey: userKeys.all }, (oldData) => {
+          if (oldData && typeof oldData === 'object') {
+            return {
+              ...oldData,
+              banner_image_url: data.banner_image_url,
+              hasBanner: true,
+            };
+          }
+          return oldData;
+        });
+      }
+      // Then invalidate to ensure full consistency
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
+    },
+  });
+}
+
 // =============================================================================
 // Prefetch Utilities
 // =============================================================================

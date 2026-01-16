@@ -241,7 +241,7 @@ export default function CommentSection({ noteId, isExpanded }) {
                 </span>
                 <button
                   onClick={handleCancelReply}
-                  className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                  className="p-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                   aria-label="Cancel reply"
                 >
                   <XIcon className="w-4 h-4" />
@@ -269,7 +269,7 @@ export default function CommentSection({ noteId, isExpanded }) {
           <p className="text-sm text-muted-foreground text-center py-2">
             <button
               onClick={openAuthModal}
-              className="text-primary hover:underline"
+              className="text-primary hover:underline cursor-pointer"
             >
               Log in
             </button>{' '}

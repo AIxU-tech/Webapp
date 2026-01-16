@@ -239,7 +239,7 @@ export default function CitySearchInput({
           disabled={disabled}
           required={required}
           autoComplete="off"
-          className="w-full px-4 py-3 pl-11 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 pl-11 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground placeholder-muted-foreground disabled:opacity-50"
         />
 
         {/* Search icon */}

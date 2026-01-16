@@ -17,15 +17,10 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { MailIcon, ClockIcon } from './icons';
 
 // Default verification time (3 minutes)
 const DEFAULT_EXPIRY_SECONDS = 180;
-
-/**
- * Icon Components
- */
-const MailIcon = () => <div className="text-4xl mb-4">✉️</div>;
-const ClockIcon = () => <span className="timer-icon">⏰</span>;
 
 /**
  * EmailVerificationForm
@@ -183,7 +178,9 @@ export default function EmailVerificationForm({
 
   return (
     <div className="bg-card border border-border rounded-xl shadow-card p-8 text-center">
-      <MailIcon />
+      <div className="flex justify-center mb-4">
+        <MailIcon className="h-12 w-12 text-primary" />
+      </div>
 
       {/* Title */}
       <h1 className="text-2xl font-semibold text-foreground mb-2">
@@ -199,7 +196,7 @@ export default function EmailVerificationForm({
       <div className={`flex items-center justify-center gap-2 text-sm mb-6 ${
         isExpired ? 'text-red-600' : 'text-foreground'
       }`}>
-        <ClockIcon />
+        <ClockIcon className="h-4 w-4" />
         <span>
           Code expires in{' '}
           <strong>{isExpired ? 'expired' : formatTime(timeLeft)}</strong>
@@ -233,14 +230,14 @@ export default function EmailVerificationForm({
           disabled={loading || isExpired}
           maxLength={6}
           autoComplete="one-time-code"
-          className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground text-center text-lg font-mono tracking-widest placeholder-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground text-center text-lg font-mono tracking-widest placeholder-muted-foreground disabled:opacity-50"
           required
         />
 
         <button
           type="submit"
           disabled={loading || isExpired || code.length !== 6}
-          className="w-full bg-gradient-primary text-white px-6 py-3 rounded-lg font-semibold hover:shadow-hover transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-gradient-primary text-white px-6 py-3 rounded-lg font-semibold hover:shadow-hover transition-all duration-200 disabled:opacity-50"
         >
           {loading ? 'Verifying...' : isExpired ? 'Code Expired' : 'Verify Email'}
         </button>
@@ -255,7 +252,7 @@ export default function EmailVerificationForm({
           type="button"
           onClick={handleResendCode}
           disabled={resending}
-          className="w-full px-6 py-3 border border-border rounded-lg text-foreground font-medium hover:bg-muted transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-6 py-3 border border-border rounded-lg text-foreground font-medium hover:bg-muted transition-all duration-200 disabled:opacity-50"
         >
           {resending ? 'Sending...' : 'Resend Code'}
         </button>
