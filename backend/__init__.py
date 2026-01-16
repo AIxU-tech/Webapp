@@ -100,10 +100,14 @@ def create_app(config_class=Config):
         print("All tables ensured.")
 
         # One-time migration: move opportunity tags from JSON to normalized table
-        from backend.routes_v2.opportunities.helpers import migrate_json_tags_to_table
-        migrated = migrate_json_tags_to_table()
-        if migrated > 0:
-            print(f"Migrated {migrated} opportunity tags to normalized table.")
+        # Wrapped in try/except to allow app to start during flask db migrate/upgrade
+        try:
+            from backend.routes_v2.opportunities.helpers import migrate_json_tags_to_table
+            migrated = migrate_json_tags_to_table()
+            if migrated > 0:
+                print(f"Migrated {migrated} opportunity tags to normalized table.")
+        except Exception as e:
+            print(f"Skipping tag migration (schema may need updating): {e}")
 
         # In development mode, ensure dev user exists for auto-login.
         # This creates dev@test.edu if not present, enabling seamless dev experience.
