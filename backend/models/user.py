@@ -37,6 +37,10 @@ class User(UserMixin, db.Model):
     # JSON field for skills list
     skills = db.Column(db.Text, nullable=True)  # Store as JSON string
 
+    # Social links stored as JSON array: [{"type": "linkedin", "url": "..."}, ...]
+    # Supported types: linkedin, x, instagram, github, discord, youtube, website
+    social_links = db.Column(db.Text, nullable=True)
+
     # DEPRECATED: interests column is no longer used by the application.
     # The column may still exist in the database but is not exposed in the API.
     interests = db.Column(db.Text, nullable=True)
@@ -90,6 +94,33 @@ class User(UserMixin, db.Model):
     def set_skills_list(self, skills_list):
         """Convert list to JSON string for storage"""
         self.skills = json.dumps(skills_list) if skills_list else None
+
+    # -------------------------------------------------------------------------
+    # Social Links Methods
+    # -------------------------------------------------------------------------
+
+    def get_social_links_list(self):
+        """
+        Parse social_links JSON to list.
+
+        Returns:
+            List of social link dicts, e.g., [{"type": "linkedin", "url": "..."}]
+        """
+        if self.social_links:
+            try:
+                return json.loads(self.social_links)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return []
+
+    def set_social_links_list(self, links):
+        """
+        Serialize list of social links to JSON.
+
+        Args:
+            links: List of dicts with 'type' and 'url' keys
+        """
+        self.social_links = json.dumps(links) if links else None
 
     # DEPRECATED: interests functionality has been removed
     def get_interests_list(self):
@@ -148,6 +179,7 @@ class User(UserMixin, db.Model):
             'hasBanner': self.banner_image is not None,
             'location': self.location,
             'skills': self.get_skills_list(),
+            'socialLinks': self.get_social_links_list(),
             'permissionLevel': self.permission_level,
         }
 

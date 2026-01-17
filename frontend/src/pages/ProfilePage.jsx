@@ -43,6 +43,7 @@ import {
 } from '../components/ui';
 import ConfirmationModal from '../components/ConfirmationModal';
 import FormInput from '../components/FormInput';
+import SocialLinksInput from '../components/SocialLinksInput';
 
 // Profile Components
 import {
@@ -116,6 +117,7 @@ export default function ProfilePage() {
     first_name: userData?.first_name || '',
     last_name: userData?.last_name || '',
     location: userData?.location || '',
+    socialLinks: userData?.socialLinks || [],
   });
 
   const {
@@ -404,6 +406,17 @@ export default function ProfilePage() {
                 value={formData.location || ''}
                 onChange={handleChange}
                 placeholder="City, Country"
+              />
+            </div>
+
+            {/* Social Links */}
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">
+                Social Links
+              </label>
+              <SocialLinksInput
+                value={formData.socialLinks || []}
+                onChange={(links) => setFormData({ ...formData, socialLinks: links })}
               />
             </div>
 
