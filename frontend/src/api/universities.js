@@ -55,8 +55,36 @@ export async function getUniversity(id) {
   return api.get(`/universities/${id}`);
 }
 
-// NOTE: University creation is handled through the university request flow.
-// See universityRequests.js for the request/approval process.
+/**
+ * Create a new university (site admin only)
+ *
+ * Creates a new university page. Universities start with no president -
+ * admin promotes a member to president via the Members tab after they register.
+ *
+ * Note: Regular university creation flows through universityRequests.js.
+ * This endpoint is for admins to pre-create universities during onboarding.
+ *
+ * @param {object} data - University data
+ * @param {string} data.name - University name (required)
+ * @param {string} data.clubName - AI club name (required)
+ * @param {string} data.emailDomain - Email domain for auto-enrollment (required)
+ * @param {string} [data.location] - Geographic location
+ * @param {string} [data.description] - Club description
+ * @param {string} [data.websiteUrl] - Club website URL
+ * @returns {Promise<object>} Created university object
+ * @throws {ApiError} If not admin (403) or validation fails (400)
+ *
+ * @example
+ * await createUniversity({
+ *   name: 'University of Oregon',
+ *   clubName: 'UO AI Club',
+ *   emailDomain: 'uoregon',
+ *   location: 'Eugene, OR',
+ * });
+ */
+export async function createUniversity(data) {
+  return api.post('/universities', data);
+}
 
 /**
  * Update university details (admin only)
@@ -128,4 +156,71 @@ export async function removeMember(universityId, userId) {
  */
 export async function updateMemberRole(universityId, userId, role) {
   return api.post(`/universities/${universityId}/roles/${userId}`, { role });
+}
+
+// =============================================================================
+// Logo Management API Functions
+// =============================================================================
+
+/**
+ * Upload or replace university logo
+ *
+ * @param {number} universityId - University ID
+ * @param {Blob} file - Logo image file (will be compressed server-side)
+ * @returns {Promise<object>} Response with success status and hasLogo
+ * @throws {ApiError} If not authorized (403) or invalid file (400)
+ */
+export async function uploadUniversityLogo(universityId, file) {
+  const formData = new FormData();
+  const filename = file.name || 'logo.jpg';
+  formData.append('logo', file, filename);
+
+  return api.upload(`/universities/${universityId}/logo`, formData, 'PUT');
+}
+
+/**
+ * Get URL for university logo
+ *
+ * @param {number} universityId - University ID
+ * @param {number} [version] - Optional cache-busting version (timestamp)
+ * @returns {string} URL to fetch the logo image
+ */
+export function getUniversityLogoUrl(universityId, version) {
+  const baseUrl = `/university/${universityId}/logo`;
+  return version ? `${baseUrl}?v=${version}` : baseUrl;
+}
+
+// =============================================================================
+// Banner Management API Functions
+// =============================================================================
+
+/**
+ * Upload or replace university banner
+ *
+ * Images are automatically center-cropped to 5:1 aspect ratio
+ * and compressed to 1500x300.
+ *
+ * @param {number} universityId - University ID
+ * @param {Blob} file - Banner image file
+ * @returns {Promise<object>} Response with success status and hasBanner
+ * @throws {ApiError} If not authorized (403) or invalid file (400)
+ */
+export async function uploadUniversityBanner(universityId, file) {
+  const formData = new FormData();
+  const filename = file.name || 'banner.jpg';
+  formData.append('banner', file, filename);
+
+  return api.upload(`/universities/${universityId}/banner`, formData, 'PUT');
+}
+
+/**
+ * Get URL for university banner
+ *
+ * @param {number} universityId - University ID
+ * @param {number} [version] - Optional cache-busting version (timestamp)
+ * @returns {string} URL to fetch the banner image
+ */
+export function getUniversityBannerUrl(universityId, version) {
+  const baseUrl = `/university/${universityId}/banner`;
+  return version ? `${baseUrl}?v=${version}` : baseUrl;
 }

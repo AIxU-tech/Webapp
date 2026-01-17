@@ -84,7 +84,7 @@ export default function SharePopover({
           />
           <button
             onClick={handleCopy}
-            className={`flex items-center justify-center w-9 h-9 rounded-md transition-colors ${isCopied
+            className={`flex items-center justify-center w-9 h-9 rounded-md transition-colors cursor-pointer ${isCopied
               ? 'bg-green-500/10 text-green-600'
               : 'bg-accent text-foreground hover:bg-accent/80'
               }`}

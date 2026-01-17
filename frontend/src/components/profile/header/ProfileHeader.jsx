@@ -6,7 +6,7 @@
  * Stats are intentionally omitted - they appear in the sidebar.
  */
 
-import { SecondaryButton, Avatar } from '../../ui';
+import { SecondaryButton, Avatar, BannerImage } from '../../ui';
 import {
   UniversitiesIcon,
   MapPinIcon,
@@ -14,9 +14,10 @@ import {
   MessagesIcon,
   LogOutIcon,
 } from '../../icons';
+import { getProfileBannerUrl } from '../../../api/users';
 
-// Import banner image directly
-import bannerImage from './images/default-profile-banner.jpg';
+// Import default banner image
+import defaultBannerImage from './images/default-profile-banner.jpg';
 
 export default function ProfileHeader({
   user,
@@ -24,20 +25,29 @@ export default function ProfileHeader({
   onEditProfile,
   onLogout,
   onMessage,
+  onEditBanner,
+  bannerPreviewUrl,
+  bannerKey,
 }) {
   // Compose headline from university
-  const headline = user?.university ? `AI Researcher · ${user.university}` : 'AI Enthusiast';
+  const headline = user?.university ? `${user.university}` : 'AI Enthusiast';
+
+  // Determine banner URL - use preview for optimistic update, otherwise construct URL with cache-buster
+  const bannerUrl = bannerPreviewUrl ||
+    (user?.hasBanner ? getProfileBannerUrl(user.id, bannerKey) : null);
 
   return (
     <div className="relative">
-      {/* Banner image - extends to component edges */}
-      <div className="relative h-32 sm:h-40 rounded-t-2xl overflow-hidden">
-        <img
-          src={bannerImage}
-          alt=""
-          className="w-full h-full object-cover"
-        />
-      </div>
+      {/* Banner image with edit overlay */}
+      <BannerImage
+        imageUrl={bannerUrl}
+        defaultImage={defaultBannerImage}
+        canEdit={isOwnProfile}
+        onEdit={onEditBanner}
+        height="h-32 sm:h-40"
+        rounded="rounded-t-2xl"
+        altText={`${user?.full_name || 'User'}'s banner`}
+      />
 
       {/* Content area */}
       <div className="relative bg-card rounded-b-2xl border border-t-0 border-border p-6 pt-16 sm:pt-20">

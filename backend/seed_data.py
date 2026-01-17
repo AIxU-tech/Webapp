@@ -111,7 +111,6 @@ def ensure_dev_user():
     )
     dev_user.set_password(DEV_USER_PASSWORD)
     dev_user.set_skills_list(['Development', 'Testing'])
-    dev_user.set_interests_list(['Debugging', 'Local Dev'])
 
     db.session.add(dev_user)
     db.session.commit()
@@ -195,13 +194,13 @@ def seed_universities():
             "email_domain": "uw",
             "description": "UW's AI community fostering collaboration between students and the Seattle tech industry."
         },
-        {
-            "name": "University of Colorado Boulder",
-            "clubName": "CU Boulder AI",
-            "location": "Boulder, CO",
-            "email_domain": "colorado",
-            "description": "CU Boulder's AI community fostering collaboration between students and the Boulder tech industry."
-        }
+        # {
+        #     "name": "University of Colorado Boulder",
+        #     "clubName": "CU Boulder AI",
+        #     "location": "Boulder, CO",
+        #     "email_domain": "colorado",
+        #     "description": "CU Boulder's AI community fostering collaboration between students and the Boulder tech industry."
+        # }
     ]
 
     universities = []
@@ -240,7 +239,6 @@ def seed_users(universities):
             "about_section": "AI enthusiast passionate about machine learning and its applications.",
             "location": "Eugene, OR",
             "skills": ["Python", "PyTorch", "Machine Learning", "React"],
-            "interests": ["Deep Learning", "NLP", "Computer Vision"],
             "permission_level": ADMIN
         },
         {
@@ -249,8 +247,7 @@ def seed_users(universities):
             "last_name": "Smith",
             "about_section": "CS major interested in reinforcement learning.",
             "location": "Eugene, OR",
-            "skills": ["Python", "TensorFlow"],
-            "interests": ["Reinforcement Learning", "Game AI"]
+            "skills": ["Python", "TensorFlow"]
         },
         {
             "email": "mwilson@uoregon.edu",
@@ -258,8 +255,7 @@ def seed_users(universities):
             "last_name": "Wilson",
             "about_section": "Data science enthusiast exploring AI ethics.",
             "location": "Portland, OR",
-            "skills": ["R", "Python", "SQL"],
-            "interests": ["AI Ethics", "Data Science"]
+            "skills": ["R", "Python", "SQL"]
         },
         # Stanford students
         {
@@ -268,8 +264,7 @@ def seed_users(universities):
             "last_name": "Lee",
             "about_section": "PhD candidate researching transformer architectures.",
             "location": "Palo Alto, CA",
-            "skills": ["PyTorch", "JAX", "CUDA"],
-            "interests": ["Transformers", "NLP", "Efficient ML"]
+            "skills": ["PyTorch", "JAX", "CUDA"]
         },
         {
             "email": "schen@stanford.edu",
@@ -277,8 +272,7 @@ def seed_users(universities):
             "last_name": "Chen",
             "about_section": "Undergrad building AI-powered accessibility tools.",
             "location": "Stanford, CA",
-            "skills": ["Python", "Swift", "CoreML"],
-            "interests": ["Accessibility", "Mobile ML", "HCI"]
+            "skills": ["Python", "Swift", "CoreML"]
         },
         {
             "email": "rjohnson@stanford.edu",
@@ -286,8 +280,7 @@ def seed_users(universities):
             "last_name": "Johnson",
             "about_section": "Exploring the intersection of AI and robotics.",
             "location": "Stanford, CA",
-            "skills": ["ROS", "Python", "C++"],
-            "interests": ["Robotics", "Computer Vision", "SLAM"]
+            "skills": ["ROS", "Python", "C++"]
         },
         # MIT students
         {
@@ -296,8 +289,7 @@ def seed_users(universities):
             "last_name": "Patel",
             "about_section": "Working on AI safety and alignment research.",
             "location": "Cambridge, MA",
-            "skills": ["Python", "Math", "Philosophy"],
-            "interests": ["AI Safety", "Alignment", "Ethics"]
+            "skills": ["Python", "Math", "Philosophy"]
         },
         {
             "email": "tkim@mit.edu",
@@ -305,8 +297,7 @@ def seed_users(universities):
             "last_name": "Kim",
             "about_section": "Building neural network hardware accelerators.",
             "location": "Boston, MA",
-            "skills": ["Verilog", "Python", "C"],
-            "interests": ["Hardware", "Edge AI", "Optimization"]
+            "skills": ["Verilog", "Python", "C"]
         },
         {
             "email": "lgarcia@mit.edu",
@@ -314,8 +305,7 @@ def seed_users(universities):
             "last_name": "Garcia",
             "about_section": "Passionate about democratizing AI education.",
             "location": "Cambridge, MA",
-            "skills": ["Python", "JavaScript", "Teaching"],
-            "interests": ["Education", "MLOps", "Open Source"]
+            "skills": ["Python", "JavaScript", "Teaching"]
         },
         # Berkeley students
         {
@@ -324,8 +314,7 @@ def seed_users(universities):
             "last_name": "Wang",
             "about_section": "Research assistant in the Berkeley AI Research lab.",
             "location": "Berkeley, CA",
-            "skills": ["PyTorch", "Distributed Computing", "Python"],
-            "interests": ["Distributed ML", "Large Models", "Systems"]
+            "skills": ["PyTorch", "Distributed Computing", "Python"]
         },
         {
             "email": "ehernandez@berkeley.edu",
@@ -333,8 +322,7 @@ def seed_users(universities):
             "last_name": "Hernandez",
             "about_section": "Focusing on fair and unbiased AI systems.",
             "location": "Oakland, CA",
-            "skills": ["Python", "Statistics", "Fairlearn"],
-            "interests": ["Fairness", "Bias Detection", "ML Interpretability"]
+            "skills": ["Python", "Statistics", "Fairlearn"]
         },
         {
             "email": "jthompson@berkeley.edu",
@@ -342,8 +330,7 @@ def seed_users(universities):
             "last_name": "Thompson",
             "about_section": "Full-stack developer integrating LLMs into products.",
             "location": "Berkeley, CA",
-            "skills": ["TypeScript", "Python", "LangChain"],
-            "interests": ["LLMs", "Product Development", "Startups"]
+            "skills": ["TypeScript", "Python", "LangChain"]
         },
         # CMU students
         {
@@ -352,8 +339,7 @@ def seed_users(universities):
             "last_name": "Brown",
             "about_section": "Robotics PhD student working on manipulation.",
             "location": "Pittsburgh, PA",
-            "skills": ["Python", "ROS", "Reinforcement Learning"],
-            "interests": ["Robotics", "Manipulation", "Sim2Real"]
+            "skills": ["Python", "ROS", "Reinforcement Learning"]
         },
         {
             "email": "mzhang@cmu.edu",
@@ -361,8 +347,7 @@ def seed_users(universities):
             "last_name": "Zhang",
             "about_section": "NLP researcher specializing in multilingual models.",
             "location": "Pittsburgh, PA",
-            "skills": ["Python", "Transformers", "Linguistics"],
-            "interests": ["NLP", "Multilingual AI", "Translation"]
+            "skills": ["Python", "Transformers", "Linguistics"]
         },
         {
             "email": "kwhite@cmu.edu",
@@ -370,8 +355,7 @@ def seed_users(universities):
             "last_name": "White",
             "about_section": "Combining art and AI for generative creativity.",
             "location": "Pittsburgh, PA",
-            "skills": ["Python", "Stable Diffusion", "Processing"],
-            "interests": ["Generative Art", "Creative AI", "Design"]
+            "skills": ["Python", "Stable Diffusion", "Processing"]
         },
         # UW students
         {
@@ -380,8 +364,7 @@ def seed_users(universities):
             "last_name": "Park",
             "about_section": "Working at the intersection of AI and healthcare.",
             "location": "Seattle, WA",
-            "skills": ["Python", "TensorFlow", "Medical Imaging"],
-            "interests": ["Healthcare AI", "Medical Imaging", "Diagnostics"]
+            "skills": ["Python", "TensorFlow", "Medical Imaging"]
         },
         {
             "email": "omartin@uw.edu",
@@ -389,8 +372,7 @@ def seed_users(universities):
             "last_name": "Martin",
             "about_section": "Building conversational AI systems.",
             "location": "Seattle, WA",
-            "skills": ["Python", "Rasa", "Dialogflow"],
-            "interests": ["Conversational AI", "Chatbots", "Voice Assistants"]
+            "skills": ["Python", "Rasa", "Dialogflow"]
         },
         {
             "email": "crodriguez@uw.edu",
@@ -398,8 +380,7 @@ def seed_users(universities):
             "last_name": "Rodriguez",
             "about_section": "ML engineer focusing on recommendation systems.",
             "location": "Bellevue, WA",
-            "skills": ["Python", "Spark", "RecSys"],
-            "interests": ["Recommendations", "Personalization", "Big Data"]
+            "skills": ["Python", "Spark", "RecSys"]
         },
         {
             "email": "etaylor@uw.edu",
@@ -407,8 +388,7 @@ def seed_users(universities):
             "last_name": "Taylor",
             "about_section": "Climate tech advocate using AI for sustainability.",
             "location": "Seattle, WA",
-            "skills": ["Python", "Satellite Imagery", "GIS"],
-            "interests": ["Climate Tech", "Sustainability", "Remote Sensing"]
+            "skills": ["Python", "Satellite Imagery", "GIS"]
         },
         {
             "email": "wlee@uw.edu",
@@ -416,18 +396,16 @@ def seed_users(universities):
             "last_name": "Lee",
             "about_section": "Security researcher exploring adversarial ML.",
             "location": "Seattle, WA",
-            "skills": ["Python", "Security", "Adversarial ML"],
-            "interests": ["ML Security", "Adversarial Examples", "Robustness"]
+            "skills": ["Python", "Security", "Adversarial ML"]
         },
-        {
-            "email": "alsa8624@colorado.edu",
-            "first_name": "Alex",
-            "last_name": "Savard",
-            "about_section": "Computer science student interested in AI and machine learning.",
-            "location": "Boulder, CO",
-            "skills": ["Python", "Java", "C++"],
-            "interests": ["AI", "Machine Learning", "Computer Science"]
-        }
+        # {
+        #     "email": "alsa8624@colorado.edu",
+        #     "first_name": "Alex",
+        #     "last_name": "Savard",
+        #     "about_section": "Computer science student interested in AI and machine learning.",
+        #     "location": "Boulder, CO",
+        #     "skills": ["Python", "Java", "C++"]
+        # }
     ]
 
     users = []
@@ -447,7 +425,6 @@ def seed_users(universities):
         # All seeded users share the same password for easy testing
         user.set_password(SEED_USER_PASSWORD)
         user.set_skills_list(data.get("skills", []))
-        user.set_interests_list(data.get("interests", []))
 
         # Set university based on email domain
         domain = data["email"].split("@")[1].replace(".edu", "")

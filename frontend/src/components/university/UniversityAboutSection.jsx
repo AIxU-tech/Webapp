@@ -1,7 +1,8 @@
 /**
- * AboutSection
+ * UniversityAboutSection
  *
- * Displays the user's bio/about section with inline editing capability.
+ * Displays the university/club description with inline editing capability.
+ * Adapted from the profile AboutSection with same edit behaviors.
  *
  * Edit behavior (optimistic auto-save model):
  * - Enter: saves changes and exits edit mode immediately
@@ -9,28 +10,24 @@
  * - Click outside: saves changes and exits edit mode immediately
  * - ESC with changes: shows save/discard modal
  * - ESC without changes: exits edit mode
- * - Cmd+Z: native browser undo within textarea
  * - Browser close/refresh with changes: shows native browser warning
- *
- * Uses optimistic updates - exits immediately on save, reverts if save fails.
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import ProfileSection from './ProfileSection';
-import EmptyState from '../../ui/EmptyState';
-import { IconButton, Alert } from '../../ui';
-import { EditIcon } from '../../icons';
-import UnsavedChangesModal from '../../UnsavedChangesModal';
-import { useBeforeUnload, useClickOutside, useEscapeKey } from '../../../hooks';
+import { Card, IconButton, Alert } from '../ui';
+import EmptyState from '../ui/EmptyState';
+import { EditIcon } from '../icons';
+import UnsavedChangesModal from '../UnsavedChangesModal';
+import { useBeforeUnload, useClickOutside, useEscapeKey } from '../../hooks';
 
-export default function AboutSection({
-  aboutText,
-  isOwnProfile,
+export default function UniversityAboutSection({
+  description,
+  canEdit,
   onSave,
 }) {
   // Core editing state
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(aboutText || '');
+  const [editValue, setEditValue] = useState(description || '');
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [error, setError] = useState(null);
 
@@ -39,7 +36,7 @@ export default function AboutSection({
   const containerRef = useRef(null);
 
   // Determine if user has made changes
-  const hasUnsavedChanges = isEditing && editValue !== (aboutText || '');
+  const hasUnsavedChanges = isEditing && editValue !== (description || '');
 
   // Show browser warning on close/refresh with unsaved changes
   useBeforeUnload(hasUnsavedChanges);
@@ -60,16 +57,11 @@ export default function AboutSection({
     }
   }, [isEditing]);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Save and Exit Handlers (Optimistic Updates)
-  // ─────────────────────────────────────────────────────────────────────────────
-
   // Save changes and exit edit mode (optimistic - exits immediately)
   const saveAndExit = useCallback(async () => {
     if (!onSave) return;
 
-    // Only save if there are actual changes
-    if (editValue !== (aboutText || '')) {
+    if (editValue !== (description || '')) {
       const valueToSave = editValue;
 
       // Optimistic: exit immediately
@@ -88,14 +80,14 @@ export default function AboutSection({
       // No changes, just exit
       setIsEditing(false);
     }
-  }, [editValue, aboutText, onSave]);
+  }, [editValue, description, onSave]);
 
   // Exit without saving (discard changes)
   const discardAndExit = useCallback(() => {
-    setEditValue(aboutText || '');
+    setEditValue(description || '');
     setIsEditing(false);
     setShowDiscardModal(false);
-  }, [aboutText]);
+  }, [description]);
 
   // Cancel the modal and stay in edit mode
   const cancelModal = useCallback(() => {
@@ -123,13 +115,10 @@ export default function AboutSection({
     }
   }, [editValue, onSave]);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Click Outside Handler - Auto-save when clicking outside the edit area
-  // ─────────────────────────────────────────────────────────────────────────────
-
+  // Click outside handler - auto-save
   useClickOutside(containerRef, saveAndExit, isEditing);
 
-  // Handle ESC key at document level (works even if textarea loses focus)
+  // Handle ESC key
   const handleEscapeKey = useCallback(() => {
     if (hasUnsavedChanges) {
       setShowDiscardModal(true);
@@ -140,49 +129,43 @@ export default function AboutSection({
 
   useEscapeKey(isEditing, handleEscapeKey);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Keyboard Handlers
-  // ─────────────────────────────────────────────────────────────────────────────
-
+  // Keyboard handlers
   const handleKeyDown = useCallback((e) => {
     // Enter (without Shift) saves and exits
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       saveAndExit();
     }
-    // Shift+Enter, Cmd+Z, etc. are handled natively by the textarea
-    // ESC is handled at document level via useEscapeKey
   }, [saveAndExit]);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Enter Edit Mode
-  // ─────────────────────────────────────────────────────────────────────────────
-
+  // Enter edit mode
   const handleStartEdit = useCallback(() => {
-    setEditValue(aboutText || '');
+    setEditValue(description || '');
     setIsEditing(true);
-  }, [aboutText]);
+  }, [description]);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────────────────────────────────────
+  const hasContent = description && description.trim().length > 0;
 
-  const hasContent = aboutText && aboutText.trim().length > 0;
-
-  // Edit button - only shown on own profile when not editing
-  const editAction = isOwnProfile && !isEditing && (
+  // Edit button - only shown when canEdit and not editing
+  const editAction = canEdit && !isEditing && (
     <IconButton
       icon={EditIcon}
       onClick={handleStartEdit}
       variant="ghost"
       size="sm"
-      label="Edit about"
+      label="Edit description"
     />
   );
 
   return (
     <>
-      <ProfileSection title="About" action={editAction}>
+      <Card padding="md">
+        {/* Header with title and edit action */}
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <h3 className="text-lg font-semibold text-foreground">About</h3>
+          {editAction}
+        </div>
+
         {/* Error message if save failed */}
         {error && (
           <Alert
@@ -203,7 +186,7 @@ export default function AboutSection({
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Tell others about yourself..."
+              placeholder="Tell others about your club..."
               rows={5}
               className="w-full px-4 py-3 bg-muted border border-border rounded-lg
                          focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
@@ -218,23 +201,23 @@ export default function AboutSection({
             </p>
           </div>
         ) : hasContent ? (
-          // Display mode - show the about text
-          <p className="text-sm text-foreground/70 whitespace-pre-wrap leading-relaxed">
-            {aboutText}
+          // Display mode - show the description text
+          <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+            {description}
           </p>
         ) : (
           // Empty state
           <EmptyState
-            title={isOwnProfile ? 'Share your story' : 'No bio yet'}
+            title={canEdit ? 'Add a description' : 'No description available'}
             description={
-              isOwnProfile
-                ? 'Tell others about yourself and your AI journey'
-                : 'This user hasn\'t added a bio yet.'
+              canEdit
+                ? 'Tell others about your club and what you do'
+                : 'This club hasn\'t added a description yet.'
             }
             className="py-8"
           />
         )}
-      </ProfileSection>
+      </Card>
 
       {/* Modal shown only when ESC pressed with changes */}
       <UnsavedChangesModal

@@ -5,9 +5,7 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { Card, StatItem, SecondaryButton } from './ui';
-import { AcademicCapIcon } from './icons';
-import { GRADIENT_PRIMARY } from '../config/styles';
+import { Card, StatItem, SecondaryButton, UniversityLogo } from './ui';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 
@@ -38,12 +36,8 @@ export default function UniversityCard({ university }) {
           </p>
         </div>
 
-        {/* Gradient icon badge */}
-        <div
-          className={`w-12 h-12 ${GRADIENT_PRIMARY} rounded-lg flex items-center justify-center flex-shrink-0 ml-3`}
-        >
-          <AcademicCapIcon className="h-6 w-6 text-white" />
-        </div>
+        {/* University Logo */}
+        <UniversityLogo university={university} size="md" shape="rounded" className="ml-3" />
       </div>
 
       {/* Club Information */}

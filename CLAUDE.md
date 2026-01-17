@@ -165,7 +165,7 @@ All models in `backend/models/` inherit from `db.Model`.
 ### User (`backend/models/user.py`)
 **Core fields:** `id`, `email`, `password_hash`, `permission_level`
 **Profile:** `first_name`, `last_name`, `university`, `about_section`, `location`
-**JSON fields:** `skills`, `interests`
+**JSON fields:** `skills`
 **Media:** `profile_picture` (binary), `profile_picture_filename`, `profile_picture_mimetype`
 **Stats:** `post_count`, `follower_count`, `following_count`
 

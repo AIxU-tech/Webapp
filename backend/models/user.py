@@ -34,9 +34,12 @@ class User(UserMixin, db.Model):
     avatar_url = db.Column(db.String(200), nullable=True)
     location = db.Column(db.String(100), nullable=True)
 
-    # JSON fields for lists (skills and interests)
+    # JSON field for skills list
     skills = db.Column(db.Text, nullable=True)  # Store as JSON string
-    interests = db.Column(db.Text, nullable=True)  # Store as JSON string
+
+    # DEPRECATED: interests column is no longer used by the application.
+    # The column may still exist in the database but is not exposed in the API.
+    interests = db.Column(db.Text, nullable=True)
 
     # DEPRECATED: These JSON columns have been replaced by proper relationship tables.
     # - liked_universities -> UserLikedUniversity table
@@ -50,6 +53,11 @@ class User(UserMixin, db.Model):
     profile_picture = db.Column(db.LargeBinary, nullable=True)  # Store image as binary data
     profile_picture_filename = db.Column(db.String(100), nullable=True)  # Original filename
     profile_picture_mimetype = db.Column(db.String(50), nullable=True)  # MIME type (image/jpeg, image/png, etc.)
+
+    # Banner image storage
+    banner_image = db.Column(db.LargeBinary, nullable=True)  # Store banner as binary data
+    banner_image_filename = db.Column(db.String(255), nullable=True)  # Original filename
+    banner_image_mimetype = db.Column(db.String(100), nullable=True)  # MIME type
 
     def get_university(self):
         from backend.models.university import University
@@ -83,18 +91,14 @@ class User(UserMixin, db.Model):
         """Convert list to JSON string for storage"""
         self.skills = json.dumps(skills_list) if skills_list else None
 
+    # DEPRECATED: interests functionality has been removed
     def get_interests_list(self):
-        """Convert interests JSON string back to list"""
-        if self.interests:
-            try:
-                return json.loads(self.interests)
-            except:
-                return []
+        """DEPRECATED: interests are no longer used"""
         return []
 
     def set_interests_list(self, interests_list):
-        """Convert list to JSON string for storage"""
-        self.interests = json.dumps(interests_list) if interests_list else None
+        """DEPRECATED: interests are no longer used"""
+        pass
 
     def increment_post_count(self):
         """Increment post count when user creates a new post"""
@@ -140,9 +144,10 @@ class User(UserMixin, db.Model):
             'about_section': self.about_section,
             'avatar_url': self.avatar_url,
             'profile_picture_url': self.get_profile_picture_url(),
+            'banner_image_url': self.get_banner_image_url(),
+            'hasBanner': self.banner_image is not None,
             'location': self.location,
             'skills': self.get_skills_list(),
-            'interests': self.get_interests_list(),
             'permissionLevel': self.permission_level,
         }
 
@@ -172,6 +177,28 @@ class User(UserMixin, db.Model):
         self.profile_picture = None
         self.profile_picture_filename = None
         self.profile_picture_mimetype = None
+
+    # -------------------------------------------------------------------------
+    # Banner Image Methods
+    # -------------------------------------------------------------------------
+
+    def get_banner_image_url(self):
+        """Return banner image URL or None (frontend handles fallback)"""
+        if self.banner_image:
+            return url_for('profile.get_banner_image', user_id=self.id)
+        return None
+
+    def set_banner_image(self, image_data, filename, mimetype):
+        """Set banner image (image should be compressed before calling)"""
+        self.banner_image = image_data
+        self.banner_image_filename = filename
+        self.banner_image_mimetype = mimetype
+
+    def delete_banner_image(self):
+        """Remove banner image"""
+        self.banner_image = None
+        self.banner_image_filename = None
+        self.banner_image_mimetype = None
 
     # -------------------------------------------------------------------------
     # Note Like/Bookmark Methods

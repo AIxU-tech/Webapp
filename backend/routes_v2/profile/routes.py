@@ -14,10 +14,11 @@ RESTful Endpoints:
 - PATCH /api/profile - Update current user profile
 - GET /api/profile/stats - Get current user statistics
 - PUT /api/profile/picture - Upload/update profile picture
-- DELETE /api/profile/picture - Delete profile picture
+- PUT /api/profile/banner - Upload/update banner image
 - DELETE /api/account - Delete user account
 - GET /api/users/<id> - Get user profile by ID
 - GET /user/<id>/profile_picture - Serve profile picture from database
+- GET /user/<id>/banner - Serve banner image from database
 """
 
 from flask import Blueprint, request, jsonify, send_file, redirect
@@ -28,7 +29,7 @@ import io
 from sqlalchemy.orm import joinedload
 from backend.extensions import db
 from backend.models import User, Note, NoteComment, Message, University, UserFollows, UserLikedUniversity, UniversityRole
-from backend.utils.image import allowed_file, compress_image
+from backend.utils.image import allowed_file, compress_image, compress_banner_image
 from backend.utils.time import format_full_date, format_join_date, to_iso
 profile_bp = Blueprint('profile', __name__)
 
@@ -130,7 +131,6 @@ def update_profile():
     - location: Geographic location
     - avatar_url: Fallback avatar URL
     - skills: Array or comma-separated string of skills
-    - interests: Array or comma-separated string of interests
 
     Note: University affiliation cannot be changed through this endpoint.
     Users are automatically enrolled in a university based on their .edu
@@ -142,8 +142,7 @@ def update_profile():
         "last_name": "Doe",
         "about_section": "AI researcher...",
         "location": "Portland, OR",
-        "skills": ["Python", "Machine Learning"],
-        "interests": ["NLP", "Computer Vision"]
+        "skills": ["Python", "Machine Learning"]
     }
 
     Returns:
@@ -180,18 +179,6 @@ def update_profile():
                 current_user.set_skills_list(skills_list)
             else:
                 current_user.set_skills_list([])
-
-        # Handle interests (array or comma-separated string)
-        if 'interests' in data:
-            interests = data['interests']
-            if isinstance(interests, list):
-                current_user.set_interests_list(interests)
-            elif isinstance(interests, str) and interests.strip():
-                # Handle comma-separated string
-                interests_list = [interest.strip() for interest in interests.split(',') if interest.strip()]
-                current_user.set_interests_list(interests_list)
-            else:
-                current_user.set_interests_list([])
 
         db.session.commit()
 
@@ -333,6 +320,99 @@ def delete_profile_picture():
 
 
 # =============================================================================
+# API Endpoints - Banner Image Management
+# =============================================================================
+
+@profile_bp.route('/user/<int:user_id>/banner')
+def get_banner_image(user_id):
+    """
+    Serve banner image from database.
+
+    Returns the user's uploaded banner image as binary image data.
+    Returns 404 if no banner is set (frontend handles fallback).
+
+    Args:
+        user_id: ID of the user whose banner to serve
+
+    Returns:
+        Binary image data with appropriate MIME type, or 404
+    """
+    user = User.query.get(user_id)
+    if not user or not user.banner_image:
+        return jsonify({'error': 'No banner image'}), 404
+
+    from flask import Response
+    return Response(
+        user.banner_image,
+        mimetype=user.banner_image_mimetype or 'image/jpeg',
+        headers={'Cache-Control': 'public, max-age=86400'}
+    )
+
+
+@profile_bp.route('/api/profile/banner', methods=['PUT'])
+@login_required
+def upload_banner_image():
+    """
+    Upload or update banner image.
+
+    Accepts file upload via 'banner' form field.
+    Images are automatically center-cropped to 5:1 aspect ratio
+    and compressed to 1500x300.
+
+    Returns:
+        JSON object with success status and new banner image URL
+    """
+    try:
+        if 'banner' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No banner file provided'
+            }), 400
+
+        file = request.files['banner']
+        if not file or file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'No file selected'
+            }), 400
+
+        if not allowed_file(file.filename):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp'
+            }), 400
+
+        # Read file data
+        image_data = file.read()
+
+        # Compress and crop to banner dimensions (1500x300, 5:1 ratio)
+        compressed_data = compress_banner_image(image_data)
+
+        # Set banner image
+        current_user.set_banner_image(compressed_data, file.filename, 'image/jpeg')
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Banner image updated successfully',
+            'banner_image_url': current_user.get_banner_image_url(),
+            'hasBanner': True
+        })
+
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': 'Error uploading banner image'
+        }), 500
+
+
+# =============================================================================
 # API Endpoints - Other Users
 # =============================================================================
 
@@ -343,7 +423,7 @@ def get_user_detail(user_id: int):
 
     Returns detailed user information including:
     - Basic profile info (name, university, location, etc.)
-    - Skills and interests
+    - Skills
     - Recent activity feed (posts and comments)
     - Profile picture URL
 

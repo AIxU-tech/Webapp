@@ -55,7 +55,7 @@ export default function UniversityRequestSubmittedPage() {
 
           {/* Next Steps Info Box */}
           <Alert variant="info" title="What happens next?">
-            <ol className="text-left space-y-2 list-decimal list-inside mt-2">
+            <ol className="text-left space-y-2 list-decimal list-outside pl-6 mt-2">
               <li>An admin will review your request</li>
               <li>Once approved, the university will be added to AIxU</li>
               <li>You'll be able to register with your <strong>{email}</strong> email</li>

@@ -18,7 +18,7 @@ export default function FormTextarea({
     bg-muted border border-border rounded-lg
     focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
     text-foreground placeholder-muted-foreground
-    disabled:opacity-50 disabled:cursor-not-allowed
+    disabled:opacity-50
     resize-none
   `.trim();
 

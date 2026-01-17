@@ -7,16 +7,23 @@
  * Available Hooks:
  * - useUniversities(): Get all universities
  * - useUniversity(id): Get single university details
+ * - useCreateUniversity(): Mutation to create a university (site admin only)
  * - useRemoveMember(): Mutation to remove a member (admin only)
+ * - useUpdateMemberRole(): Mutation to update member role
+ * - useUpdateUniversity(): Mutation to update university details
+ * - useUploadUniversityLogo(): Mutation to upload university logo
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getUniversities,
   getUniversity,
+  createUniversity,
   removeMember,
   updateMemberRole,
   updateUniversity,
+  uploadUniversityLogo,
+  uploadUniversityBanner,
 } from '../api/universities';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
 
@@ -242,12 +249,191 @@ export function useUpdateUniversity() {
   return useMutation({
     mutationFn: ({ universityId, updates }) => updateUniversity(universityId, updates),
 
-    onSuccess: (_, { universityId }) => {
-      // Invalidate the specific university's cache
-      queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
+    // Optimistic update: update cache immediately before server responds
+    onMutate: async ({ universityId, updates }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: universityKeys.detail(universityId) });
 
-      // Invalidate the universities list to reflect any changes
+      // Snapshot the previous value
+      const previousUniversity = queryClient.getQueryData(universityKeys.detail(universityId));
+
+      // Optimistically update the cache
+      if (previousUniversity) {
+        queryClient.setQueryData(universityKeys.detail(universityId), {
+          ...previousUniversity,
+          ...updates,
+        });
+      }
+
+      // Return context with the previous value
+      return { previousUniversity, universityId };
+    },
+
+    // If mutation fails, roll back to previous value
+    onError: (err, variables, context) => {
+      if (context?.previousUniversity) {
+        queryClient.setQueryData(
+          universityKeys.detail(context.universityId),
+          context.previousUniversity
+        );
+      }
+    },
+
+    // Always refetch after error or success to ensure data is in sync
+    onSettled: (_, __, { universityId }) => {
+      queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
       queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+    },
+  });
+}
+
+/**
+ * useCreateUniversity Hook
+ *
+ * Mutation hook for creating a new university (site admin only).
+ * Handles cache invalidation after successful creation.
+ *
+ * @returns {object} React Query mutation result
+ *
+ * @example
+ * const createMutation = useCreateUniversity();
+ * createMutation.mutate(
+ *   { name: 'MIT', clubName: 'MIT AI Club', emailDomain: 'mit' },
+ *   { onSuccess: (data) => console.log('Created:', data.university.id) }
+ * );
+ */
+export function useCreateUniversity() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createUniversity,
+
+    onSuccess: () => {
+      // Invalidate universities list to show new university
+      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+    },
+  });
+}
+
+/**
+ * useUploadUniversityLogo Hook
+ *
+ * Mutation hook for uploading a university logo.
+ * Handles cache invalidation after successful upload.
+ *
+ * @returns {object} React Query mutation result
+ *
+ * @example
+ * const uploadMutation = useUploadUniversityLogo();
+ * uploadMutation.mutate(
+ *   { universityId: 1, file: imageBlob },
+ *   { onSuccess: () => toast.success('Logo uploaded!') }
+ * );
+ */
+export function useUploadUniversityLogo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ universityId, file }) => uploadUniversityLogo(universityId, file),
+
+    // Optimistic update: set hasLogo to true immediately
+    onMutate: async ({ universityId }) => {
+      await queryClient.cancelQueries({ queryKey: universityKeys.detail(universityId) });
+
+      const previousUniversity = queryClient.getQueryData(universityKeys.detail(universityId));
+
+      // Optimistically update hasLogo
+      if (previousUniversity) {
+        queryClient.setQueryData(universityKeys.detail(universityId), {
+          ...previousUniversity,
+          hasLogo: true,
+        });
+      }
+
+      return { previousUniversity, universityId };
+    },
+
+    onError: (err, variables, context) => {
+      if (context?.previousUniversity) {
+        queryClient.setQueryData(
+          universityKeys.detail(context.universityId),
+          context.previousUniversity
+        );
+      }
+    },
+
+    onSettled: (_, __, { universityId }) => {
+      // Invalidate to refetch with new logo URL (cache-busted)
+      queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
+    },
+  });
+}
+
+/**
+ * useUploadUniversityBanner Hook
+ *
+ * Mutation hook for uploading a university banner.
+ * Banner is automatically cropped to 5:1 aspect ratio.
+ * Handles cache invalidation after successful upload.
+ *
+ * @returns {object} React Query mutation result
+ *
+ * @example
+ * const uploadMutation = useUploadUniversityBanner();
+ * uploadMutation.mutate(
+ *   { universityId: 1, file: imageBlob },
+ *   { onSuccess: () => toast.success('Banner uploaded!') }
+ * );
+ */
+export function useUploadUniversityBanner() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ universityId, file }) => uploadUniversityBanner(universityId, file),
+
+    // Optimistic update: set hasBanner to true immediately
+    onMutate: async ({ universityId }) => {
+      await queryClient.cancelQueries({ queryKey: universityKeys.detail(universityId) });
+
+      const previousUniversity = queryClient.getQueryData(universityKeys.detail(universityId));
+
+      // Optimistically update hasBanner
+      if (previousUniversity) {
+        queryClient.setQueryData(universityKeys.detail(universityId), {
+          ...previousUniversity,
+          hasBanner: true,
+        });
+      }
+
+      return { previousUniversity, universityId };
+    },
+
+    // Update cache with new bannerUrl immediately on success (before invalidating)
+    onSuccess: (data, { universityId }) => {
+      if (data?.bannerUrl) {
+        const currentData = queryClient.getQueryData(universityKeys.detail(universityId));
+        if (currentData) {
+          queryClient.setQueryData(universityKeys.detail(universityId), {
+            ...currentData,
+            hasBanner: true,
+            bannerUrl: data.bannerUrl,
+          });
+        }
+      }
+    },
+
+    onError: (err, variables, context) => {
+      if (context?.previousUniversity) {
+        queryClient.setQueryData(
+          universityKeys.detail(context.universityId),
+          context.previousUniversity
+        );
+      }
+    },
+
+    onSettled: (_, __, { universityId }) => {
+      // Invalidate to refetch full data (ensures consistency)
+      queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
     },
   });
 }

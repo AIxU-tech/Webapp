@@ -23,8 +23,8 @@
  */
 
 import { useState, useCallback } from 'react';
-import { BaseModal, GradientButton, UserListItem, Avatar } from '../ui';
-import { SearchIcon, XIcon, SendIcon } from '../icons';
+import { BaseModal, GradientButton, UserListItem, Avatar, CloseButton } from '../ui';
+import { SearchIcon, SendIcon } from '../icons';
 import { useSearchUsers, useSendMessage } from '../../hooks';
 
 export default function NewMessageModal({ isOpen, onClose, onSuccess }) {
@@ -163,7 +163,7 @@ export default function NewMessageModal({ isOpen, onClose, onSuccess }) {
                   bg-background border border-border rounded-lg
                   text-foreground placeholder-muted-foreground
                   focus:outline-none focus:ring-2 focus:ring-primary
-                  disabled:opacity-50 disabled:cursor-not-allowed
+                  disabled:opacity-50
                 "
               />
             </div>
@@ -209,14 +209,13 @@ export default function NewMessageModal({ isOpen, onClose, onSuccess }) {
                   <span className="text-sm text-foreground">
                     {selectedRecipient.name}
                   </span>
-                  <button
-                    type="button"
+                  <CloseButton
                     onClick={handleClearRecipient}
-                    className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Remove recipient"
-                  >
-                    <XIcon className="h-4 w-4" />
-                  </button>
+                    size="sm"
+                    variant="subtle"
+                    ariaLabel="Remove recipient"
+                    className="ml-auto"
+                  />
                 </div>
               </div>
             )}

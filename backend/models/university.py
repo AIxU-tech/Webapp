@@ -28,9 +28,16 @@ or PRESIDENT). The member_count column is cached for performance and updated
 whenever members are added or removed.
 """
 
+import json
+import logging
+
+from flask import url_for
 from sqlalchemy import func
+
 from backend.extensions import db
 from backend.constants import UniversityRoles
+
+logger = logging.getLogger(__name__)
 
 
 class University(db.Model):
@@ -48,6 +55,10 @@ class University(db.Model):
         upcoming_events: Count of upcoming events
         description: Description of the AI club
         tags: JSON array of topic tags
+        website_url: Club website URL
+        logo: Binary logo image data
+        logo_filename: Original filename of the logo
+        logo_mimetype: MIME type of the logo image
         admin_id: User ID of the university admin
 
     Member Management:
@@ -75,6 +86,20 @@ class University(db.Model):
     description = db.Column(db.Text, nullable=True)
     tags = db.Column(db.Text, nullable=True)
     website_url = db.Column(db.String(500), nullable=True)
+
+    # Social links stored as JSON array: [{"type": "linkedin", "url": "..."}, ...]
+    # Supported types: linkedin, twitter, instagram, github, discord, youtube, website
+    social_links = db.Column(db.Text, nullable=True)
+
+    # Logo image storage (similar to User profile_picture)
+    logo = db.Column(db.LargeBinary, nullable=True)
+    logo_filename = db.Column(db.String(255), nullable=True)
+    logo_mimetype = db.Column(db.String(100), nullable=True)
+
+    # Banner image storage
+    banner = db.Column(db.LargeBinary, nullable=True)
+    banner_filename = db.Column(db.String(255), nullable=True)
+    banner_mimetype = db.Column(db.String(100), nullable=True)
 
     # DEPRECATED: members column is no longer used. Membership is tracked via UniversityRole.
     # This column is kept for backwards compatibility during migration but should not be used.
@@ -244,6 +269,46 @@ class University(db.Model):
         self.recent_posts = self.calculate_post_count()
         db.session.commit()
 
+    # -------------------------------------------------------------------------
+    # Social Links Methods
+    # -------------------------------------------------------------------------
+
+    def get_social_links_list(self):
+        """
+        Parse social_links JSON to list.
+
+        Returns:
+            List of social link dicts, e.g., [{"type": "linkedin", "url": "..."}]
+        """
+        if self.social_links:
+            try:
+                return json.loads(self.social_links)
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.error(
+                    f"Failed to parse social_links for university {self.id}: {e}"
+                )
+                return []
+        return []
+
+    def set_social_links_list(self, links):
+        """
+        Serialize list of social links to JSON.
+
+        Args:
+            links: List of dicts with 'type' and 'url' keys
+        """
+        self.social_links = json.dumps(links) if links else None
+
+    # -------------------------------------------------------------------------
+    # Banner Methods
+    # -------------------------------------------------------------------------
+
+    def get_banner_url(self):
+        """Return banner image URL or None (frontend handles fallback)."""
+        if self.banner:
+            return url_for('universities.get_university_banner', university_id=self.id)
+        return None
+
     def to_dict(self):
         """Serialize university to dictionary for API responses."""
         return {
@@ -255,6 +320,10 @@ class University(db.Model):
             'members': self.get_members_list(),
             'adminId': self.admin_id,
             'websiteUrl': self.website_url,
+            'socialLinks': self.get_social_links_list(),
+            'hasLogo': self.logo is not None,
+            'hasBanner': self.banner is not None,
+            'bannerUrl': self.get_banner_url(),
         }
 
     # -------------------------------------------------------------------------

@@ -168,23 +168,28 @@ def get_user_university_permissions(user, university_id: int) -> dict:
             'canManageMembers': False,
             'canManageExecutives': False,
             'canChangePresident': False,
+            'canEditUniversity': False,
             'role': None,
             'roleName': None,
         }
 
-    role_level = UniversityRole.get_role_level(user.id, university_id)
+    # Check if user actually has a role record (not just default MEMBER level)
+    role_record = UniversityRole.get_role(user.id, university_id)
+    is_member = role_record is not None
+    role_level = role_record.role if role_record else UniversityRoles.MEMBER
     site_admin = is_site_admin(user)
 
     return {
-        'isMember': True,  # If they have a role, they're a member
-        'isExecutive': role_level >= UniversityRoles.EXECUTIVE,
-        'isPresident': role_level >= UniversityRoles.PRESIDENT,
+        'isMember': is_member,
+        'isExecutive': is_member and role_level >= UniversityRoles.EXECUTIVE,
+        'isPresident': is_member and role_level >= UniversityRoles.PRESIDENT,
         'isSiteAdmin': site_admin,
-        'canManageMembers': site_admin or role_level >= UniversityRoles.EXECUTIVE,
-        'canManageExecutives': site_admin or role_level >= UniversityRoles.PRESIDENT,
-        'canChangePresident': site_admin or role_level >= UniversityRoles.PRESIDENT,
-        'role': role_level,
-        'roleName': UniversityRoles.get_name(role_level),
+        'canManageMembers': site_admin or (is_member and role_level >= UniversityRoles.EXECUTIVE),
+        'canManageExecutives': site_admin or (is_member and role_level >= UniversityRoles.PRESIDENT),
+        'canChangePresident': site_admin or (is_member and role_level >= UniversityRoles.PRESIDENT),
+        'canEditUniversity': site_admin or (is_member and role_level >= UniversityRoles.PRESIDENT),
+        'role': role_level if is_member else None,
+        'roleName': UniversityRoles.get_name(role_level) if is_member else None,
     }
 
 

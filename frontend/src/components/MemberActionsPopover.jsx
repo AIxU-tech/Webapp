@@ -152,7 +152,7 @@ export default function MemberActionsPopover({
           <button
             key={action.id}
             onClick={action.onClick}
-            className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+            className={`w-full text-left px-3 py-2 text-sm transition-colors cursor-pointer ${
               action.danger
                 ? 'text-red-500 hover:bg-red-500/10'
                 : 'text-foreground hover:bg-accent'

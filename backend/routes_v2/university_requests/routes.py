@@ -25,7 +25,7 @@ from backend.utils.email import (
     send_university_request_submitted_email,
     send_university_approved_email
 )
-from backend.utils.validation import validate_edu_email, validate_required_fields
+from backend.utils.validation import validate_edu_email, validate_required_fields, validate_social_links
 from backend.constants import ADMIN
 from backend.routes_v2.api_auth.helpers import hash_text
 
@@ -215,6 +215,12 @@ def submit_request():
 
     university_name = data['universityName'].strip()
 
+    # Validate social links if provided
+    social_links = data.get('socialLinks', [])
+    valid, error = validate_social_links(social_links)
+    if not valid:
+        return jsonify({'error': error}), 400
+
     # Create the request
     try:
         uni_request = UniversityRequest(
@@ -227,6 +233,7 @@ def submit_request():
             club_name=data['clubName'].strip(),
             club_description=data['clubDescription'].strip(),
             club_tags=json.dumps(data.get('clubTags', [])) if data.get('clubTags') else None,
+            social_links=json.dumps(social_links) if social_links else None,
             status=RequestStatus.PENDING
         )
         db.session.add(uni_request)
@@ -308,7 +315,8 @@ def approve(request_id: int):
             clubName=uni_request.club_name,
             description=uni_request.club_description,
             email_domain=uni_request.email_domain,
-            tags=uni_request.club_tags
+            tags=uni_request.club_tags,
+            social_links=uni_request.social_links
         )
         db.session.add(university)
 
