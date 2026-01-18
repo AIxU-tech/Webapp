@@ -177,9 +177,9 @@ class TestSocialLinks:
     """Tests for social links functionality"""
 
     def test_add_duplicate_social_link(self, authenticated_client, app, test_user):
-        """Test that adding duplicate social links is handled correctly"""
+        """Test that adding duplicate known social link types is rejected"""
         with app.app_context():
-            # Add a LinkedIn link
+            # Add a LinkedIn link (should succeed)
             linkedin_link = {
                 'type': 'linkedin',
                 'url': 'https://linkedin.com/in/testuser'
@@ -195,22 +195,20 @@ class TestSocialLinks:
             assert len(data['user']['socialLinks']) == 1
             assert data['user']['socialLinks'][0]['type'] == 'linkedin'
             
-            # Try to add the same link again (duplicate)
+            # Try to add two LinkedIn links (duplicate type - should be rejected)
             response = authenticated_client.patch('/api/profile', json={
                 'socialLinks': [linkedin_link, linkedin_link]
             })
             
-            assert response.status_code == 200
+            # Should be rejected with 400 status
+            assert response.status_code == 400
             data = response.get_json()
-            # Verify behavior: does it allow duplicates or deduplicate?
-            # This test documents current behavior - both links may be stored
-            social_links = data['user']['socialLinks']
-            assert len(social_links) >= 1
-            # Verify at least one of the links exists
-            linkedin_count = sum(1 for link in social_links 
-                                if link['type'] == 'linkedin' 
-                                and link['url'] == 'https://linkedin.com/in/testuser')
-            assert linkedin_count >= 1
+            assert data['success'] is False
+            assert 'error' in data
+            # Verify error message mentions duplicate LinkedIn links
+            error_msg = data['error'].lower()
+            assert 'linkedin' in error_msg
+            assert 'cannot have multiple' in error_msg or 'duplicate' in error_msg
 
     def test_add_multiple_valid_social_links(self, authenticated_client, app, test_user):
         """Test adding multiple valid social links of different types"""
@@ -249,6 +247,31 @@ class TestSocialLinks:
             assert get_response.status_code == 200
             profile_data = get_response.get_json()
             assert len(profile_data['socialLinks']) == 5
+
+    def test_duplicate_linkedin_links_rejected(self, authenticated_client, app, test_user):
+        """Test that adding two LinkedIn links is rejected with validation error"""
+        with app.app_context():
+            # Try to add two LinkedIn links at once
+            social_links = [
+                {'type': 'linkedin', 'url': 'https://linkedin.com/in/testuser1'},
+                {'type': 'linkedin', 'url': 'https://linkedin.com/in/testuser2'}
+            ]
+            
+            response = authenticated_client.patch('/api/profile', json={
+                'socialLinks': social_links
+            })
+            
+            # Should be rejected with 400 status
+            assert response.status_code == 400
+            data = response.get_json()
+            assert data['success'] is False
+            assert 'error' in data
+            # Check that error message mentions LinkedIn duplicates
+            error_msg = data['error'].lower()
+            assert 'linkedin' in error_msg
+            assert 'cannot have multiple' in error_msg or 'duplicate' in error_msg
+            # Verify indices are mentioned in error message
+            assert 'indices' in error_msg or 'index' in error_msg
 
     def test_invalid_social_link_url_rejection(self, authenticated_client, app, test_user):
         """Test that invalid social link URLs are properly rejected"""

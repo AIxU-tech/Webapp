@@ -58,6 +58,7 @@ export function AuthProvider({ children }) {
    * In development mode, automatically logs in as dev user if not authenticated.
    */
   async function checkAuthStatus() {
+
     try {
       // Try to get current user from Flask backend
       const userData = await getCurrentUser();
@@ -67,6 +68,8 @@ export function AuthProvider({ children }) {
     } catch (error) {
       // Not logged in or session expired - try dev auto-login
       // This only succeeds when backend DEV_MODE=true
+
+
       try {
         const response = await devLogin();
         // Dev login succeeded - save user data

@@ -7,6 +7,19 @@
  */
 
 /**
+ * Known social platform types that allow only one entry.
+ * Unknown types (including 'website') are treated as plain websites and allow multiple.
+ */
+export const KNOWN_SOCIAL_TYPES = new Set([
+  'linkedin',
+  'x',
+  'instagram',
+  'github',
+  'discord',
+  'youtube',
+]);
+
+/**
  * Platform detection patterns.
  * Order matters - more specific patterns should come first.
  */
@@ -211,6 +224,28 @@ export function linkExists(links, url) {
 
   const normalizedUrl = url.toLowerCase().trim();
   return links.some((link) => link.url.toLowerCase().trim() === normalizedUrl);
+}
+
+/**
+ * Check if a known social type already exists in the links array.
+ * Unknown types (including 'website') can appear multiple times.
+ *
+ * @param {array} links - Array of social link objects
+ * @param {string} type - Type to check (should be normalized to lowercase)
+ * @returns {boolean} True if the type already exists and it's a known social type
+ */
+export function knownSocialTypeExists(links, type) {
+  if (!links || !type) return false;
+
+  const normalizedType = type.toLowerCase().trim();
+  
+  // Only check for duplicates if it's a known social type
+  if (!KNOWN_SOCIAL_TYPES.has(normalizedType)) {
+    return false;
+  }
+
+  // Check if this type already exists in the links
+  return links.some((link) => link.type && link.type.toLowerCase().trim() === normalizedType);
 }
 
 /**

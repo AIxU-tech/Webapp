@@ -21,6 +21,7 @@ import {
   getPlatformDisplayName,
   getPlatformColorClasses,
   linkExists,
+  knownSocialTypeExists,
   MAX_SOCIAL_LINKS,
 } from '../utils/socialLinks';
 
@@ -54,9 +55,16 @@ export default function SocialLinksInput({
       return;
     }
 
-    // Check for duplicates
+    // Check for duplicate URLs
     if (linkExists(value, result.url)) {
       setError('This link has already been added');
+      return;
+    }
+
+    // Check for duplicate known social types (e.g., two LinkedIn links)
+    if (knownSocialTypeExists(value, result.type)) {
+      const platformName = getPlatformDisplayName(result.type);
+      setError(`You can only add one ${platformName} link. Each known social type (LinkedIn, X, Instagram, GitHub, Discord, YouTube) can only be added once.`);
       return;
     }
 
@@ -104,6 +112,11 @@ export default function SocialLinksInput({
       }
       if (linkExists(value, result.url)) {
         setError('This link has already been added');
+        return;
+      }
+      if (knownSocialTypeExists(value, result.type)) {
+        const platformName = getPlatformDisplayName(result.type);
+        setError(`You can only add one ${platformName} link. Each known social type (LinkedIn, X, Instagram, GitHub, Discord, YouTube) can only be added once.`);
         return;
       }
       if (value.length >= MAX_SOCIAL_LINKS) {
