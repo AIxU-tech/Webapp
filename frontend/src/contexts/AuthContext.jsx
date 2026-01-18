@@ -142,6 +142,7 @@ export function AuthProvider({ children }) {
   };
 
 
+
   // Show loading spinner during initial auth check
   // This prevents flash of login screen if user is already logged in
   if (loading) {

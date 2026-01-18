@@ -31,6 +31,7 @@ import {
   ProfileIcon,
   AdminIcon,
 } from './icons';
+import { useEffect } from 'react';
 
 // =============================================================================
 // NAVIGATION LINK COMPONENT
@@ -98,6 +99,7 @@ export default function NavBar() {
   // Get authentication state and user from context
   const { isAuthenticated, user } = useAuth();
   const { openAuthModal } = useAuthModal();
+
 
   // Check if user is an admin (permission level >= 1)
   const isAdmin = user && user.permissionLevel >= ADMIN_PERMISSION_LEVEL;
