@@ -27,33 +27,27 @@ import {
   useUpdateProfile,
   useUploadProfilePicture,
   useUploadProfileBanner,
-  useForm,
 } from '../hooks';
 import { ConversationModal } from '../components/messages';
 
 // UI Components
 import {
   Alert,
-  BaseModal,
   LoadingState,
   ErrorState,
-  GradientButton,
-  SecondaryButton,
   BannerUploadModal,
 } from '../components/ui';
 import ConfirmationModal from '../components/ConfirmationModal';
-import FormInput from '../components/FormInput';
-import SocialLinksInput from '../components/SocialLinksInput';
 
 // Profile Components
 import {
   ProfileHeader,
-  ProfilePictureSection,
   AboutSection,
   ProjectsSection,
   ExperienceSection,
   ResearchSection,
   ProfileSidebar,
+  EditProfileModal,
 } from '../components/profile';
 
 export default function ProfilePage() {
@@ -106,79 +100,24 @@ export default function ProfilePage() {
   usePageTitle(user ? (isOwnProfile ? 'Profile' : user.full_name) : 'Profile');
 
   // ---------------------------------------------------------------------------
-  // Form State (using useForm hook)
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Get initial form values from user object
-   * Note: about_section and skills are edited inline, not in modal
-   */
-  const getInitialFormValues = (userData) => ({
-    first_name: userData?.first_name || '',
-    last_name: userData?.last_name || '',
-    location: userData?.location || '',
-    socialLinks: userData?.socialLinks || [],
-  });
-
-  const {
-    formData,
-    setFormData,
-    error: formError,
-    handleChange,
-    handleSubmit: handleFormSubmit,
-  } = useForm({
-    initialValues: getInitialFormValues(user),
-    onSubmit: async (data) => {
-      // Note: skills are now edited inline via SkillsCard
-      const response = await updateProfileMutation.mutateAsync(data);
-
-      // Update AuthContext for navbar
-      if (response.user && isOwnProfile) {
-        setCurrentUser({ ...currentUser, ...response.user });
-      }
-
-      setShowEditModal(false);
-      setFeedback({ type: 'success', message: 'Profile updated successfully!' });
-    },
-    defaultErrorMessage: 'Failed to update profile. Please try again.',
-  });
-
-  // ---------------------------------------------------------------------------
   // Handlers
   // ---------------------------------------------------------------------------
 
   /**
-   * Open edit modal and reset form data to current user values
+   * Open edit modal
    */
   const openEditModal = () => {
-    setFormData(getInitialFormValues(user));
     setShowEditModal(true);
   };
 
   /**
-   * Handle inline save of the About section
-   * Updates only the about_section field without opening the full modal
-   * Uses optimistic updates - assumes success immediately, shows error if fails
+   * Handle inline save of profile updates (about section, skills, etc.)
+   * Generic handler that accepts partial profile updates and updates AuthContext if needed
+   *
+   * @param {Object} updates - Partial profile updates (e.g., { about_section: text } or { skills: array })
    */
-  const handleSaveAbout = async (aboutText) => {
-    const response = await updateProfileMutation.mutateAsync({
-      about_section: aboutText,
-    });
-
-    // Update AuthContext if needed
-    if (response.user && isOwnProfile) {
-      setCurrentUser({ ...currentUser, ...response.user });
-    }
-  };
-
-  /**
-   * Handle inline save of skills from SkillsCard
-   * Updates only the skills field - editing is done inline in the component
-   */
-  const handleSaveSkills = async (skillsArray) => {
-    const response = await updateProfileMutation.mutateAsync({
-      skills: skillsArray,
-    });
+  const handleSaveProfileUpdate = async (updates) => {
+    const response = await updateProfileMutation.mutateAsync(updates);
 
     // Update AuthContext if needed
     if (response.user && isOwnProfile) {
@@ -316,7 +255,7 @@ export default function ProfilePage() {
             <AboutSection
               aboutText={user.about_section}
               isOwnProfile={isOwnProfile}
-              onSave={handleSaveAbout}
+              onSave={(aboutText) => handleSaveProfileUpdate({ about_section: aboutText })}
             />
 
             {/* TODO: Add projects, experience, and research sections */}
@@ -339,108 +278,29 @@ export default function ProfilePage() {
             <ProfileSidebar
               user={user}
               isOwnProfile={isOwnProfile}
-              onSaveSkills={handleSaveSkills}
+              onSaveSkills={(skillsArray) => handleSaveProfileUpdate({ skills: skillsArray })}
             />
           </div>
         </div>
       </main>
 
       {/* Edit Profile Modal */}
-      <BaseModal
+      <EditProfileModal
+        user={user}
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
-        title="Edit Profile"
-        size="2xl"
-      >
-        <div className="p-6">
-          {/* Profile Picture Section */}
-          <ProfilePictureSection
-            user={user}
-            onUpload={handleUploadPicture}
-            onError={handlePictureError}
-            isUploading={uploadPictureMutation.isPending}
-          />
-
-          {/* Profile Form */}
-          <form onSubmit={handleFormSubmit} className="space-y-4">
-            {/* Form Error Display */}
-            {formError && (
-              <Alert variant="error" className="mb-2">
-                {formError}
-              </Alert>
-            )}
-
-            {/* Name Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-muted-foreground mb-1">
-                  First name
-                </label>
-                <FormInput
-                  name="first_name"
-                  value={formData.first_name || ''}
-                  onChange={handleChange}
-                  placeholder="First name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-muted-foreground mb-1">
-                  Last name
-                </label>
-                <FormInput
-                  name="last_name"
-                  value={formData.last_name || ''}
-                  onChange={handleChange}
-                  placeholder="Last name"
-                />
-              </div>
-            </div>
-
-            {/* Location */}
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">
-                Location
-              </label>
-              <FormInput
-                name="location"
-                value={formData.location || ''}
-                onChange={handleChange}
-                placeholder="City, Country"
-              />
-            </div>
-
-            {/* Social Links */}
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">
-                Social Links
-              </label>
-              <SocialLinksInput
-                value={formData.socialLinks || []}
-                onChange={(links) => setFormData({ ...formData, socialLinks: links })}
-              />
-            </div>
-
-            {/* Note: Skills editing moved to inline SkillsCard component */}
-
-            {/* Form Actions */}
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <SecondaryButton
-                variant="outline"
-                onClick={() => setShowEditModal(false)}
-              >
-                Cancel
-              </SecondaryButton>
-              <GradientButton
-                type="submit"
-                loading={updateProfileMutation.isPending}
-                loadingText="Saving..."
-              >
-                Save Changes
-              </GradientButton>
-            </div>
-          </form>
-        </div>
-      </BaseModal>
+        updateProfileMutation={updateProfileMutation}
+        uploadPictureMutation={uploadPictureMutation}
+        onSave={(response) => {
+          // Update AuthContext for navbar
+          if (response.user && isOwnProfile) {
+            setCurrentUser({ ...currentUser, ...response.user });
+          }
+          setFeedback({ type: 'success', message: 'Profile updated successfully!' });
+        }}
+        onUploadPicture={handleUploadPicture}
+        onPictureError={handlePictureError}
+      />
 
       {/* Logout Confirmation Modal */}
       <ConfirmationModal

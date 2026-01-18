@@ -68,9 +68,9 @@ export function AuthProvider({ children }) {
       // Not logged in or session expired - try dev auto-login
       // This only succeeds when backend DEV_MODE=true
       try {
-        // const response = await devLogin();
-        // // Dev login succeeded - save user data
-        // setUser(response.user);
+        const response = await devLogin();
+        // Dev login succeeded - save user data
+        setUser(response.user);
       } catch (devError) {
         // Dev login failed (production mode or dev user missing)
         // This is expected in production - silently continue
