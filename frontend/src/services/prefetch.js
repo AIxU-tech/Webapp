@@ -107,11 +107,8 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
     // Conversations List
     // -------------------------------------------------------------------------
     // Used by: MessagesPage
-    queryClient.prefetchQuery({
-      queryKey: messageKeys.conversations(),
-      queryFn: getConversations,
-      staleTime: STALE_TIMES.CONVERSATIONS,
-    }),
+
+    // Only prefetch if the user is authenticated
 
     // -------------------------------------------------------------------------
     // AI News Content (Stories + Papers)
@@ -125,6 +122,16 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
     }),
   ];
 
+
+  if (currentUser?.id) {
+    prefetchOperations.push(
+      queryClient.prefetchQuery({
+        queryKey: messageKeys.conversations(),
+        queryFn: getConversations,
+        staleTime: STALE_TIMES.CONVERSATIONS,
+      })
+    );
+  }
   // -------------------------------------------------------------------------
   // Current User Profile
   // -------------------------------------------------------------------------
