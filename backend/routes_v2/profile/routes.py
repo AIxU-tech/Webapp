@@ -31,6 +31,7 @@ from backend.extensions import db
 from backend.models import User, Note, NoteComment, Message, University, UserFollows, UserLikedUniversity, UniversityRole
 from backend.utils.image import allowed_file, compress_image, compress_banner_image
 from backend.utils.time import format_full_date, format_join_date, to_iso
+from backend.utils.validation import validate_social_links
 profile_bp = Blueprint('profile', __name__)
 
 
@@ -131,6 +132,7 @@ def update_profile():
     - location: Geographic location
     - avatar_url: Fallback avatar URL
     - skills: Array or comma-separated string of skills
+    - socialLinks: Array of social link objects with 'type' and 'url' keys
 
     Note: University affiliation cannot be changed through this endpoint.
     Users are automatically enrolled in a university based on their .edu
@@ -142,7 +144,8 @@ def update_profile():
         "last_name": "Doe",
         "about_section": "AI researcher...",
         "location": "Portland, OR",
-        "skills": ["Python", "Machine Learning"]
+        "skills": ["Python", "Machine Learning"],
+        "socialLinks": [{"type": "linkedin", "url": "https://linkedin.com/in/johndoe"}]
     }
 
     Returns:
@@ -179,6 +182,20 @@ def update_profile():
                 current_user.set_skills_list(skills_list)
             else:
                 current_user.set_skills_list([])
+
+        # Handle social links separately (array field)
+        if 'socialLinks' in data:
+            social_links = data['socialLinks']
+            if social_links is None:
+                current_user.set_social_links_list([])
+            else:
+                valid, error = validate_social_links(social_links)
+                if not valid:
+                    return jsonify({
+                        'success': False,
+                        'error': error
+                    }), 400
+                current_user.set_social_links_list(social_links)
 
         db.session.commit()
 

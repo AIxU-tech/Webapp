@@ -99,6 +99,7 @@ export default function NavBar() {
   const { isAuthenticated, user } = useAuth();
   const { openAuthModal } = useAuthModal();
 
+
   // Check if user is an admin (permission level >= 1)
   const isAdmin = user && user.permissionLevel >= ADMIN_PERMISSION_LEVEL;
 

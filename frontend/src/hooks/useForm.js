@@ -14,7 +14,7 @@
  * });
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 export function useForm({
   initialValues,
@@ -23,6 +23,9 @@ export function useForm({
   onFieldChange,
   defaultErrorMessage = 'An error occurred. Please try again.',
 }) {
+  // Store initial values in a ref so reset() has a stable reference
+  const initialValuesRef = useRef(initialValues);
+
   const [formData, setFormData] = useState(initialValues);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -80,12 +83,17 @@ export function useForm({
     [formData, validate, onSubmit, defaultErrorMessage]
   );
 
-  // Reset form to initial state
+  // Reset form to initial state (stable - doesn't recreate on every render)
   const reset = useCallback(() => {
-    setFormData(initialValues);
+    setFormData(initialValuesRef.current);
     setError('');
     setLoading(false);
-  }, [initialValues]);
+  }, []);
+
+  // Update initial values (call this when you want reset() to use new values)
+  const setInitialValues = useCallback((newInitialValues) => {
+    initialValuesRef.current = newInitialValues;
+  }, []);
 
   return {
     formData,
@@ -98,5 +106,6 @@ export function useForm({
     handleSubmit,
     reset,
     setFieldValue,
+    setInitialValues, // Update what reset() restores to
   };
 }

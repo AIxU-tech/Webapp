@@ -26,7 +26,6 @@ import {
   ErrorState,
   GradientButton,
   SectionHeader,
-  CardSkeleton,
 } from '../components/ui';
 
 // Icons
@@ -39,53 +38,8 @@ import {
 // Content display
 import ContentCard from '../components/ContentCard';
 
-// =============================================================================
-// LOADING STATE COMPONENTS
-// =============================================================================
-
-/**
- * Skeleton loader for the section header
- */
-function SectionHeaderSkeleton() {
-  return (
-    <div className="flex items-center gap-3 mb-4">
-      <div className="w-10 h-10 bg-muted rounded-xl animate-pulse" />
-      <div className="space-y-1.5">
-        <div className="h-4 bg-muted rounded w-24 animate-pulse" />
-        <div className="h-3 bg-muted rounded w-40 animate-pulse" />
-      </div>
-    </div>
-  );
-}
-
-/**
- * Full page loading skeleton shown during initial data fetch
- */
-function LoadingSkeleton() {
-  return (
-    <div className="space-y-8">
-      {/* Stories section skeleton */}
-      <section>
-        <SectionHeaderSkeleton />
-        <div className="space-y-3">
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-        </div>
-      </section>
-
-      {/* Papers section skeleton */}
-      <section>
-        <SectionHeaderSkeleton />
-        <div className="space-y-3">
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-        </div>
-      </section>
-    </div>
-  );
-}
+// Community components
+import { NewsLoadingSkeleton } from '../components/community';
 
 /**
  * Loading state shown during initial content fetch (when database is empty)
@@ -269,7 +223,7 @@ export default function NewsPage() {
       </div>
 
       {/* Loading State */}
-      {isLoading && <LoadingSkeleton />}
+      {isLoading && <NewsLoadingSkeleton />}
 
       {/* Error State */}
       {error && !hasContent && (

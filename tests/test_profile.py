@@ -173,6 +173,146 @@ class TestProfileUpdates:
             assert data['user']['about_section'] == 'New bio'
 
 
+class TestSocialLinks:
+    """Tests for social links functionality"""
+
+    def test_add_duplicate_social_link(self, authenticated_client, app, test_user):
+        """Test that adding duplicate known social link types is rejected"""
+        with app.app_context():
+            # Add a LinkedIn link (should succeed)
+            linkedin_link = {
+                'type': 'linkedin',
+                'url': 'https://linkedin.com/in/testuser'
+            }
+            
+            response = authenticated_client.patch('/api/profile', json={
+                'socialLinks': [linkedin_link]
+            })
+            
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
+            assert len(data['user']['socialLinks']) == 1
+            assert data['user']['socialLinks'][0]['type'] == 'linkedin'
+            
+            # Try to add two LinkedIn links (duplicate type - should be rejected)
+            response = authenticated_client.patch('/api/profile', json={
+                'socialLinks': [linkedin_link, linkedin_link]
+            })
+            
+            # Should be rejected with 400 status
+            assert response.status_code == 400
+            data = response.get_json()
+            assert data['success'] is False
+            assert 'error' in data
+            # Verify error message mentions duplicate LinkedIn links
+            error_msg = data['error'].lower()
+            assert 'linkedin' in error_msg
+            assert 'cannot have multiple' in error_msg or 'duplicate' in error_msg
+
+    def test_add_multiple_valid_social_links(self, authenticated_client, app, test_user):
+        """Test adding multiple valid social links of different types"""
+        with app.app_context():
+            social_links = [
+                {'type': 'linkedin', 'url': 'https://linkedin.com/in/testuser'},
+                {'type': 'github', 'url': 'https://github.com/testuser'},
+                {'type': 'x', 'url': 'https://x.com/testuser'},
+                {'type': 'instagram', 'url': 'https://instagram.com/testuser'},
+                {'type': 'website', 'url': 'https://testuser.com'}
+            ]
+            
+            response = authenticated_client.patch('/api/profile', json={
+                'socialLinks': social_links
+            })
+            
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
+            assert len(data['user']['socialLinks']) == 5
+            
+            # Verify all links are saved correctly
+            saved_links = data['user']['socialLinks']
+            saved_types = {link['type'] for link in saved_links}
+            expected_types = {'linkedin', 'github', 'x', 'instagram', 'website'}
+            assert saved_types == expected_types
+            
+            # Verify URLs are preserved
+            for link in social_links:
+                matching_link = next((l for l in saved_links if l['type'] == link['type']), None)
+                assert matching_link is not None
+                assert matching_link['url'] == link['url']
+            
+            # Verify links persist by fetching profile again
+            get_response = authenticated_client.get('/api/profile')
+            assert get_response.status_code == 200
+            profile_data = get_response.get_json()
+            assert len(profile_data['socialLinks']) == 5
+
+    def test_duplicate_linkedin_links_rejected(self, authenticated_client, app, test_user):
+        """Test that adding two LinkedIn links is rejected with validation error"""
+        with app.app_context():
+            # Try to add two LinkedIn links at once
+            social_links = [
+                {'type': 'linkedin', 'url': 'https://linkedin.com/in/testuser1'},
+                {'type': 'linkedin', 'url': 'https://linkedin.com/in/testuser2'}
+            ]
+            
+            response = authenticated_client.patch('/api/profile', json={
+                'socialLinks': social_links
+            })
+            
+            # Should be rejected with 400 status
+            assert response.status_code == 400
+            data = response.get_json()
+            assert data['success'] is False
+            assert 'error' in data
+            # Check that error message mentions LinkedIn duplicates
+            error_msg = data['error'].lower()
+            assert 'linkedin' in error_msg
+            assert 'cannot have multiple' in error_msg or 'duplicate' in error_msg
+
+    def test_invalid_social_link_url_rejection(self, authenticated_client, app, test_user):
+        """Test that invalid social link URLs are properly rejected"""
+        with app.app_context():
+
+            
+            # Test 1: Missing type field
+            response = authenticated_client.patch('/api/profile', json={
+                'socialLinks': [
+                    {'url': 'https://linkedin.com/in/testuser'}
+                ]
+            })
+            
+            assert response.status_code == 400
+            data = response.get_json()
+            assert data['success'] is False
+            assert 'type' in data['error'].lower() or 'Each social link' in data['error']
+            
+            # Test 2: Missing url field
+            response = authenticated_client.patch('/api/profile', json={
+                'socialLinks': [
+                    {'type': 'linkedin'}
+                ]
+            })
+            
+            assert response.status_code == 400
+            data = response.get_json()
+            assert data['success'] is False
+            assert 'url' in data['error'].lower() or 'Each social link' in data['error']
+            
+            # Test 4: Empty URL string
+            response = authenticated_client.patch('/api/profile', json={
+                'socialLinks': [
+                    {'type': 'linkedin', 'url': ''}
+                ]
+            })
+            
+            # Empty string should be invalid URL
+            assert response.status_code == 400
+            data = response.get_json()
+            assert data['success'] is False
+
+
 class TestProfilePictures:
     """Tests for profile picture upload/delete"""
 

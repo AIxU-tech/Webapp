@@ -135,6 +135,24 @@ export default function OpportunitiesPage() {
     }
   };
 
+  const handleCategoryTagHover = (tag) => {
+    prefetchInfiniteOpportunities(queryClient, { tag });
+  };
+
+  const handleLocationHover = (location) => {
+    prefetchInfiniteOpportunities(queryClient, { location });
+  };
+
+  const handlePaidHover = (paid) => {
+    prefetchInfiniteOpportunities(queryClient, { paid });
+  };
+
+  const handleMyUniversityHover = () => {
+    if (isAuthenticated) {
+      prefetchInfiniteOpportunities(queryClient, { myUniversity: 'true' });
+    }
+  };
+
   function handleSearch(e) {
     e.preventDefault();
     const newParams = new URLSearchParams(searchParams);
@@ -306,6 +324,7 @@ export default function OpportunitiesPage() {
                 key={loc}
                 selected={locationFilter === loc}
                 onClick={() => toggleLocationFilter(loc)}
+                onMouseEnter={() => handleLocationHover(loc)}
               >
                 {loc}
               </ToggleTag>
@@ -319,6 +338,7 @@ export default function OpportunitiesPage() {
             <ToggleTag
               selected={paidFilter === 'true'}
               onClick={() => togglePaidFilter('true')}
+              onMouseEnter={() => handlePaidHover('true')}
               variant="success"
             >
               Paid
@@ -326,6 +346,7 @@ export default function OpportunitiesPage() {
             <ToggleTag
               selected={paidFilter === 'false'}
               onClick={() => togglePaidFilter('false')}
+              onMouseEnter={() => handlePaidHover('false')}
               variant="secondary"
             >
               Unpaid
@@ -339,6 +360,7 @@ export default function OpportunitiesPage() {
             <ToggleTag
               selected={myUniversity}
               onClick={toggleMyUniversity}
+              onMouseEnter={handleMyUniversityHover}
             >
               My University
             </ToggleTag>
@@ -365,6 +387,7 @@ export default function OpportunitiesPage() {
               tags={CATEGORY_TAGS}
               selected={bookmarkedFilter ? null : tagFilter}
               onChange={handleTagChange}
+              onHover={handleCategoryTagHover}
               showAll
               allLabel="All Categories"
             />

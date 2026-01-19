@@ -107,11 +107,8 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
     // Conversations List
     // -------------------------------------------------------------------------
     // Used by: MessagesPage
-    queryClient.prefetchQuery({
-      queryKey: messageKeys.conversations(),
-      queryFn: getConversations,
-      staleTime: STALE_TIMES.CONVERSATIONS,
-    }),
+
+    // Only prefetch if the user is authenticated
 
     // -------------------------------------------------------------------------
     // AI News Content (Stories + Papers)
@@ -125,6 +122,16 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
     }),
   ];
 
+
+  if (currentUser?.id) {
+    prefetchOperations.push(
+      queryClient.prefetchQuery({
+        queryKey: messageKeys.conversations(),
+        queryFn: getConversations,
+        staleTime: STALE_TIMES.CONVERSATIONS,
+      })
+    );
+  }
   // -------------------------------------------------------------------------
   // Current User Profile
   // -------------------------------------------------------------------------
@@ -144,10 +151,11 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
   const results = await Promise.allSettled(prefetchOperations);
 
   // Log any failures for debugging (won't break the app)
-  const dataTypes = ['universities', 'notes', 'opportunities', 'conversations', 'ai news', 'user profile'];
+  // Order matches prefetchOperations: universities, notes, opportunities, ai news, [conversations, user profile if authenticated]
+  const dataTypes = ['universities', 'notes', 'opportunities', 'ai news', 'conversations', 'user profile'];
   results.forEach((result, index) => {
     if (result.status === 'rejected') {
-      console.warn(`[Prefetch] Failed to prefetch ${dataTypes[index]}:`, result.reason);
+      console.warn(`[Prefetch] Failed to prefetch ${dataTypes[index] || 'unknown'}:`, result.reason);
     }
   });
 }
