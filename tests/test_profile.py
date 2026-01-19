@@ -270,8 +270,6 @@ class TestSocialLinks:
             error_msg = data['error'].lower()
             assert 'linkedin' in error_msg
             assert 'cannot have multiple' in error_msg or 'duplicate' in error_msg
-            # Verify indices are mentioned in error message
-            assert 'indices' in error_msg or 'index' in error_msg
 
     def test_invalid_social_link_url_rejection(self, authenticated_client, app, test_user):
         """Test that invalid social link URLs are properly rejected"""

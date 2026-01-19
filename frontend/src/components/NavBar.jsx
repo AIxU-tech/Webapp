@@ -31,7 +31,6 @@ import {
   ProfileIcon,
   AdminIcon,
 } from './icons';
-import { useEffect } from 'react';
 
 // =============================================================================
 // NAVIGATION LINK COMPONENT

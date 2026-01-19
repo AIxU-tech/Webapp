@@ -151,10 +151,11 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
   const results = await Promise.allSettled(prefetchOperations);
 
   // Log any failures for debugging (won't break the app)
-  const dataTypes = ['universities', 'notes', 'opportunities', 'conversations', 'ai news', 'user profile'];
+  // Order matches prefetchOperations: universities, notes, opportunities, ai news, [conversations, user profile if authenticated]
+  const dataTypes = ['universities', 'notes', 'opportunities', 'ai news', 'conversations', 'user profile'];
   results.forEach((result, index) => {
     if (result.status === 'rejected') {
-      console.warn(`[Prefetch] Failed to prefetch ${dataTypes[index]}:`, result.reason);
+      console.warn(`[Prefetch] Failed to prefetch ${dataTypes[index] || 'unknown'}:`, result.reason);
     }
   });
 }
