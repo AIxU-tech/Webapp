@@ -70,6 +70,7 @@ export default function EditProfileModal({
     handleChange,
     handleSubmit: handleFormSubmit,
     reset,
+    setInitialValues,
   } = useForm({
     initialValues: getInitialFormValues(user),
     onSubmit: async (data) => {
@@ -81,14 +82,16 @@ export default function EditProfileModal({
     defaultErrorMessage: 'Failed to update profile. Please try again.',
   });
 
-  // Reset form when user changes or modal opens
+  // When modal opens, sync form data and initial values to current user
   useEffect(() => {
     if (isOpen && user) {
-      setFormData(getInitialFormValues(user));
+      const values = getInitialFormValues(user);
+      setFormData(values);
+      setInitialValues(values); // Keep reset() in sync with latest user data
     }
-  }, [isOpen, user, setFormData]);
+  }, [isOpen, user, setFormData, setInitialValues]);
 
-  // Reset form on close
+  // Reset form on close - now safe because reset is stable (empty deps)
   useEffect(() => {
     if (!isOpen) {
       reset();
