@@ -104,49 +104,7 @@ Implement the following plan:
   ```                                                                                                                                    
                                                                                                                                          
   ---                                                                                                                                    
-                                                                                                                                         
-  ## Guiding Principles                                                                                                                  
-                                                                                                                                         
-  ### 1. Feature-First Organization                                                                                                      
-  Components organized by feature, not by type. If a component is used exclusively by one feature, it belongs in that feature's          
-  directory.                                                                                                                             
-                                                                                                                                         
-  ### 2. UI Primitives = No Business Logic                                                                                               
-  The `ui/` directory contains ONLY stateless, generic primitives. If it imports from `api/`, `hooks/`, or `contexts/`, it's NOT a       
-  UI primitive.                                                                                                                          
-                                                                                                                                         
-  ### 3. Barrel Exports at Feature Boundaries                                                                                            
-  Each feature directory has an `index.js` that exports its public API. Internal components are NOT exported.                            
-                                                                                                                                         
-  ### 4. Co-locate Feature-Specific Constants                                                                                            
-  Tag constants, helpers specific to a feature stay with that feature (e.g., `opportunities/constants.js`).                              
-                                                                                                                                         
-  ### 5. Extract Shared Utilities Proactively                                                                                            
-  When logic is used by 2+ features, extract to `utils/`.                                                                                
-                                                                                                                                         
-  ---                                                                                                                                    
-                                                                                                                                         
-  ## Migration Strategy: Incremental                                                                                                     
-                                                                                                                                         
-  **Approach:** Create new structure alongside existing, move components one feature at a time, update imports immediately after         
-  each move. No "big bang" cutover.                                                                                                      
-                                                                                                                                         
-  ### Phase Sequence                                                                                                                     
-                                                                                                                                         
-  | Phase | Scope | Description |                                                                                                        
-  |-------|-------|-------------|                                                                                                        
-  | **0** | Infrastructure | Add Vite path aliases, create directory skeleton |                                                          
-  | **1** | UI Primitives | Organize `ui/` into subdirectories (buttons/, feedback/, etc.) |                                             
-  | **2** | Layout | Create `layout/`, move AppLayout, NavBar, Footer, etc. |                                                            
-  | **3** | Auth Feature | Create `auth/`, move LoginModal, RegisterModal, AuthRoute, etc. |                                             
-  | **4** | Community Feature | Create `community/`, move NoteCard, CreateNoteModal, etc. |                                              
-  | **5** | Opportunities & Events | Create both, move OpportunityCard, EventCard, etc. |                                                
-  | **6** | Remaining Features | Create `admin/`, `news/`, `shared/` |                                                                   
-  | **7** | Hook & Utils | Add useFileUpload, url.js, tags.js |                                                                          
-  | **8** | Cleanup | Remove empty dirs, update docs |                                                                                   
-                                                                                                                                         
-  ---                                                                                                                                    
-                                                                                                                                         
+                                                                                                                                                                                                                                                                     
   ## Categorized Future Detailed Plans                                                                                                   
                                                                                                                                          
   Each of these requires its own implementation plan with specific file changes:                                                         
@@ -237,37 +195,7 @@ Implement the following plan:
   - Create reusable event subscription pattern                                                                                           
                                                                                                                                          
   ---                                                                                                                                    
-                                                                                                                                         
-  ## Build & Path Alias Configuration                                                                                                    
-                                                                                                                                         
-  Add to `vite.config.js`:                                                                                                               
-  ```javascript                                                                                                                          
-  resolve: {                                                                                                                             
-  alias: {                                                                                                                               
-  '@': '/src',                                                                                                                           
-  '@/components': '/src/components',                                                                                                     
-  '@/hooks': '/src/hooks',                                                                                                               
-  '@/api': '/src/api',                                                                                                                   
-  '@/utils': '/src/utils',                                                                                                               
-  '@/config': '/src/config',                                                                                                             
-  }                                                                                                                                      
-  }                                                                                                                                      
-  ```                                                                                                                                    
-                                                                                                                                         
-  ---                                                                                                                                    
-                                                                                                                                         
-  ## Critical Files Reference                                                                                                            
-                                                                                                                                         
-  Files most important for understanding current patterns:                                                                               
-                                                                                                                                         
-  1. **`components/ui/index.js`** - Barrel export pattern template (53 lines)                                                            
-  2. **`hooks/index.js`** - Well-documented barrel export (239 lines)                                                                    
-  3. **`hooks/factories/feedItemHooks.js`** - Hook factory pattern to extend                                                             
-  4. **`components/ui/BaseModal.jsx`** - Modal foundation pattern                                                                        
-  5. **`App.jsx`** - Route definitions (needs updates as layout moves)                                                                   
-                                                                                                                                         
-  ---                                                                                                                                    
-                                                                                                                                         
+                                                                                                                                                                                                                                                                    
   ## Verification Strategy                                                                                                               
                                                                                                                                          
   After each phase:                                                                                                                      
@@ -277,10 +205,3 @@ Implement the following plan:
   4. Check that barrel exports resolve correctly                                                                                         
                                                                                                                                          
   ---                                                                                                                                    
-                                                                                                                                         
-  ## Next Steps                                                                                                                          
-                                                                                                                                         
-  1. **Approve this master plan**                                                                                                        
-  2. **Choose first detailed plan to implement** (recommend A1: UI Primitives or A2: Layout)                                             
-  3. **Create detailed plan** with specific file moves and import updates                                                                
-  4. **Execute incrementally** with verification after each file move  
