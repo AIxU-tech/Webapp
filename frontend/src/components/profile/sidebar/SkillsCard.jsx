@@ -15,9 +15,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import Card from '../../ui/Card';
-import EmptyState from '../../ui/EmptyState';
-import { IconButton, Alert } from '../../ui';
+import { Card, EmptyState, IconButton, Alert } from '../../ui';
 import { CodeIcon, EditIcon, XIcon } from '../../icons';
 import UnsavedChangesModal from '../../UnsavedChangesModal';
 import { useBeforeUnload, useClickOutside, useEscapeKey } from '../../../hooks';

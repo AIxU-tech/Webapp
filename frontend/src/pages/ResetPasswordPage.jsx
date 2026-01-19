@@ -26,8 +26,7 @@ import { AlertTriangleIcon, CheckCircleIcon } from '../components/icons';
 import AuthFormLayout from '../components/AuthFormLayout';
 import FormInput from '../components/FormInput';
 import FormButton from '../components/FormButton';
-import LoadingState from '../components/ui/LoadingState';
-import GradientButton from '../components/ui/GradientButton';
+import { LoadingState, GradientButton } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
 
 /**

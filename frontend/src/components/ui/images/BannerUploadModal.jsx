@@ -12,10 +12,10 @@
  */
 
 import { useState, useRef } from 'react';
-import BaseModal from './BaseModal';
-import { GradientButton, SecondaryButton } from './';
-import { validateImageFile, cropImageToBanner, BANNER_CONFIG } from '../../utils/image';
-import { CameraIcon } from '../icons';
+import { BaseModal } from '../modals';
+import { GradientButton, SecondaryButton } from '../buttons';
+import { validateImageFile, cropImageToBanner, BANNER_CONFIG } from '../../../utils/image';
+import { CameraIcon } from '../../icons';
 
 export default function BannerUploadModal({
   isOpen,

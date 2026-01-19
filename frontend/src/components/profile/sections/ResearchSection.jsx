@@ -7,9 +7,7 @@
  */
 
 import ProfileSection from './ProfileSection';
-import EmptyState from '../../ui/EmptyState';
-import Badge from '../../ui/Badge';
-import { SecondaryButton } from '../../ui';
+import { EmptyState, Badge, SecondaryButton } from '../../ui';
 import { PlusIcon } from '../../icons';
 
 export default function ResearchSection({ publications = [], isOwnProfile, onAdd }) {

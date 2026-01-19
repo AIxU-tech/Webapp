@@ -14,10 +14,10 @@
  */
 
 import { useState } from 'react';
-import BaseModal from './BaseModal';
-import TagSelector from './TagSelector';
-import GradientButton from './GradientButton';
-import Alert from './Alert';
+import { BaseModal } from './modals';
+import { TagSelector } from './forms';
+import { GradientButton } from './buttons';
+import { Alert } from './feedback';
 import { ClockIcon } from '../icons';
 
 /**

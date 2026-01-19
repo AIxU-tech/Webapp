@@ -6,8 +6,7 @@
  */
 
 import { Link } from 'react-router-dom';
-import Card from '../../ui/Card';
-import EmptyState from '../../ui/EmptyState';
+import { Card, EmptyState } from '../../ui';
 import RoleBadge from '../../RoleBadge';
 import { UniversitiesIcon, ExternalLinkIcon } from '../../icons';
 

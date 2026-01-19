@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getAvatarUrl, getInitials, getInitialsFromName, getAvatarGradient } from '../../utils/avatar';
+import { getAvatarUrl, getInitials, getInitialsFromName, getAvatarGradient } from '../../../utils/avatar';
 
 /**
  * Size variants mapping to Tailwind classes

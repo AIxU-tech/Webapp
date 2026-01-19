@@ -17,7 +17,7 @@
  * <LoadingState fullPage text="Please wait..." />
  */
 
-import { SpinnerIcon } from '../icons';
+import { SpinnerIcon } from '../../icons';
 
 export default function LoadingState({
   text = 'Loading...',

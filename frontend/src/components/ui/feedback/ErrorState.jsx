@@ -26,7 +26,7 @@
  */
 
 import { Link } from 'react-router-dom';
-import { AlertCircleIcon } from '../icons';
+import { AlertCircleIcon } from '../../icons';
 
 export default function ErrorState({
   message = 'An error occurred',

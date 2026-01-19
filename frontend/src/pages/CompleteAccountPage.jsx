@@ -30,10 +30,7 @@ import AuthFormLayout from '../components/AuthFormLayout';
 import FormInput from '../components/FormInput';
 import FormButton from '../components/FormButton';
 import TermsLink from '../components/TermsLink';
-import LoadingState from '../components/ui/LoadingState';
-import Divider from '../components/ui/Divider';
-import Alert from '../components/ui/Alert';
-import GradientButton from '../components/ui/GradientButton';
+import { LoadingState, Divider, Alert, GradientButton } from '../components/ui';
 
 
 /**

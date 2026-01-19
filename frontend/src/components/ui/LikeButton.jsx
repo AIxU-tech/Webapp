@@ -5,7 +5,7 @@
  * Used for notes and comments across the app.
  */
 
-import IconButton from './IconButton';
+import { IconButton } from './buttons';
 import { HeartIcon } from '../icons';
 
 const COUNT_CLASSES = {

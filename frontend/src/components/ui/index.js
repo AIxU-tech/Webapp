@@ -6,47 +6,49 @@
  *
  * @example
  * import { BaseModal, EmptyState, Badge, TagSelector, GradientButton } from '../components/ui';
+ *
+ * Or import from subdirectories:
+ * import { GradientButton, SecondaryButton } from '../components/ui/buttons';
+ * import { Avatar, Badge, Tag } from '../components/ui/display';
  */
 
-// Modal & State Components
-export { default as BaseModal } from './BaseModal';
+// =============================================================================
+// Subdirectory Re-exports
+// =============================================================================
+
+// Buttons
+export * from './buttons';
+
+// Feedback (Alert, EmptyState, LoadingState, ErrorState)
+export * from './feedback';
+
+// Modals
+export * from './modals';
+
+// Forms
+export * from './forms';
+
+// Display (Avatar, Badge, Tag, Tooltip, Divider, StatItem)
+export * from './display';
+
+// Cards
+export * from './cards';
+
+// Images (BannerImage, BannerUploadModal, UniversityLogo)
+export * from './images';
+
+// Lists
+export * from './lists';
+
+// =============================================================================
+// Additional Direct Exports (not yet in subdirectories)
+// =============================================================================
+
+// CreateNoteModal - will move to community/ feature
 export { default as CreateNoteModal } from './CreateNoteModal';
-export { default as EmptyState } from './EmptyState';
-export { default as LoadingState } from './LoadingState';
-export { default as ErrorState } from './ErrorState';
-export { default as Alert } from './Alert';
 
-// Button Components
-export { default as GradientButton } from './GradientButton';
-export { default as SecondaryButton } from './SecondaryButton';
-export { default as IconButton } from './IconButton';
+// LikeButton - specialized button, may stay or move to community/
 export { default as LikeButton } from './LikeButton';
-export { default as CloseButton } from './CloseButton';
 
-// Layout Components
+// Layout helpers
 export { default as SectionHeader } from './SectionHeader';
-export { default as CardSkeleton } from './CardSkeleton';
-
-// Card Components
-export { default as Card } from './Card';
-export { default as StatCard } from './StatCard';
-export { default as StatItem } from './StatItem';
-export { default as UniversityCardSkeleton } from './UniversityCardSkeleton';
-export { default as UniversityLogo } from './UniversityLogo';
-
-// Generic UI Components
-export { default as Avatar, Avatar as AvatarComponent } from './Avatar';
-export { default as Badge } from './Badge';
-export { default as Divider } from './Divider';
-export { default as Tag, ToggleTag, TagGroup, getTagVariant } from './Tag';
-export { default as TagSelector } from './TagSelector';
-export { default as Tooltip } from './Tooltip';
-export { default as UserListItem } from './UserListItem';
-
-// Feed Components
-export { default as FeedCard } from './FeedCard';
-export { default as FeedItemList } from './FeedItemList';
-
-// Banner Components
-export { default as BannerImage } from './BannerImage';
-export { default as BannerUploadModal } from './BannerUploadModal';

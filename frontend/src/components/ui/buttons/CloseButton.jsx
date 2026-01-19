@@ -19,7 +19,7 @@
  * <CloseButton size="sm" variant="subtle" onClick={onDismiss} className="ml-2" />
  */
 
-import { XIcon } from '../icons';
+import { XIcon } from '../../icons';
 
 /**
  * Size configurations

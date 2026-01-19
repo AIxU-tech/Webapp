@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { UniversitiesIcon } from '../icons';
-import { getUniversityLogoUrl } from '../../api/universities';
+import { UniversitiesIcon } from '../../icons';
+import { getUniversityLogoUrl } from '../../../api/universities';
 
 /**
  * Size variants mapping to Tailwind classes

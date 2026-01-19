@@ -16,7 +16,7 @@
  */
 
 import { useState } from 'react';
-import { CameraIcon } from '../icons';
+import { CameraIcon } from '../../icons';
 
 export default function BannerImage({
   imageUrl,

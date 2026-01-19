@@ -25,7 +25,7 @@
  * />
  */
 
-import { ToggleTag, TagGroup } from './Tag';
+import { ToggleTag, TagGroup } from '../display';
 
 export default function TagSelector({
   tags = [],

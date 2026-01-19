@@ -3,9 +3,7 @@
  * Handles loading/error/empty states and renders a list of feed items.
  */
 
-import LoadingState from './LoadingState';
-import ErrorState from './ErrorState';
-import EmptyState from './EmptyState';
+import { LoadingState, ErrorState, EmptyState } from '../feedback';
 
 export default function FeedItemList({
   items = [],

@@ -28,8 +28,8 @@
  * </BaseModal>
  */
 
-import { useModal } from '../../hooks';
-import CloseButton from './CloseButton';
+import { useModal } from '../../../hooks';
+import { CloseButton } from '../buttons';
 
 /**
  * Size configurations for modal widths

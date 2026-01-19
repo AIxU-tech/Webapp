@@ -5,9 +5,9 @@
  */
 
 import { Link } from 'react-router-dom';
-import Tag, { TagGroup } from './Tag';
-import Avatar from './Avatar';
-import { BookmarkIcon, TrashIcon } from '../icons';
+import { Tag, TagGroup } from '../display';
+import { Avatar } from '../display';
+import { BookmarkIcon, TrashIcon } from '../../icons';
 
 export default function FeedCard({
   item,

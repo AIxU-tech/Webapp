@@ -32,7 +32,7 @@
  */
 
 import { Link } from 'react-router-dom';
-import Avatar from './Avatar';
+import { Avatar } from '../display';
 
 /**
  * Get user's display name

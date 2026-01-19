@@ -32,7 +32,7 @@
  */
 
 import { forwardRef } from 'react';
-import { SpinnerIcon } from '../icons';
+import { SpinnerIcon } from '../../icons';
 
 /**
  * Size variant class definitions

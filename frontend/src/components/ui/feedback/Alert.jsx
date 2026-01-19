@@ -22,8 +22,8 @@
  * </Alert>
  */
 
-import { InfoIcon, AlertCircleIcon, AlertTriangleIcon, CheckCircleIcon } from '../icons';
-import CloseButton from './CloseButton';
+import { InfoIcon, AlertCircleIcon, AlertTriangleIcon, CheckCircleIcon } from '../../icons';
+import { CloseButton } from '../buttons';
 
 /**
  * Variant configurations

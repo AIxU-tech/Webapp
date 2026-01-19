@@ -32,8 +32,8 @@
  */
 
 import { forwardRef } from 'react';
-import { GRADIENT_PRIMARY, SHADOW_PRIMARY_HOVER } from '../../config/styles';
-import { SpinnerIcon } from '../icons';
+import { GRADIENT_PRIMARY, SHADOW_PRIMARY_HOVER } from '../../../config/styles';
+import { SpinnerIcon } from '../../icons';
 
 /**
  * Size variant class definitions
