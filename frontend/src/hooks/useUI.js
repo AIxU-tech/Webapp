@@ -85,10 +85,18 @@ export function useClickOutside(ref, callback, isActive = true) {
 // =============================================================================
 
 /**
+ * Global scroll lock counter
+ * Tracks how many components are requesting scroll lock.
+ * Only unlocks when count reaches zero.
+ */
+let scrollLockCount = 0;
+let originalBodyOverflow = '';
+
+/**
  * Lock body scroll when a condition is true
  *
- * Commonly used when modals or overlays are open to prevent
- * background scrolling.
+ * Uses ref-counting to handle nested modals correctly.
+ * Only unlocks scrolling when ALL components have released the lock.
  *
  * @param {boolean} isLocked - Whether to lock scrolling
  *
@@ -98,12 +106,19 @@ export function useClickOutside(ref, callback, isActive = true) {
 export function useScrollLock(isLocked) {
   useEffect(() => {
     if (isLocked) {
-      // Store current overflow value
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
+      // First lock - store original overflow
+      if (scrollLockCount === 0) {
+        originalBodyOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+      }
+      scrollLockCount++;
 
       return () => {
-        document.body.style.overflow = originalOverflow || '';
+        scrollLockCount--;
+        // Last unlock - restore original overflow
+        if (scrollLockCount === 0) {
+          document.body.style.overflow = originalBodyOverflow;
+        }
       };
     }
   }, [isLocked]);

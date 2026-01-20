@@ -6,9 +6,20 @@
  * - Click outside to close (optional)
  * - Body scroll lock when open
  * - Accessible with proper ARIA attributes
- * - Configurable sizes
+ * - Configurable sizes and z-index
  *
  * @component
+ *
+ * @param {boolean} [isOpen=false] - Whether the modal is visible
+ * @param {Function} onClose - Callback when modal should close
+ * @param {string} [title] - Optional modal title (renders in header)
+ * @param {React.ReactNode} children - Modal content
+ * @param {string} [size='md'] - Modal width: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
+ * @param {boolean} [showCloseButton=true] - Whether to show close button in header
+ * @param {boolean} [closeOnBackdrop=true] - Whether clicking backdrop closes modal
+ * @param {boolean} [closeOnEscape=true] - Whether ESC key closes modal
+ * @param {string} [className=''] - Additional classes for modal container
+ * @param {number} [zIndex=50] - Z-index for modal (use 60 for modals over other modals)
  *
  * @example
  * <BaseModal isOpen={isOpen} onClose={() => setIsOpen(false)} title="My Modal">
@@ -16,15 +27,9 @@
  * </BaseModal>
  *
  * @example
- * // Large modal without close button
- * <BaseModal
- *   isOpen={isOpen}
- *   onClose={handleClose}
- *   title="Settings"
- *   size="lg"
- *   showCloseButton={false}
- * >
- *   <SettingsForm />
+ * // Modal with higher z-index (for stacking over other modals)
+ * <BaseModal isOpen={isOpen} onClose={handleClose} zIndex={60}>
+ *   <TermsContent />
  * </BaseModal>
  */
 
@@ -53,6 +58,7 @@ export default function BaseModal({
   closeOnBackdrop = true,
   closeOnEscape = true,
   className = '',
+  zIndex = 50,
 }) {
   // Use the combined modal hook for ESC, scroll lock, and click outside
   const { containerRef } = useModal(isOpen, onClose, {
@@ -74,7 +80,8 @@ export default function BaseModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm"
+      style={{ zIndex }}
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"

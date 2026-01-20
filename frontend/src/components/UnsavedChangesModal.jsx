@@ -21,8 +21,7 @@
  */
 
 import { AlertTriangleIcon } from './icons';
-import { CloseButton } from './ui';
-import { useEscapeKey, useScrollLock } from '../hooks';
+import { BaseModal, CloseButton } from './ui';
 
 export default function UnsavedChangesModal({
   isOpen = false,
@@ -30,30 +29,19 @@ export default function UnsavedChangesModal({
   onDiscard,
   onCancel,
 }) {
-  // ESC on the modal returns to editing
-  useEscapeKey(isOpen, onCancel);
-  useScrollLock(isOpen);
-
-  // Click outside modal returns to editing
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onCancel();
-    }
-  };
-
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
-      onClick={handleBackdropClick}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="unsaved-changes-title"
-      aria-describedby="unsaved-changes-description"
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onCancel}
+      size="md"
+      showCloseButton={false}
     >
-      {/* Modal Container */}
-      <div className="bg-card border border-border rounded-xl shadow-card w-full max-w-md mx-4 p-6 animate-in fade-in zoom-in duration-200">
+      <div
+        className="p-6"
+        role="alertdialog"
+        aria-labelledby="unsaved-changes-title"
+        aria-describedby="unsaved-changes-description"
+      >
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-start gap-3">
@@ -93,9 +81,7 @@ export default function UnsavedChangesModal({
           <button
             type="button"
             onClick={onDiscard}
-            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground
-                       border border-border bg-background rounded-lg hover:bg-accent
-                       transition-colors font-medium"
+            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground border border-border bg-background rounded-lg hover:bg-accent transition-colors font-medium cursor-pointer"
           >
             Discard
           </button>
@@ -104,13 +90,12 @@ export default function UnsavedChangesModal({
           <button
             type="button"
             onClick={onSave}
-            className="px-4 py-2 text-sm rounded-lg transition-colors font-medium
-                       bg-amber-600 hover:bg-amber-700 text-white"
+            className="px-4 py-2 text-sm rounded-lg transition-colors font-medium bg-amber-600 hover:bg-amber-700 text-white cursor-pointer"
           >
             Save
           </button>
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 }
