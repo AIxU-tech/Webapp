@@ -15,26 +15,18 @@
  */
 
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { login } from '../api/auth';
-import { usePageTitle, useForm } from '../hooks';
+import { usePageTitle, useLoginForm } from '../hooks';
 import AuthFormLayout from '../components/AuthFormLayout';
-import FormInput from '../components/FormInput';
-import FormButton from '../components/FormButton';
+import LoginFormContent from '../components/LoginFormContent';
 import TermsLink from '../components/TermsLink';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { loginUser } = useAuth();
-
   usePageTitle('Login');
 
-  const { formData, error, loading, handleChange, handleSubmit } = useForm({
-    initialValues: { email: '', password: '' },
-
-    onSubmit: async (data) => {
-      const response = await login(data.email.trim(), data.password.trim());
-      loginUser(response.user);
+  // Use shared login form hook
+  const loginForm = useLoginForm({
+    onSuccess: () => {
       navigate('/', { replace: true });
     },
   });
@@ -42,7 +34,7 @@ export default function LoginPage() {
   // Footer content with navigation links and legal text
   const footer = (
     <>
-      {/* Register Link */}
+      {/* Register Link - navigates to register PAGE */}
       <div className="text-center">
         <p className="text-sm text-muted-foreground">
           Don't have an account?{' '}
@@ -51,6 +43,7 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
+
       {/* Forgot Password Link */}
       <div className="text-center">
         <p className="text-sm text-muted-foreground">
@@ -75,45 +68,11 @@ export default function LoginPage() {
     <AuthFormLayout
       title="Your ideas, amplified"
       subtitle="Privacy-first AI community that helps you create in confidence."
-      error={error}
+      error={loginForm.error}
       footer={footer}
       cardRadius={0.35}
     >
-      {/* Login Form */}
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        {/* Email Input */}
-        <FormInput
-          type="email"
-          name="email"
-          placeholder="Enter your email"
-          value={formData.email}
-          onChange={handleChange}
-          disabled={loading}
-          required
-        />
-
-        {/* Password Input */}
-        <div className="space-y-2">
-          <FormInput
-            type="password"
-            name="password"
-            placeholder="Enter your password"
-            value={formData.password}
-            onChange={handleChange}
-            disabled={loading}
-            required
-          />
-        </div>
-
-        {/* Submit Button */}
-        <FormButton
-          type="submit"
-          loading={loading}
-          loadingText="Logging in..."
-        >
-          Log in
-        </FormButton>
-      </form>
+      <LoginFormContent {...loginForm} />
     </AuthFormLayout>
   );
 }
