@@ -20,9 +20,12 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from backend.extensions import db
 from backend.models import Message, User
-from backend.sockets.events import emit_new_message, emit_messages_read
-from backend.routes_v2.messages.helpers import create_conversations_dict
-from backend.routes_v2.messages.helpers import get_messages_between_users
+from backend.sockets.events import emit_messages_read
+from backend.routes_v2.messages.helpers import (
+    create_conversations_dict,
+    get_messages_between_users,
+    send_to_recipient
+)
 
 messages_bp = Blueprint('messages', __name__)
 
@@ -143,29 +146,8 @@ def send_message():
         db.session.add(message)
         db.session.commit()
 
-        # =================================================================
-        # Real-time WebSocket Notification
-        # =================================================================
-        # Emit the new message to the recipient so their UI updates instantly.
-        # The message_data includes all fields needed to render in the UI.
-        message_data = {
-            'id': message.id,
-            'content': message.content,
-            'timestamp': message.get_time_ago(),
-            'sender_id': current_user.id,
-            'isSentByCurrentUser': False  # From recipient's perspective
-        }
-
-        # Include sender info for conversation list updates
-        conversation_data = {
-            'sender_id': current_user.id,
-            'sender_name': current_user.get_full_name(),
-            'sender_avatar': current_user.get_profile_picture_url(),
-            'sender_university': current_user.university or 'University'
-        }
-
-        # Emit to recipient via WebSocket
-        emit_new_message(recipient_id, message_data, conversation_data)
+        # Emit WebSocket notification to recipient for real-time delivery
+        send_to_recipient(message, current_user, recipient_id)
 
         return jsonify({
             'success': True,

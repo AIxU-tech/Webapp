@@ -8,7 +8,6 @@ Keeps route handlers clean by extracting reusable logic.
 import json
 from flask_login import current_user
 from sqlalchemy.orm import Query, joinedload
-from sqlalchemy import select
 from backend.extensions import db
 from backend.models import Opportunity, User
 from backend.models.opportunity_tag import OpportunityTag
@@ -58,47 +57,84 @@ def _apply_search_filter(query: Query, search_query: str) -> Query:
 
 
 def _apply_my_university_filter(query: Query, user) -> Query:
+    """
+    Filter to opportunities from authors at the current user's university.
+    
+    Uses EXISTS subquery for better performance - single query execution
+    and short-circuits after finding first match.
+    """
     if not (hasattr(user, 'is_authenticated') and user.is_authenticated and user.university):
         return query
     
-    same_uni_subquery = select(User.id).filter(
-        User.university == user.university
+    return query.filter(
+        db.exists().where(
+            db.and_(
+                User.id == Opportunity.author_id,
+                User.university == user.university
+            )
+        )
     )
-    return query.filter(Opportunity.author_id.in_(same_uni_subquery))
 
 
 def _apply_location_filter(query: Query, location_filter: str) -> Query:
+    """
+    Filter to opportunities with a specific location tag.
+    
+    Uses EXISTS subquery for better performance.
+    """
     if not location_filter:
         return query
     
-    location_subquery = select(OpportunityTag.opportunity_id).filter(
-        OpportunityTag.tag == location_filter
+    return query.filter(
+        db.exists().where(
+            db.and_(
+                OpportunityTag.opportunity_id == Opportunity.id,
+                OpportunityTag.tag == location_filter
+            )
+        )
     )
-    return query.filter(Opportunity.id.in_(location_subquery))
 
 
 def _apply_paid_filter(query: Query, paid_filter: str) -> Query:
+    """
+    Filter to opportunities with Paid or Unpaid tag.
+    
+    Uses EXISTS subquery for better performance.
+    """
     if not paid_filter:
         return query
     
     tag_to_match = 'Paid' if paid_filter.lower() == 'true' else 'Unpaid'
-    paid_subquery = select(OpportunityTag.opportunity_id).filter(
-        OpportunityTag.tag == tag_to_match
+    return query.filter(
+        db.exists().where(
+            db.and_(
+                OpportunityTag.opportunity_id == Opportunity.id,
+                OpportunityTag.tag == tag_to_match
+            )
+        )
     )
-    return query.filter(Opportunity.id.in_(paid_subquery))
 
 
 def _apply_additional_tags_filter(query: Query, tags_filter: str) -> Query:
+    """
+    Filter to opportunities that have ALL specified tags.
+    
+    Uses EXISTS subqueries for better performance.
+    """
     if not tags_filter:
         return query
     
     filter_tags = [t.strip() for t in tags_filter.split(',') if t.strip()]
     
     for tag in filter_tags:
-        tag_subquery = select(OpportunityTag.opportunity_id).filter(
-            OpportunityTag.tag == tag
+        query = query.filter(
+            db.exists().where(
+                db.and_(
+                    OpportunityTag.opportunity_id == Opportunity.id,
+                    OpportunityTag.tag == tag
+                )
+            )
         )
-        query = query.filter(Opportunity.id.in_(tag_subquery))
     
     return query
 
@@ -372,6 +408,9 @@ def opportunities_to_dict(opportunities, user):
     """
     Convert opportunities to dictionaries with user-specific data.
 
+    Uses batch query to fetch only bookmarks for displayed opportunities,
+    avoiding fetching all user bookmarks (which could be hundreds).
+
     Args:
         opportunities: List of Opportunity objects
         user: Current user for bookmark status
@@ -379,17 +418,22 @@ def opportunities_to_dict(opportunities, user):
     Returns:
         list: List of opportunity dictionaries
     """
-    result = []
+    if not opportunities:
+        return []
 
-    # Pre-parse bookmarks for O(1) lookups
+    # Get bookmark status only for these specific opportunities (not ALL user bookmarks)
     bookmarked_set = set()
     if hasattr(user, 'is_authenticated') and user.is_authenticated:
-        try:
-            bookmarked = OpportunityBookmark.get_bookmarked_opportunities(user.id)
-            bookmarked_set = {b.opportunity_id for b in bookmarked}
-        except Exception:
-            pass
+        opportunity_ids = [opp.id for opp in opportunities]
+        bookmarked_set = {
+            row.opportunity_id for row in
+            OpportunityBookmark.query.filter(
+                OpportunityBookmark.user_id == user.id,
+                OpportunityBookmark.opportunity_id.in_(opportunity_ids)
+            ).with_entities(OpportunityBookmark.opportunity_id).all()
+        }
 
+    result = []
     for opp in opportunities:
         # Skip if user can't view this opportunity
         if not check_opportunity_visibility(opp, user):
