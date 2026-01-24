@@ -7,12 +7,14 @@
 import { Link } from 'react-router-dom';
 import { Tag, TagGroup } from '../display';
 import { Avatar } from '../display';
-import { BookmarkIcon, TrashIcon } from '../../icons';
+import { BookmarkIcon, TrashIcon, PencilIcon } from '../../icons';
 
 export default function FeedCard({
   item,
   onDelete,
+  onEdit,
   onBookmark,
+  canEdit = false,
   canDelete = false,
   isBookmarked = false,
   headerBadges = null,
@@ -39,10 +41,20 @@ export default function FeedCard({
           </div>
         </Link>
 
-        {/* Right side: optional badges, timestamp, delete */}
+        {/* Right side: optional badges, timestamp, edit, delete */}
         <div className="flex items-center space-x-2">
           {headerBadges}
           <span className="text-sm text-muted-foreground">{item.timeAgo}</span>
+          {canEdit && (
+            <button
+              onClick={() => onEdit(item.id)}
+              className="text-muted-foreground hover:text-primary transition-colors p-1 cursor-pointer"
+              title="Edit"
+              aria-label="Edit"
+            >
+              <PencilIcon />
+            </button>
+          )}
           {canDelete && (
             <button
               onClick={() => onDelete(item.id)}

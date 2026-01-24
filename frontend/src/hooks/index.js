@@ -109,6 +109,7 @@ export {
   useInfiniteNotes,
   useNote,
   useCreateNote,
+  useUpdateNote,
   useLikeNote,
   useBookmarkNote,
   useDeleteNote,

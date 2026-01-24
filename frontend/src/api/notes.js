@@ -139,6 +139,32 @@ export async function toggleBookmarkNote(id) {
 }
 
 /**
+ * Update a note (author only)
+ *
+ * Only the note author can update.
+ *
+ * @param {number} id - Note ID
+ * @param {object} noteData - Updated note data
+ * @param {string} noteData.title - Note title
+ * @param {string} noteData.content - Note content
+ * @param {Array<string>} [noteData.tags] - Tags/topics
+ * @param {boolean} [noteData.universityOnly] - University-only visibility
+ * @returns {Promise<object>} Response with updated note
+ * @throws {ApiError} If not author or not authenticated (403)
+ *
+ * @example
+ * const updatedNote = await updateNote(1, {
+ *   title: 'Updated Title',
+ *   content: 'Updated content...',
+ *   tags: ['nlp', 'transformers'],
+ *   universityOnly: false
+ * });
+ */
+export async function updateNote(id, noteData) {
+  return api.put(`/notes/${id}`, noteData);
+}
+
+/**
  * Delete a note (author only)
  *
  * Only the note author or admin can delete.
