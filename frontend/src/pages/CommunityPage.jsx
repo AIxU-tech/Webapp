@@ -44,11 +44,9 @@ import {
 import {
   GradientButton,
   FeedItemList,
-  CreateNoteModal,
+  ConfirmationModal,
 } from '../components/ui';
-import ConfirmationModal from '../components/ConfirmationModal';
-import NoteCard from '../components/NoteCard';
-import NotesFilter from '../components/NotesFilter';
+import { NoteCard, NotesFilter, CreateNoteModal } from '../components/community';
 
 // Icons
 import {

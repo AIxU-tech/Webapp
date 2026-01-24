@@ -31,7 +31,7 @@ import {
   ErrorState,
   Badge,
 } from '../components/ui';
-import RequestCard from '../components/RequestCard';
+import { RequestCard } from '../components/admin';
 
 // =============================================================================
 // Constants

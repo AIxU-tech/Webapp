@@ -20,11 +20,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { usePageTitle, useForm, useUniversities } from '../hooks';
-import { Alert, Divider } from '../components/ui';
-import AuthFormLayout from '../components/AuthFormLayout';
-import FormInput from '../components/FormInput';
-import FormButton from '../components/FormButton';
-import NameInputPair from '../components/NameInputPair';
+import { Alert, Divider, FormInput, FormButton, NameInputPair } from '../components/ui';
+import { AuthFormLayout } from '../components/auth';
 import { isEduEmail, extractEduSubdomain } from '../utils/email';
 
 /**

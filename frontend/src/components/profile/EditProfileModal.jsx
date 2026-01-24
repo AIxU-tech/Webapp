@@ -36,9 +36,7 @@ import { useEffect } from 'react';
 import { useForm } from '../../hooks';
 
 // UI Components
-import { BaseModal, Alert, GradientButton, SecondaryButton } from '../ui';
-import FormInput from '../FormInput';
-import SocialLinksInput from '../SocialLinksInput';
+import { BaseModal, Alert, GradientButton, SecondaryButton, FormInput, SocialLinksInput } from '../ui';
 
 // Profile Components
 import { ProfilePictureSection } from './';

@@ -14,9 +14,7 @@
 
 import { useNavigate, Link } from 'react-router-dom';
 import { usePageTitle, useRegisterForm } from '../hooks';
-import AuthFormLayout from '../components/AuthFormLayout';
-import RegisterFormContent from '../components/RegisterFormContent';
-import TermsLink from '../components/TermsLink';
+import { AuthFormLayout, RegisterFormContent, TermsLink } from '../components/auth';
 import { Alert, Divider } from '../components/ui';
 
 export default function RegisterPage() {

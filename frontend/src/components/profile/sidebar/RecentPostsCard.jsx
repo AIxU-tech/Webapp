@@ -6,8 +6,7 @@
  */
 
 import { Link } from 'react-router-dom';
-import Card from '../../ui/Card';
-import EmptyState from '../../ui/EmptyState';
+import { Card, EmptyState } from '../../ui';
 import { HeartIcon, MessageCircleIcon, FileTextIcon } from '../../icons';
 
 // Single post item with likes and comments

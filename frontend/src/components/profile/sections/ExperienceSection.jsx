@@ -7,8 +7,7 @@
  */
 
 import ProfileSection from './ProfileSection';
-import EmptyState from '../../ui/EmptyState';
-import { SecondaryButton } from '../../ui';
+import { EmptyState, SecondaryButton } from '../../ui';
 import { PlusIcon } from '../../icons';
 
 export default function ExperienceSection({ experiences = [], isOwnProfile, onAdd }) {

@@ -14,10 +14,8 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Card, IconButton, Alert } from '../ui';
-import EmptyState from '../ui/EmptyState';
+import { Card, IconButton, Alert, EmptyState, UnsavedChangesModal } from '../ui';
 import { EditIcon } from '../icons';
-import UnsavedChangesModal from '../UnsavedChangesModal';
 import { useBeforeUnload, useClickOutside, useEscapeKey } from '../../hooks';
 
 export default function UniversityAboutSection({

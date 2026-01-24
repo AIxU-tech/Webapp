@@ -8,8 +8,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Card from '../../ui/Card';
-import Avatar from '../../ui/Avatar';
+import { Card, Avatar } from '../../ui';
 import {
   FileTextIcon,
   MessageCircleIcon,

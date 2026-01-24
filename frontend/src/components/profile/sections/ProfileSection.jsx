@@ -5,7 +5,7 @@
  * Provides consistent card styling with title, optional subtitle, and action button.
  */
 
-import Card from '../../ui/Card';
+import { Card } from '../../ui';
 
 export default function ProfileSection({
   title,

@@ -7,7 +7,7 @@
 
 import { Link } from 'react-router-dom';
 import { Card, SecondaryButton, Avatar } from '../ui';
-import RoleBadge, { ROLES } from '../RoleBadge';
+import RoleBadge, { ROLES } from './RoleBadge';
 
 export default function LeadershipCard({ members = [], onViewAll }) {
   // Filter to executives and presidents only, sorted by role (president first)

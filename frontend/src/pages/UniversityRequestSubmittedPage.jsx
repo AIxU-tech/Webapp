@@ -12,7 +12,7 @@ import { useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { usePageTitle } from '../hooks';
 import { GradientButton, Alert } from '../components/ui';
-import VerificationPageLayout from '../components/VerificationPageLayout';
+import { VerificationPageLayout } from '../components/auth';
 
 export default function UniversityRequestSubmittedPage() {
   const location = useLocation();

@@ -18,11 +18,7 @@
  */
 
 import { useState } from 'react';
-import BaseModal from '../ui/BaseModal';
-import TagSelector from '../ui/TagSelector';
-import GradientButton from '../ui/GradientButton';
-import Alert from '../ui/Alert';
-import { TagGroup, ToggleTag } from '../ui/Tag';
+import { BaseModal, TagSelector, GradientButton, Alert, TagGroup, ToggleTag } from '../ui';
 import { ClockIcon } from '../icons';
 
 /**
