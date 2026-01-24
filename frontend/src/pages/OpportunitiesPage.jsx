@@ -15,7 +15,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
@@ -37,7 +37,6 @@ import {
   TagGroup,
   ConfirmationModal,
 } from '../components/ui';
-import ConversationModal from '../components/messages/ConversationModal';
 import { OpportunityCard } from '../components/opportunities';
 import { CreateOpportunityModal } from '../components/opportunities';
 
@@ -112,8 +111,7 @@ export default function OpportunitiesPage() {
   // Delete modal state
   const [opportunityToDelete, setOpportunityToDelete] = useState(null);
 
-  // Message modal state - tracks which user to open chat with
-  const [messageUserId, setMessageUserId] = useState(null);
+  const navigate = useNavigate();
 
   // Search input state
   const [searchInput, setSearchInput] = useState(searchQuery);
@@ -453,7 +451,7 @@ export default function OpportunitiesPage() {
             opportunity={opp}
             onBookmark={handleBookmark}
             onDelete={handleDeleteClick}
-            onMessageUser={setMessageUserId}
+            onMessageUser={(userId) => navigate(`/messages?startWith=${userId}`)}
             currentUserId={user?.id}
             isAuthenticated={isAuthenticated}
             isSiteAdmin={user?.permissionLevel >= 1}
@@ -488,12 +486,6 @@ export default function OpportunitiesPage() {
         variant="danger"
       />
 
-      {/* Inline Message Modal - opens chat without leaving the page */}
-      <ConversationModal
-        userId={messageUserId}
-        isOpen={messageUserId !== null}
-        onClose={() => setMessageUserId(null)}
-      />
     </div>
   );
 }

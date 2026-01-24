@@ -28,7 +28,6 @@ import {
   useUploadProfilePicture,
   useUploadProfileBanner,
 } from '../hooks';
-import { ConversationModal } from '../components/messages';
 
 // UI Components
 import {
@@ -82,7 +81,6 @@ export default function ProfilePage() {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showMessageModal, setShowMessageModal] = useState(false);
   const [showBannerModal, setShowBannerModal] = useState(false);
   const [bannerPreviewUrl, setBannerPreviewUrl] = useState(null);
   const [bannerKey, setBannerKey] = useState(Date.now());
@@ -198,11 +196,8 @@ export default function ProfilePage() {
     }
   };
 
-  /**
-   * Open message modal to chat with user
-   */
   const handleMessage = () => {
-    setShowMessageModal(true);
+    navigate(`/messages?startWith=${user?.id}`);
   };
 
   /**
@@ -337,14 +332,6 @@ export default function ProfilePage() {
         title="Update Profile Banner"
       />
 
-      {/* Message Modal - for messaging other users */}
-      {!isOwnProfile && (
-        <ConversationModal
-          userId={user?.id}
-          isOpen={showMessageModal}
-          onClose={() => setShowMessageModal(false)}
-        />
-      )}
     </div>
   );
 }

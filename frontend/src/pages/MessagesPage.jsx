@@ -1,26 +1,4 @@
-/**
- * MessagesPage Component
- *
- * A comprehensive messaging interface for the AIxU platform with real-time
- * WebSocket updates. This page demonstrates the power of the caching system:
- *
- * - Cached conversations: Data persists between page visits
- * - Real-time updates: New messages appear instantly via WebSocket
- * - Optimistic UI: Sent messages appear immediately
- * - No loading spinners: Cached data shown instantly on return visits
- *
- * Features:
- * - Inbox view with list of all conversations
- * - Real-time search filtering of conversations
- * - Conversation modal for viewing and replying to messages
- * - New message modal with user search for starting new conversations
- * - Unread message indicators
- * - Responsive design for mobile and desktop
- *
- * @component
- */
-
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,116 +7,82 @@ import {
   usePageTitle,
   markConversationRead,
 } from '../hooks';
-import { LoadingState, ErrorState, EmptyState, GradientButton } from '../components/ui';
-import { SearchIcon, PlusIcon, MessageCircleIcon } from '../components/icons';
+import { LoadingState, ErrorState } from '../components/ui';
+import { ArrowLeftIcon } from '../components/icons';
 import {
-  ConversationListItem,
-  ConversationModal,
-  NewMessageModal,
+  ConversationSidebar,
+  ConversationPanel,
 } from '../components/messages';
 
-// =============================================================================
-// Main MessagesPage Component
-// =============================================================================
-
 export default function MessagesPage() {
-  // ---------------------------------------------------------------------------
-  // Page Title
-  // ---------------------------------------------------------------------------
   usePageTitle('Messages');
 
-  // ---------------------------------------------------------------------------
-  // Hooks and Context
-  // ---------------------------------------------------------------------------
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
 
-  // ---------------------------------------------------------------------------
-  // Data Fetching with React Query
-  // ---------------------------------------------------------------------------
   const {
     data: conversationsData,
-    isLoading: conversationsLoading,
-    error: conversationsError,
+    isLoading,
+    error,
   } = useConversations();
 
-  // Extract conversations array from response
   const conversations = conversationsData?.conversations || [];
 
-  // ---------------------------------------------------------------------------
-  // Local UI State
-  // ---------------------------------------------------------------------------
-  // Search state for filtering conversations
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeUserId, setActiveUserId] = useState(null);
+  const [isNewConversation, setIsNewConversation] = useState(false);
+  const [recipientUser, setRecipientUser] = useState(null);
+  const [hoverArea, setHoverArea] = useState(null);
 
-  // Modal states
-  const [activeConversationUserId, setActiveConversationUserId] = useState(null);
-  const [showNewMessageModal, setShowNewMessageModal] = useState(false);
-
-  // ---------------------------------------------------------------------------
-  // Handle startWith URL Parameter (e.g., from "Message Poster" button)
-  // Opens conversation modal directly with the specified user
-  // ---------------------------------------------------------------------------
+  // Handle startWith URL param
   useEffect(() => {
     const startWithUserId = searchParams.get('startWith');
     if (startWithUserId && isAuthenticated) {
-      // Open conversation with the specified user
-      setActiveConversationUserId(parseInt(startWithUserId, 10));
-      // Clear the URL param to prevent re-opening on navigation
+      setActiveUserId(parseInt(startWithUserId, 10));
+      setIsNewConversation(false);
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams, isAuthenticated]);
 
-  // ---------------------------------------------------------------------------
-  // Conversation Modal Functions
-  // ---------------------------------------------------------------------------
-  const openConversation = useCallback((conversation) => {
-    setActiveConversationUserId(conversation.otherUser.id);
-    // Mark conversation as read in cache immediately
-    markConversationRead(queryClient, conversation.otherUser.id);
+  // Auto-select first conversation on load
+  useEffect(() => {
+    if (!activeUserId && conversations.length > 0 && !isNewConversation) {
+      setActiveUserId(conversations[0].otherUser.id);
+      markConversationRead(queryClient, conversations[0].otherUser.id);
+    }
+  }, [conversations, activeUserId, isNewConversation, queryClient]);
+
+  const handleSelectConversation = useCallback((userId) => {
+    setActiveUserId(userId);
+    setIsNewConversation(false);
+    setRecipientUser(null);
+    markConversationRead(queryClient, userId);
   }, [queryClient]);
 
-  const closeConversationModal = useCallback(() => {
-    setActiveConversationUserId(null);
+  const handleStartNewConversation = useCallback((user) => {
+    setActiveUserId(user.id);
+    setIsNewConversation(true);
+    setRecipientUser(user);
+    markConversationRead(queryClient, user.id);
+  }, [queryClient]);
+
+  const handleConversationCreated = useCallback(() => {
+    setIsNewConversation(false);
+    setRecipientUser(null);
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // New Message Modal Functions
-  // ---------------------------------------------------------------------------
-  const openNewMessageModal = useCallback(() => {
-    setShowNewMessageModal(true);
+  // Mobile: back to sidebar
+  const handleBack = useCallback(() => {
+    setActiveUserId(null);
+    setIsNewConversation(false);
+    setRecipientUser(null);
   }, []);
 
-  const closeNewMessageModal = useCallback(() => {
-    setShowNewMessageModal(false);
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Filter Conversations by Search
-  // ---------------------------------------------------------------------------
-  const filteredConversations = useMemo(() => {
-    if (!searchQuery) return conversations;
-
-    const searchLower = searchQuery.toLowerCase();
-    return conversations.filter((conv) => {
-      const userName = conv.otherUser.name.toLowerCase();
-      const messageContent = conv.lastMessage?.content?.toLowerCase() || '';
-      return userName.includes(searchLower) || messageContent.includes(searchLower);
-    });
-  }, [conversations, searchQuery]);
-
-  // ---------------------------------------------------------------------------
-  // Render: Loading State
-  // ---------------------------------------------------------------------------
-  if (conversationsLoading && conversations.length === 0) {
+  if (isLoading && conversations.length === 0) {
     return <LoadingState fullPage text="Loading messages..." size="lg" />;
   }
 
-  // ---------------------------------------------------------------------------
-  // Render: Error State
-  // ---------------------------------------------------------------------------
-  if (conversationsError && conversations.length === 0) {
+  if (error && conversations.length === 0) {
     return (
       <ErrorState
         fullPage
@@ -148,93 +92,44 @@ export default function MessagesPage() {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Render: Main Component
-  // ---------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Messages</h1>
-          <p className="text-muted-foreground text-lg">
-            Connect with AI enthusiasts and researchers from universities worldwide
-          </p>
-        </div>
-
-        {/* Messages Container */}
-        <div className="max-w-4xl mx-auto">
-          {/* Search Bar and New Message Button */}
-          <div className="mb-6 flex gap-4">
-            <div className="relative flex-1">
-              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                <SearchIcon />
-              </div>
-              <input
-                type="text"
-                placeholder="Search conversations..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="
-                  w-full pl-10 pr-4 py-3
-                  border border-input bg-background rounded-lg
-                  focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
-                "
-              />
-            </div>
-
-            <GradientButton onClick={openNewMessageModal} icon={<PlusIcon />}>
-              New Message
-            </GradientButton>
-          </div>
-
-          {/* Conversations List */}
-          <div className="space-y-3">
-            {filteredConversations.map((conversation) => (
-              <ConversationListItem
-                key={conversation.otherUser.id}
-                conversation={conversation}
-                onClick={() => openConversation(conversation)}
-              />
-            ))}
-          </div>
-
-          {/* Empty State */}
-          {filteredConversations.length === 0 && (
-            <EmptyState
-              icon={<MessageCircleIcon className="h-8 w-8" />}
-              title={searchQuery ? 'No conversations found' : 'No conversations yet'}
-              description={
-                searchQuery
-                  ? 'Try adjusting your search query'
-                  : 'Start connecting with AI enthusiasts from universities worldwide'
-              }
-              action={
-                !searchQuery
-                  ? {
-                      label: 'Send Your First Message',
-                      icon: <PlusIcon />,
-                      onClick: openNewMessageModal,
-                    }
-                  : undefined
-              }
-            />
-          )}
-        </div>
+    <div className="h-[calc(100vh-4rem)] flex">
+      {/* Sidebar - hidden on mobile when conversation active */}
+      <div className={`${activeUserId ? 'hidden md:flex' : 'flex'} w-full md:w-auto`}>
+        <ConversationSidebar
+          conversations={conversations}
+          activeUserId={activeUserId}
+          onSelectConversation={handleSelectConversation}
+          onStartNewConversation={handleStartNewConversation}
+          disableScroll={hoverArea === 'conversation'}
+          onMouseEnter={() => setHoverArea('sidebar')}
+          onMouseLeave={() => setHoverArea(null)}
+        />
       </div>
 
-      {/* Conversation Modal */}
-      <ConversationModal
-        userId={activeConversationUserId}
-        isOpen={!!activeConversationUserId}
-        onClose={closeConversationModal}
-      />
+      {/* Conversation panel - hidden on mobile when no conversation */}
+      <div className={`${activeUserId ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0`}>
+        {/* Mobile back button */}
+        {activeUserId && (
+          <button
+            type="button"
+            onClick={handleBack}
+            className="md:hidden flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:text-foreground border-b border-border"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            Back
+          </button>
+        )}
+        <ConversationPanel
+          userId={activeUserId}
+          recipientUser={recipientUser}
+          isNewConversation={isNewConversation}
+          onConversationCreated={handleConversationCreated}
+          onThreadMouseEnter={() => setHoverArea('conversation')}
+          onThreadMouseLeave={() => setHoverArea(null)}
+        />
+      </div>
 
-      {/* New Message Modal */}
-      <NewMessageModal
-        isOpen={showNewMessageModal}
-        onClose={closeNewMessageModal}
-      />
     </div>
   );
 }
