@@ -26,11 +26,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePageTitle } from '../hooks';
 import { validateAccountToken, completeAccount } from '../api/auth';
 import { AlertTriangleIcon } from '../components/icons';
-import AuthFormLayout from '../components/AuthFormLayout';
-import FormInput from '../components/FormInput';
-import FormButton from '../components/FormButton';
-import TermsLink from '../components/TermsLink';
-import { LoadingState, Divider, Alert, GradientButton } from '../components/ui';
+import { AuthFormLayout, TermsLink } from '../components/auth';
+import { LoadingState, Divider, Alert, GradientButton, FormInput, FormButton } from '../components/ui';
 
 
 /**

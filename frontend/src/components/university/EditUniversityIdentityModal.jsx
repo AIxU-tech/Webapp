@@ -8,10 +8,8 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { BaseModal, GradientButton, SecondaryButton, Alert } from '../ui';
+import { BaseModal, GradientButton, SecondaryButton, Alert, SocialLinksInput, UnsavedChangesModal } from '../ui';
 import UniversityLogoSection from './UniversityLogoSection';
-import SocialLinksInput from '../SocialLinksInput';
-import UnsavedChangesModal from '../UnsavedChangesModal';
 
 export default function EditUniversityIdentityModal({
   isOpen,

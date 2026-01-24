@@ -14,8 +14,7 @@
  */
 
 import { createContext, useContext, useState, useCallback } from 'react';
-import LoginModal from '../components/LoginModal';
-import RegisterModal from '../components/RegisterModal';
+import { LoginModal, RegisterModal } from '../components/auth';
 
 const AuthModalContext = createContext(null);
 

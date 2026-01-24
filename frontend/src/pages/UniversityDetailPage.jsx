@@ -31,8 +31,7 @@ import {
 } from '../hooks';
 
 // UI Components
-import { BaseModal, LoadingState, SecondaryButton, BannerUploadModal } from '../components/ui';
-import ConfirmationModal from '../components/ConfirmationModal';
+import { BaseModal, LoadingState, SecondaryButton, BannerUploadModal, ConfirmationModal } from '../components/ui';
 
 // University Components
 import {

@@ -36,7 +36,7 @@ import {
 } from '../components/icons';
 
 // Content display
-import ContentCard from '../components/ContentCard';
+import { ContentCard } from '../components/news';
 
 // Community components
 import { NewsLoadingSkeleton } from '../components/community';

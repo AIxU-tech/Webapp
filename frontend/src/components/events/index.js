@@ -1,7 +1,2 @@
-/**
- * Events Components
- *
- * Event-related components including cards and modals.
- */
-
-// Will be populated as components are moved
+export { default as EventCard } from './EventCard';
+export { default as CreateEventModal } from './CreateEventModal';

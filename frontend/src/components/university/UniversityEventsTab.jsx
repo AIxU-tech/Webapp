@@ -7,8 +7,8 @@
 
 import { useState } from 'react';
 import { useUniversityEvents, useToggleRsvp, useDeleteEvent } from '../../hooks';
-import EventCard from '../EventCard';
-import CreateEventModal from '../CreateEventModal';
+import { EventCard } from '../events';
+import { CreateEventModal } from '../events';
 import { LoadingState, EmptyState, GradientButton } from '../ui';
 import { CalendarIcon, PlusIcon } from '../icons';
 

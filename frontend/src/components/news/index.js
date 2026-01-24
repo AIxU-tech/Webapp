@@ -1,7 +1,1 @@
-/**
- * News Components
- *
- * AI News and research paper components.
- */
-
-// Will be populated as components are moved
+export { default as ContentCard } from './ContentCard';

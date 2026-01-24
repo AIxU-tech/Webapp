@@ -10,3 +10,4 @@ export { default as Tag, ToggleTag, TagGroup, getTagVariant } from './Tag';
 export { default as Tooltip } from './Tooltip';
 export { default as Divider } from './Divider';
 export { default as StatItem } from './StatItem';
+export { default as SectionHeader } from './SectionHeader';

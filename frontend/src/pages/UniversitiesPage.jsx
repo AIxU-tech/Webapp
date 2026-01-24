@@ -3,8 +3,7 @@ import { useUniversities, usePageTitle, useDelayedLoading } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import { ErrorState, EmptyState, UniversityCardSkeleton, GradientButton } from '../components/ui';
 import { SearchIcon, BuildingIcon, PlusIcon } from '../components/icons';
-import UniversityCard from '../components/UniversityCard';
-import CreateUniversityModal from '../components/CreateUniversityModal';
+import { UniversityCard, CreateUniversityModal } from '../components/university';
 
 function LoadingSkeleton() {
   return (

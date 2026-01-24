@@ -23,10 +23,8 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { usePageTitle } from '../hooks';
 import { validateResetToken, resetPassword } from '../api/auth';
 import { AlertTriangleIcon, CheckCircleIcon } from '../components/icons';
-import AuthFormLayout from '../components/AuthFormLayout';
-import FormInput from '../components/FormInput';
-import FormButton from '../components/FormButton';
-import { LoadingState, GradientButton } from '../components/ui';
+import { AuthFormLayout } from '../components/auth';
+import { LoadingState, GradientButton, FormInput, FormButton } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
 
 /**

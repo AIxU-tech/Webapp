@@ -17,9 +17,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ProfileSection from './ProfileSection';
-import { EmptyState, IconButton, Alert } from '../../ui';
+import { EmptyState, IconButton, Alert, UnsavedChangesModal } from '../../ui';
 import { EditIcon } from '../../icons';
-import UnsavedChangesModal from '../../UnsavedChangesModal';
 import { useBeforeUnload, useClickOutside, useEscapeKey } from '../../../hooks';
 
 export default function AboutSection({

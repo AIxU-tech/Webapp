@@ -8,9 +8,8 @@
 import { useState, useMemo } from 'react';
 import { useInfiniteNotes, useLikeNote, useBookmarkNote, useDeleteNote, useInfiniteScroll } from '../../hooks';
 import { useAuthModal } from '../../contexts/AuthModalContext';
-import NoteCard from '../NoteCard';
-import ConfirmationModal from '../ConfirmationModal';
-import { LoadingState, EmptyState } from '../ui';
+import { NoteCard } from '../community';
+import { LoadingState, EmptyState, ConfirmationModal } from '../ui';
 import { FileTextIcon } from '../icons';
 
 export default function UniversityPostsTab({

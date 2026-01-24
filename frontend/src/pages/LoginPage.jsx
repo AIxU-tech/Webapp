@@ -16,9 +16,7 @@
 
 import { useNavigate, Link } from 'react-router-dom';
 import { usePageTitle, useLoginForm } from '../hooks';
-import AuthFormLayout from '../components/AuthFormLayout';
-import LoginFormContent from '../components/LoginFormContent';
-import TermsLink from '../components/TermsLink';
+import { AuthFormLayout, LoginFormContent, TermsLink } from '../components/auth';
 
 export default function LoginPage() {
   const navigate = useNavigate();

@@ -9,3 +9,8 @@
  */
 
 export { default as NewsLoadingSkeleton } from './NewsLoadingSkeleton';
+export { default as NoteCard } from './NoteCard';
+export { default as CommentSection } from './CommentSection';
+export { default as CommentCard } from './CommentCard';
+export { default as NotesFilter } from './NotesFilter';
+export { default as CreateNoteModal } from './CreateNoteModal';

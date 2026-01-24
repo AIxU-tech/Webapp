@@ -40,15 +40,6 @@ export * from './images';
 // Lists
 export * from './lists';
 
-// =============================================================================
-// Additional Direct Exports (not yet in subdirectories)
-// =============================================================================
+// Popovers
+export * from './popovers';
 
-// CreateNoteModal - will move to community/ feature
-export { default as CreateNoteModal } from './CreateNoteModal';
-
-// LikeButton - specialized button, may stay or move to community/
-export { default as LikeButton } from './LikeButton';
-
-// Layout helpers
-export { default as SectionHeader } from './SectionHeader';

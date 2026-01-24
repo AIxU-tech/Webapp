@@ -36,8 +36,8 @@ import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
 import { TermsProvider } from './contexts/TermsContext';
 import { AuthModalProvider } from './contexts/AuthModalContext';
-import TermsModalWrapper from './components/TermsModalWrapper';
-import AppPrefetcher from './components/AppPrefetcher';
+import { TermsModalWrapper } from './components/auth';
+import { AppPrefetcher } from './components/layout';
 import App from './App';
 import './styles.css';
 

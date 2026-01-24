@@ -27,7 +27,7 @@ import {
 
 // UI Components
 import { LoadingState, ErrorState } from '../components/ui';
-import NoteCard from '../components/NoteCard';
+import { NoteCard } from '../components/community';
 import { ArrowLeftIcon } from '../components/icons';
 
 export default function NoteDetailPage() {
