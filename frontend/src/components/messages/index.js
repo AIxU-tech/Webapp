@@ -1,16 +1,6 @@
-/**
- * Messages Components Index
- *
- * Barrel export for messaging-related components.
- *
- * @example
- * import {
- *   ConversationListItem,
- *   ConversationModal,
- *   NewMessageModal
- * } from '../components/messages';
- */
-
 export { default as ConversationListItem } from './ConversationListItem';
-export { default as ConversationModal } from './ConversationModal';
-export { default as NewMessageModal } from './NewMessageModal';
+export { default as ConversationSidebar } from './ConversationSidebar';
+export { default as ConversationPanel } from './ConversationPanel';
+export { default as MessageBubble } from './MessageBubble';
+export { default as MessageInput } from './MessageInput';
+export { default as UserSearchBar } from './UserSearchBar';

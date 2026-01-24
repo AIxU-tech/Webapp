@@ -5,12 +5,13 @@
  * Integrates with useInfiniteOpportunities hook to fetch filtered by university_id.
  */
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useMessageTarget } from '../../contexts/MessageTargetContext';
 import { useInfiniteOpportunities, useBookmarkOpportunity, useDeleteOpportunity, useInfiniteScroll } from '../../hooks';
 import { OpportunityCard } from '../opportunities';
 import { LoadingState, EmptyState } from '../ui';
 import { OpportunitiesIcon } from '../icons';
-import ConversationModal from '../messages/ConversationModal';
 
 export default function UniversityOpportunitiesTab({
   universityId,
@@ -18,8 +19,8 @@ export default function UniversityOpportunitiesTab({
   isAuthenticated,
   isSiteAdmin = false,
 }) {
-  // Message modal state - tracks which user to open chat with
-  const [messageUserId, setMessageUserId] = useState(null);
+  const navigate = useNavigate();
+  const { setTargetUserId } = useMessageTarget();
 
   // Fetch opportunities for this university with infinite scroll
   const {
@@ -62,13 +63,13 @@ export default function UniversityOpportunitiesTab({
     }
   };
 
-  // Handle message poster
   const handleMessageUser = (userId) => {
     if (!isAuthenticated) {
       alert('Please log in to message users');
       return;
     }
-    setMessageUserId(userId);
+    setTargetUserId(userId);
+    navigate('/messages');
   };
 
   // Loading state
@@ -123,12 +124,6 @@ export default function UniversityOpportunitiesTab({
         </div>
       )}
 
-      {/* Message Modal - opens chat without leaving the page */}
-      <ConversationModal
-        userId={messageUserId}
-        isOpen={messageUserId !== null}
-        onClose={() => setMessageUserId(null)}
-      />
     </>
   );
 }
