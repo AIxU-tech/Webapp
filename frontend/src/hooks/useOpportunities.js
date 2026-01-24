@@ -18,7 +18,13 @@ import {
   createBookmarkHook,
   createDeleteHook,
   createPrefetchFn,
+  createInfiniteQueryCacheUpdater,
+  createInfiniteQueryCacheRemover,
 } from './factories/feedItemHooks';
+
+// Create cache utilities for opportunities using the factory
+const updateOpportunitiesCache = createInfiniteQueryCacheUpdater('opportunities', 'opportunities');
+const removeFromOpportunitiesCache = createInfiniteQueryCacheRemover('opportunities', 'opportunities');
 
 // Query Keys - extend factory keys with infinite key
 const baseKeys = createFeedItemKeys('opportunities');
@@ -67,38 +73,6 @@ export function useInfiniteOpportunities(params = {}) {
   });
 }
 
-// Helper function to update infinite query cache
-function updateInfiniteQueryCache(queryClient, opportunityId, updater) {
-  // Update all infinite queries (matching the infinite key pattern)
-  // Skip queries that are invalidated to prevent overwriting with stale data
-  queryClient.setQueriesData(
-    {
-      predicate: (query) => {
-        const key = query.queryKey;
-        const isOpportunitiesInfinite = key[0] === 'opportunities' && key[1] === 'infinite';
-
-        // Only update queries that are:
-        // 1. Opportunities infinite queries
-        // 2. Not invalidated (has valid data that should be updated)
-        return isOpportunitiesInfinite && query.state.dataUpdatedAt > 0;
-      }
-    },
-    (oldData) => {
-      if (!oldData?.pages) return oldData;
-      return {
-        pages: oldData.pages.map((page) => {
-          // All pages are paginated format: { opportunities: [...], pagination: {...} }
-          const updatedOpportunities = (page.opportunities || []).map((opp) =>
-            opp.id === opportunityId ? updater(opp) : opp
-          );
-          return { ...page, opportunities: updatedOpportunities };
-        }),
-        pageParams: oldData.pageParams || [],
-      };
-    }
-  );
-}
-
 // Create mutation
 export function useCreateOpportunity() {
   const queryClient = useQueryClient();
@@ -124,7 +98,7 @@ export function useBookmarkOpportunity() {
       const previousQueries = queryClient.getQueriesData({ queryKey: opportunityKeys.all });
 
       // Update infinite query cache
-      updateInfiniteQueryCache(queryClient, opportunityId, (opp) => ({
+      updateOpportunitiesCache(queryClient, opportunityId, (opp) => ({
         ...opp,
         isBookmarked: !opp.isBookmarked,
       }));
@@ -143,7 +117,7 @@ export function useBookmarkOpportunity() {
 
     onSuccess: (result, opportunityId) => {
       // Update infinite query cache with server response
-      updateInfiniteQueryCache(queryClient, opportunityId, (opp) => ({
+      updateOpportunitiesCache(queryClient, opportunityId, (opp) => ({
         ...opp,
         isBookmarked: result.isBookmarked,
       }));
@@ -168,26 +142,8 @@ export function useDeleteOpportunity() {
       await queryClient.cancelQueries({ queryKey: opportunityKeys.all });
       const previousQueries = queryClient.getQueriesData({ queryKey: opportunityKeys.all });
 
-      // Remove from infinite query cache
-      queryClient.setQueriesData(
-        {
-          predicate: (query) => {
-            const key = query.queryKey;
-            return key[0] === 'opportunities' && key[1] === 'infinite';
-          }
-        },
-        (oldData) => {
-          if (!oldData?.pages) return oldData;
-          return {
-            pages: oldData.pages.map((page) => {
-              // All pages are paginated format: { opportunities: [...], pagination: {...} }
-              const filteredOpportunities = (page.opportunities || []).filter((opp) => opp.id !== opportunityId);
-              return { ...page, opportunities: filteredOpportunities };
-            }),
-            pageParams: oldData.pageParams || [],
-          };
-        }
-      );
+      // Remove from infinite query cache using factory-created helper
+      removeFromOpportunitiesCache(queryClient, opportunityId);
 
       return { previousQueries, opportunityId };
     },

@@ -241,4 +241,6 @@ export {
   createBookmarkHook,
   createDeleteHook,
   createPrefetchFn,
+  createInfiniteQueryCacheUpdater,
+  createInfiniteQueryCacheRemover,
 } from './factories/feedItemHooks';
