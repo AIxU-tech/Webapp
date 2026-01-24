@@ -19,6 +19,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
+import { useMessageTarget } from '../contexts/MessageTargetContext';
 import {
   useInfiniteOpportunities,
   useCreateOpportunity,
@@ -112,6 +113,7 @@ export default function OpportunitiesPage() {
   const [opportunityToDelete, setOpportunityToDelete] = useState(null);
 
   const navigate = useNavigate();
+  const { setTargetUserId } = useMessageTarget();
 
   // Search input state
   const [searchInput, setSearchInput] = useState(searchQuery);
@@ -451,7 +453,7 @@ export default function OpportunitiesPage() {
             opportunity={opp}
             onBookmark={handleBookmark}
             onDelete={handleDeleteClick}
-            onMessageUser={(userId) => navigate(`/messages?startWith=${userId}`)}
+            onMessageUser={(userId) => { setTargetUserId(userId); navigate('/messages'); }}
             currentUserId={user?.id}
             isAuthenticated={isAuthenticated}
             isSiteAdmin={user?.permissionLevel >= 1}

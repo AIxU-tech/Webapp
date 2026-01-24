@@ -7,6 +7,7 @@
 
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useMessageTarget } from '../../contexts/MessageTargetContext';
 import { useInfiniteOpportunities, useBookmarkOpportunity, useDeleteOpportunity, useInfiniteScroll } from '../../hooks';
 import { OpportunityCard } from '../opportunities';
 import { LoadingState, EmptyState } from '../ui';
@@ -19,6 +20,7 @@ export default function UniversityOpportunitiesTab({
   isSiteAdmin = false,
 }) {
   const navigate = useNavigate();
+  const { setTargetUserId } = useMessageTarget();
 
   // Fetch opportunities for this university with infinite scroll
   const {
@@ -66,7 +68,8 @@ export default function UniversityOpportunitiesTab({
       alert('Please log in to message users');
       return;
     }
-    navigate(`/messages?startWith=${userId}`);
+    setTargetUserId(userId);
+    navigate('/messages');
   };
 
   // Loading state

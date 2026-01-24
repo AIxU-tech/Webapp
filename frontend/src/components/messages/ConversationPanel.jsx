@@ -21,12 +21,26 @@ function ConversationHeader({ user }) {
   );
 }
 
-export default function ConversationPanel({ userId, recipientUser, isNewConversation, onConversationCreated, onThreadMouseEnter, onThreadMouseLeave }) {
+export default function ConversationPanel({ userId, recipientUser, isNewConversation, onConversationCreated, onThreadMouseEnter, onThreadMouseLeave, autoFocusInput, onAutoFocusConsumed }) {
   const { data: conversationData, isLoading } = useConversation(userId);
   const messages = conversationData?.messages || [];
   const user = conversationData?.user || recipientUser;
   const sendMessageMutation = useSendMessage();
   const threadRef = useRef(null);
+
+  // Determine if we should auto-focus the input
+  const shouldFocus = isNewConversation || autoFocusInput;
+
+  // Reset auto-focus after it's been applied
+  useEffect(() => {
+    if (autoFocusInput && onAutoFocusConsumed) {
+      // Small delay to ensure focus happens first
+      const timer = setTimeout(() => {
+        onAutoFocusConsumed();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [autoFocusInput, onAutoFocusConsumed]);
 
   useEffect(() => {
     if (threadRef.current && messages.length > 0) {
@@ -71,7 +85,7 @@ export default function ConversationPanel({ userId, recipientUser, isNewConversa
 
       <div
         ref={threadRef}
-        className="flex-1 overflow-y-auto p-4 space-y-3 bg-card"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3 bg-card"
         onMouseEnter={onThreadMouseEnter}
         onMouseLeave={onThreadMouseLeave}
       >
@@ -90,7 +104,7 @@ export default function ConversationPanel({ userId, recipientUser, isNewConversa
       <MessageInput
         onSend={handleSend}
         disabled={sendMessageMutation.isPending}
-        autoFocus={isNewConversation}
+        autoFocus={shouldFocus}
       />
     </div>
   );

@@ -20,6 +20,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useMessageTarget } from '../contexts/MessageTargetContext';
 import { logout } from '../api/auth';
 import {
   useUser,
@@ -50,6 +51,7 @@ export default function ProfilePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const { user: currentUser, setUser: setCurrentUser, logoutUser } = useAuth();
+  const { setTargetUserId } = useMessageTarget();
 
   // Determine if viewing own profile
   const isOwnProfile = !userId || (currentUser && currentUser.id === parseInt(userId));
@@ -197,7 +199,8 @@ export default function ProfilePage() {
   };
 
   const handleMessage = () => {
-    navigate(`/messages?startWith=${user?.id}`);
+    setTargetUserId(user?.id);
+    navigate('/messages');
   };
 
   /**
