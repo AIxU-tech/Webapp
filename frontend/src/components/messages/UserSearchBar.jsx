@@ -56,7 +56,7 @@ export default function UserSearchBar({ onStartNewConversation }) {
                 key={user.id}
                 type="button"
                 onClick={() => handleSelect(user)}
-                className="w-full flex items-center gap-3 p-3 hover:bg-accent transition-colors text-left"
+                className="w-full flex items-center gap-3 p-3 hover:bg-gradient-to-r hover:from-primary/15 hover:to-primary/5 transition-colors text-left"
               >
                 <Avatar user={user} size="sm" name={user.name} />
                 <div className="min-w-0">
