@@ -33,11 +33,12 @@ import {
   TagSelector,
   GradientButton,
   FeedItemList,
+  ToggleTag,
+  TagGroup,
+  ConfirmationModal,
 } from '../components/ui';
-import { ToggleTag, TagGroup } from '../components/ui/Tag';
-import ConfirmationModal from '../components/ConfirmationModal';
 import ConversationModal from '../components/messages/ConversationModal';
-import OpportunityCard from '../components/OpportunityCard';
+import { OpportunityCard } from '../components/opportunities';
 import { CreateOpportunityModal } from '../components/opportunities';
 
 import {

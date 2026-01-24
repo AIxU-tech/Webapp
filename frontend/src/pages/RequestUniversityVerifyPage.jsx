@@ -19,8 +19,7 @@ import {
   resendUniversityRequestCode,
 } from '../api';
 import { useEmailVerification } from '../hooks';
-import VerificationPageLayout from '../components/VerificationPageLayout';
-import EmailVerificationForm from '../components/EmailVerificationForm';
+import { VerificationPageLayout, EmailVerificationForm } from '../components/auth';
 
 export default function RequestUniversityVerifyPage() {
   const verification = useEmailVerification({

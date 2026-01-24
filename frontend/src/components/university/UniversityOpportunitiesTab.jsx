@@ -7,7 +7,7 @@
 
 import { useState, useMemo } from 'react';
 import { useInfiniteOpportunities, useBookmarkOpportunity, useDeleteOpportunity, useInfiniteScroll } from '../../hooks';
-import OpportunityCard from '../OpportunityCard';
+import { OpportunityCard } from '../opportunities';
 import { LoadingState, EmptyState } from '../ui';
 import { OpportunitiesIcon } from '../icons';
 import ConversationModal from '../messages/ConversationModal';

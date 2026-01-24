@@ -5,7 +5,7 @@
  * Each stat shows an icon above the value for clear visual hierarchy.
  */
 
-import Card from '../../ui/Card';
+import { Card } from '../../ui';
 import { FileTextIcon, UsersIcon } from '../../icons';
 
 // Individual stat in styled box

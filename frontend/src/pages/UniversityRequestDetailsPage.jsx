@@ -15,15 +15,8 @@ import { useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { submitUniversityRequest } from '../api';
 import { usePageTitle, useForm } from '../hooks';
-import { Alert } from '../components/ui';
-import VerificationPageLayout from '../components/VerificationPageLayout';
-import FormInput from '../components/FormInput';
-import FormTextarea from '../components/FormTextarea';
-import FormLabel from '../components/FormLabel';
-import FormSection from '../components/FormSection';
-import FormButton from '../components/FormButton';
-import CitySearchInput from '../components/CitySearchInput';
-import SocialLinksInput from '../components/SocialLinksInput';
+import { Alert, FormInput, FormTextarea, FormLabel, FormSection, FormButton, CitySearchInput, SocialLinksInput } from '../components/ui';
+import { VerificationPageLayout } from '../components/auth';
 
 // =============================================================================
 // Sub-Components

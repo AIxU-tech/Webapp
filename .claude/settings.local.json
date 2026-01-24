@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(done)"
+      "Bash(wc:*)",
+      "Bash(done)",
+      "Bash(npm run build:*)"
     ]
   }
 }

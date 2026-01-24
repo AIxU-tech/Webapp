@@ -6,9 +6,8 @@
  */
 
 import { Link } from 'react-router-dom';
-import Card from '../../ui/Card';
-import EmptyState from '../../ui/EmptyState';
-import RoleBadge from '../../RoleBadge';
+import { Card, EmptyState } from '../../ui';
+import { RoleBadge } from '../../university';
 import { UniversitiesIcon, ExternalLinkIcon } from '../../icons';
 
 // Club icon with gradient background

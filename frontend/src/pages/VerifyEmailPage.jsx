@@ -16,8 +16,7 @@
 import { useAuth } from '../contexts/AuthContext';
 import { verifyEmail, resendVerificationCode } from '../api';
 import { useEmailVerification } from '../hooks';
-import VerificationPageLayout from '../components/VerificationPageLayout';
-import EmailVerificationForm from '../components/EmailVerificationForm';
+import { VerificationPageLayout, EmailVerificationForm } from '../components/auth';
 
 export default function VerifyEmailPage() {
   const { refreshUser } = useAuth();

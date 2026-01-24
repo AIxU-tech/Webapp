@@ -45,7 +45,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usePageTitle } from './useUI';
 import { LoadingState, ErrorState } from '../components/ui';
-import VerificationPageLayout from '../components/VerificationPageLayout';
+import { VerificationPageLayout } from '../components/auth';
 
 /**
  * Default configuration values

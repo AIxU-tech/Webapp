@@ -12,9 +12,8 @@
 
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import AppLayout from './components/AppLayout';
-import ProtectedRoute from './components/ProtectedRoute';
-import AuthRoute from './components/AuthRoute';
+import { AppLayout } from './components/layout';
+import { ProtectedRoute, AuthRoute } from './components/auth';
 import HomePage from './pages/HomePage';
 import AddUniversityEntryPage from './pages/AddUniversityEntryPage';
 import UniversitiesPage from './pages/UniversitiesPage';

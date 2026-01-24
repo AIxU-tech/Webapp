@@ -17,9 +17,8 @@ import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { forgotPassword } from '../api/auth';
 import { usePageTitle, useForm } from '../hooks';
-import AuthFormLayout from '../components/AuthFormLayout';
-import FormInput from '../components/FormInput';
-import FormButton from '../components/FormButton';
+import { AuthFormLayout } from '../components/auth';
+import { FormInput, FormButton } from '../components/ui';
 
 export default function ForgotPasswordPage() {
   usePageTitle('Forgot Password');

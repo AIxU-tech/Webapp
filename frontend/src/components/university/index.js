@@ -17,3 +17,6 @@ export { default as UniversityLogoSection } from './UniversityLogoSection';
 export { default as EditUniversityIdentityModal } from './EditUniversityIdentityModal';
 export { default as LeadershipCard } from './LeadershipCard';
 export { default as UpcomingEventsCard } from './UpcomingEventsCard';
+export { default as UniversityCard } from './UniversityCard';
+export { default as RoleBadge, ROLES } from './RoleBadge';
+export { default as CreateUniversityModal } from './CreateUniversityModal';

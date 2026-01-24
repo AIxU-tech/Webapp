@@ -8,9 +8,8 @@
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePageTitle } from '../hooks';
-import NavBar from '../components/NavBar';
-import Footer from '../components/Footer';
-import FeatureCard from '../components/FeatureCard';
+import { NavBar, Footer } from '../components/layout';
+import { FeatureCard } from '../components/home';
 import { GradientButton, StatItem } from '../components/ui';
 import { GRADIENT_PRIMARY } from '../config/styles';
 import {

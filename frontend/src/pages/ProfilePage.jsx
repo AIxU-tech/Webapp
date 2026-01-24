@@ -36,8 +36,8 @@ import {
   LoadingState,
   ErrorState,
   BannerUploadModal,
+  ConfirmationModal,
 } from '../components/ui';
-import ConfirmationModal from '../components/ConfirmationModal';
 
 // Profile Components
 import {

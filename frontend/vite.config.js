@@ -8,6 +8,20 @@ export default defineConfig({
   // This is where the SPA will be hosted in prod
   base: '/app/',
 
+  // Path aliases for cleaner imports
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src'),
+      '@/components': resolve(__dirname, 'src/components'),
+      '@/hooks': resolve(__dirname, 'src/hooks'),
+      '@/api': resolve(__dirname, 'src/api'),
+      '@/utils': resolve(__dirname, 'src/utils'),
+      '@/config': resolve(__dirname, 'src/config'),
+      '@/contexts': resolve(__dirname, 'src/contexts'),
+      '@/pages': resolve(__dirname, 'src/pages'),
+    },
+  },
+
   build: {
     // Put built assets into Flask's static folder
     outDir: resolve(__dirname, '../static/app'),

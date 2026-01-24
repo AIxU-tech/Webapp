@@ -8,10 +8,9 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, EmptyState, Avatar, IconButton } from '../ui';
+import { Card, EmptyState, Avatar, IconButton, MemberActionsPopover } from '../ui';
 import { UsersIcon, PencilIcon } from '../icons';
-import RoleBadge from '../RoleBadge';
-import MemberActionsPopover from '../MemberActionsPopover';
+import RoleBadge from './RoleBadge';
 
 export default function UniversityMembersTab({
   members = [],
