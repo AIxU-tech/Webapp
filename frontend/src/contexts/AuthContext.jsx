@@ -17,7 +17,6 @@
 
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { getCurrentUser, devLogin } from '../api/auth';
-import { useNavigate } from 'react-router-dom';
 
 /**
  * Authentication context
@@ -59,6 +58,7 @@ export function AuthProvider({ children }) {
    * In development mode, automatically logs in as dev user if not authenticated.
    */
   async function checkAuthStatus() {
+
     try {
       // Try to get current user from Flask backend
       const userData = await getCurrentUser();
@@ -68,6 +68,8 @@ export function AuthProvider({ children }) {
     } catch (error) {
       // Not logged in or session expired - try dev auto-login
       // This only succeeds when backend DEV_MODE=true
+
+
       try {
         const response = await devLogin();
         // Dev login succeeded - save user data
@@ -138,6 +140,7 @@ export function AuthProvider({ children }) {
     logoutUser,  // Call after logout
     refreshUser, // Refresh user data from server
   };
+
 
 
   // Show loading spinner during initial auth check

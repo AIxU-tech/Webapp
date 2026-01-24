@@ -221,6 +221,12 @@ export { useEmailVerification } from './useEmailVerification.jsx';
 export { useForm } from './useForm';
 
 // =============================================================================
+// Auth Form Hooks
+// =============================================================================
+export { default as useRegisterForm } from './useRegisterForm';
+export { default as useLoginForm } from './useLoginForm';
+
+// =============================================================================
 // Feed Page Hooks
 // =============================================================================
 export { default as useFeedPageState } from './useFeedPageState';
@@ -235,4 +241,6 @@ export {
   createBookmarkHook,
   createDeleteHook,
   createPrefetchFn,
+  createInfiniteQueryCacheUpdater,
+  createInfiniteQueryCacheRemover,
 } from './factories/feedItemHooks';

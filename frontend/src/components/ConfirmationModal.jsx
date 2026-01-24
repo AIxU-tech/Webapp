@@ -39,7 +39,7 @@
  */
 
 import { XIcon, AlertCircleIcon, InfoIcon, AlertTriangleIcon } from './icons';
-import { useEscapeKey, useScrollLock } from '../hooks';
+import { BaseModal } from './ui';
 
 /**
  * Get variant-specific styling
@@ -83,21 +83,6 @@ export default function ConfirmationModal({
   variant = 'info', // 'info', 'warning', 'danger'
   showIcon = true,
 }) {
-  // Handle ESC key press to close modal
-  useEscapeKey(isOpen, onClose);
-
-  // Prevent body scroll when modal is open
-  useScrollLock(isOpen);
-
-  /**
-   * Handle backdrop click (click outside modal)
-   */
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   /**
    * Handle confirm button click
    */
@@ -106,23 +91,22 @@ export default function ConfirmationModal({
     onClose();
   };
 
-  // Don't render if not open
-  if (!isOpen) return null;
-
   // Get variant-specific styles
   const variantStyles = getVariantStyles(variant);
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
-      onClick={handleBackdropClick}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirmation-modal-title"
-      aria-describedby="confirmation-modal-description"
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="md"
+      showCloseButton={false}
     >
-      {/* Modal Container */}
-      <div className="bg-card border border-border rounded-xl shadow-card w-full max-w-md mx-4 p-6 animate-in fade-in zoom-in duration-200">
+      <div
+        className="p-6"
+        role="alertdialog"
+        aria-labelledby="confirmation-modal-title"
+        aria-describedby="confirmation-modal-description"
+      >
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-start gap-3">
@@ -186,6 +170,6 @@ export default function ConfirmationModal({
           </div>
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 }

@@ -16,12 +16,9 @@
 
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { login } from '../api/auth';
-import { useForm } from '../hooks';
+import { useLoginForm } from '../hooks';
 import { BaseModal } from './ui';
-import FormInput from './FormInput';
-import FormButton from './FormButton';
+import LoginFormContent from './LoginFormContent';
 import TermsLink from './TermsLink';
 import { Alert } from './ui';
 import { BrainCircuitIcon, XIcon } from './icons';
@@ -35,33 +32,21 @@ import { BrainCircuitIcon, XIcon } from './icons';
  * @param {Function} props.onSwitchToRegister - Function to switch to register modal
  */
 export default function LoginModal({ isOpen, onClose, onSwitchToRegister }) {
-  const { loginUser } = useAuth();
-
-  const {
-    formData,
-    error,
-    loading,
-    handleChange,
-    handleSubmit,
-    reset,
-  } = useForm({
-    initialValues: { email: '', password: '' },
-    onSubmit: async (data) => {
-      const response = await login(data.email.trim(), data.password.trim());
-      loginUser(response.user);
-      onClose(); // Close modal on successful login
+  // Use shared login form hook
+  const loginForm = useLoginForm({
+    onSuccess: () => {
+      onClose();
     },
   });
 
   // Track previous open state to reset only when modal transitions from closed to open
   const prevIsOpenRef = useRef(isOpen);
   useEffect(() => {
-    // Only reset when modal transitions from closed to open
     if (isOpen && !prevIsOpenRef.current) {
-      reset();
+      loginForm.reset();
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, reset]);
+  }, [isOpen, loginForm]);
 
   return (
     <BaseModal
@@ -80,6 +65,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }) {
         >
           <XIcon className="h-5 w-5 text-muted-foreground hover:text-foreground" />
         </button>
+
         {/* Logo and header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-6">
@@ -97,45 +83,17 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }) {
           </p>
         </div>
 
-        {error && (
+        {loginForm.error && (
           <Alert variant="error" className="mb-4">
-            {error}
+            {loginForm.error}
           </Alert>
         )}
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <FormInput
-            type="email"
-            name="email"
-            placeholder="Enter your email"
-            value={formData.email}
-            onChange={handleChange}
-            disabled={loading}
-            required
-          />
-
-          <FormInput
-            type="password"
-            name="password"
-            placeholder="Enter your password"
-            value={formData.password}
-            onChange={handleChange}
-            disabled={loading}
-            required
-          />
-
-          <FormButton
-            type="submit"
-            loading={loading}
-            loadingText="Logging in..."
-            className="w-full"
-          >
-            Log in
-          </FormButton>
-        </form>
+        <LoginFormContent {...loginForm} />
 
         {/* Footer links */}
         <div className="mt-6 space-y-3">
+          {/* Switch to register MODAL */}
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
               Don't have an account?{' '}
@@ -167,4 +125,3 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }) {
     </BaseModal>
   );
 }
-

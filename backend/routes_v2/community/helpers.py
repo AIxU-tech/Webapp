@@ -210,6 +210,9 @@ def _apply_university_filter(query: Query, university_id: int) -> Query:
     
     Returns notes from all members of the specified university.
     
+    Uses EXISTS subquery for better performance - executes as a single query
+    and short-circuits after finding the first match.
+    
     Args:
         query: SQLAlchemy query object
         university_id: University ID to filter by
@@ -219,18 +222,14 @@ def _apply_university_filter(query: Query, university_id: int) -> Query:
     """
     from backend.models import UniversityRole
     
-    # Get member IDs for this university
-    member_ids = [
-        role.user_id for role in
-        UniversityRole.query.filter_by(university_id=university_id)
-        .with_entities(UniversityRole.user_id).all()
-    ]
-    
-    if not member_ids:
-        # No members = no notes, return empty result
-        return query.filter(False)
-    
-    return query.filter(Note.author_id.in_(member_ids))
+    return query.filter(
+        db.exists().where(
+            db.and_(
+                UniversityRole.user_id == Note.author_id,
+                UniversityRole.university_id == university_id
+            )
+        )
+    )
 
 
 def _apply_tag_filter(query: Query, tag: str) -> Query:

@@ -17,6 +17,21 @@ WHITELISTED_DOMAINS = [
 ]
 # =============================================================================
 
+# =============================================================================
+# Known Social Link Types
+# =============================================================================
+# Social link types that allow only one entry per profile/university.
+# Unknown types (including 'website') are treated as plain websites and allow multiple.
+KNOWN_SOCIAL_TYPES = {
+    'linkedin',
+    'x',
+    'instagram',
+    'github',
+    'discord',
+    'youtube',
+}
+# =============================================================================
+
 
 def is_whitelisted_domain(email: str) -> bool:
     """Check if email domain is in the temporary whitelist."""
@@ -81,6 +96,17 @@ def validate_social_links(social_links: list | None) -> tuple[bool, str | None]:
     """
     Validate social links array format and URLs.
 
+    Validates:
+    - socialLinks is a list (or None/empty)
+    - Each link is a dict with 'type' and 'url' keys
+    - 'type' is present and non-empty
+    - 'url' is present and non-empty
+    - 'url' is a valid URL format
+    - Known social types (linkedin, x, instagram, github, discord, youtube)
+      can only appear once (duplicates are not allowed)
+    - Unknown types (including 'website') are treated as plain websites
+      and can appear multiple times
+
     Args:
         social_links: List of social link dicts with 'type' and 'url' keys
 
@@ -93,13 +119,70 @@ def validate_social_links(social_links: list | None) -> tuple[bool, str | None]:
     if not isinstance(social_links, list):
         return False, 'socialLinks must be an array'
 
-    for link in social_links:
-        if not isinstance(link, dict) or 'type' not in link or 'url' not in link:
-            return False, 'Each social link must have type and url'
+    # First pass: validate structure and format of each link
+    for i, link in enumerate(social_links):
+        # Check link is not None
+        if link is None:
+            return False, f'Social link at index {i} cannot be null'
 
-        url = link.get('url', '')
-        if url and not validate_url(url):
-            return False, f'Invalid URL: {url}'
+        # Check link is a dict
+        if not isinstance(link, dict):
+            return False, f'Social link at index {i} must be an object'
+
+        # Check 'type' key exists
+        if 'type' not in link:
+            return False, f'Social link at index {i} is missing required field: type'
+
+        # Check 'url' key exists
+        if 'url' not in link:
+            return False, f'Social link at index {i} is missing required field: url'
+
+        # Get and validate type (must be non-empty)
+        link_type = link.get('type')
+        if not link_type or (isinstance(link_type, str) and not link_type.strip()):
+            return False, f'Social link at index {i} has an empty type field'
+
+        # Get and validate url (must be non-empty)
+        url = link.get('url')
+        if url is None:
+            return False, f'Social link at index {i} has a null URL'
+        
+        # Convert to string if not already, then strip
+        if isinstance(url, str):
+            url = url.strip()
+        else:
+            url = str(url).strip()
+        
+        if not url:
+            return False, f'Social link at index {i} has an empty URL'
+
+        # Validate URL format
+        if not validate_url(url):
+            return False, f'Invalid URL at index {i}: {url}'
+
+    # Second pass: check for duplicate known social types
+    # (Unknown types like 'website' are allowed multiple times)
+    seen_known_types: dict[str, int] = {}  # type -> first occurrence index
+    
+    for i, link in enumerate(social_links):
+        link_type = link.get('type')
+        if not isinstance(link_type, str):
+            continue  # Already validated above, but defensive check
+        
+        # Normalize type to lowercase for case-insensitive comparison
+        normalized_type = link_type.strip().lower()
+        
+        # Check if this is a known social type
+        if normalized_type in KNOWN_SOCIAL_TYPES:
+            # Check for duplicates
+            if normalized_type in seen_known_types:
+                first_index = seen_known_types[normalized_type]
+                # Use original case for error message
+                original_type = link_type.strip()
+                return False, (
+                    f'Cannot have multiple {original_type} links.'
+                )
+            seen_known_types[normalized_type] = i
 
     return True, None
 

@@ -13,8 +13,10 @@ import {
   ExternalLinkIcon,
   MessagesIcon,
   LogOutIcon,
+  SocialLinkIcon,
 } from '../../icons';
 import { getProfileBannerUrl } from '../../../api/users';
+import { getPlatformDisplayName, PLATFORM_ICON_COLORS } from '../../../utils/socialLinks';
 
 // Import default banner image
 import defaultBannerImage from './images/default-profile-banner.jpg';
@@ -102,34 +104,56 @@ export default function ProfileHeader({
         </div>
 
         {/* Meta info row */}
-        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          {/* University with gradient icon */}
-          {user?.university && (
-            <span className="flex items-center gap-1.5 bg-secondary/50 px-2.5 py-1 rounded-full">
-              <UniversitiesIcon className="w-3.5 h-3.5 text-primary" />
-              <span className="text-foreground">{user.university}</span>
-            </span>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+          {/* Left side: University, Location, Website */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* University with gradient icon */}
+            {user?.university && (
+              <span className="flex items-center gap-1.5 bg-secondary/50 px-2.5 py-1 rounded-full">
+                <UniversitiesIcon className="w-3.5 h-3.5 text-primary" />
+                <span className="text-foreground">{user.university}</span>
+              </span>
+            )}
 
-          {/* Location - no background */}
-          {user?.location && (
-            <span className="flex items-center gap-1.5">
-              <MapPinIcon className="w-3.5 h-3.5" />
-              {user.location}
-            </span>
-          )}
+            {/* Location - no background */}
+            {user?.location && (
+              <span className="flex items-center gap-1.5">
+                <MapPinIcon className="w-3.5 h-3.5" />
+                {user.location}
+              </span>
+            )}
 
-          {/* Website link */}
-          {user?.website_url && (
-            <a
-              href={user.website_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-primary hover:underline"
-            >
-              <ExternalLinkIcon className="w-3.5 h-3.5" />
-              Portfolio
-            </a>
+            {/* Website link */}
+            {user?.website_url && (
+              <a
+                href={user.website_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-primary hover:underline"
+              >
+                <ExternalLinkIcon className="w-3.5 h-3.5" />
+                Portfolio
+              </a>
+            )}
+          </div>
+
+          {/* Right side: Social Links */}
+          {user?.socialLinks && user.socialLinks.length > 0 && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {user.socialLinks.map((link) => (
+                <a
+                  key={link.url}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`p-2 rounded-lg hover:bg-muted transition-colors ${PLATFORM_ICON_COLORS[link.type] || 'text-muted-foreground'}`}
+                  title={getPlatformDisplayName(link.type)}
+                  aria-label={`${getPlatformDisplayName(link.type)} (opens in new window)`}
+                >
+                  <SocialLinkIcon type={link.type} size="lg" />
+                </a>
+              ))}
+            </div>
           )}
         </div>
       </div>

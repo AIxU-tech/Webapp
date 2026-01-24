@@ -66,7 +66,7 @@ function AppPrefetcher() {
     // - Still checking authentication status
     // - User is not authenticated
     // - Already prefetched this session
-    if (loading || !isAuthenticated || hasPrefetchedRef.current) {
+    if (loading || hasPrefetchedRef.current) {
       return;
     }
 

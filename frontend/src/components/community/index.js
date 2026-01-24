@@ -1,7 +1,11 @@
 /**
- * Community Components
+ * Community Components Index
  *
- * Notes/Community feature components including cards, filters, and modals.
+ * Barrel export for community-related components.
+ * Import from this file for cleaner imports.
+ *
+ * @example
+ * import { NewsLoadingSkeleton } from '../components/community';
  */
 
-// Will be populated as components are moved
+export { default as NewsLoadingSkeleton } from './NewsLoadingSkeleton';
