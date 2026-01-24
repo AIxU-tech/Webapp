@@ -7,6 +7,7 @@ Keeps route handlers clean by extracting reusable logic.
 
 import json
 from flask_login import current_user
+from sqlalchemy import select
 from sqlalchemy.orm import Query, joinedload
 from backend.extensions import db
 from backend.models import Opportunity, User
