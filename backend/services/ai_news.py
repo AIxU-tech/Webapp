@@ -31,6 +31,10 @@ from backend.models.ai_news import (
     AIResearchPaper,
     AINewsChatMessage
 )
+from backend.services.image_extraction import (
+    extract_image_for_story,
+    extract_image_for_paper
+)
 
 
 # =============================================================================
@@ -90,6 +94,17 @@ For RESEARCH PAPERS:
 - Focus on papers from arXiv, major conferences (NeurIPS, ICML, etc.), or top AI labs
 - Prioritize papers that are getting significant attention in the AI community
 - Include papers that introduce novel techniques, achieve state-of-the-art results, or have practical applications
+- CRITICAL: You MUST provide the complete, exact paper URL with the full arXiv ID (e.g., 2601.14192, not 2601.xxxxx or partial IDs)
+- Verify each paper URL is complete and valid before including it
+
+For IMAGES:
+- For each story/paper, find the main hero image or og:image URL from the article
+- Only include direct image URLs (ending in .jpg, .png, .webp, etc.) or valid og:image URLs
+- If no suitable image is found, set imageUrl to null
+
+For EMOJIS:
+- Choose a single emoji that best represents the topic/theme of each story or paper
+- Examples: 🤖 for robotics, 🧠 for neural networks, 💰 for funding, 🔬 for research, 🚀 for launches
 
 Return JSON:
 ```json
@@ -102,6 +117,8 @@ Return JSON:
       "significance": "Why this matters",
       "categories": ["research", "industry"],
       "eventDate": "YYYY-MM-DD",
+      "imageUrl": "https://example.com/image.jpg or null",
+      "emoji": "🤖",
       "sources": [
         {{
           "url": "https://...",
@@ -120,10 +137,12 @@ Return JSON:
       "summary": "Plain-language summary of what the paper does",
       "keyFindings": "Main contributions and results",
       "significance": "Why this paper matters",
-      "paperUrl": "https://arxiv.org/abs/...",
+      "paperUrl": "https://arxiv.org/abs/2501.12345",
       "sourceName": "arXiv",
       "categories": ["LLM", "reasoning"],
-      "publicationDate": "YYYY-MM-DD"
+      "publicationDate": "YYYY-MM-DD",
+      "imageUrl": "https://example.com/figure.png or null",
+      "emoji": "🧬"
     }}
   ]
 }}
@@ -306,6 +325,9 @@ def _store_stories(stories_data: list, batch_id: str) -> list[dict]:
     """
     Store news stories and their sources in the database.
 
+    If no imageUrl is provided by Claude, attempts to extract one from
+    the story's source URLs using Open Graph meta tags.
+
     Args:
         stories_data: List of story dictionaries from Claude's response
         batch_id: Unique identifier for this fetch batch
@@ -316,12 +338,20 @@ def _store_stories(stories_data: list, batch_id: str) -> list[dict]:
     stored = []
 
     for data in stories_data:
+        # Get image URL from Claude's response, or extract from sources
+        image_url = data.get('imageUrl')
+        if not image_url:
+            sources = data.get('sources', [])
+            image_url = extract_image_for_story(sources)
+
         story = AINewsStory(
             title=data.get('title', 'Untitled'),
             summary=data.get('summary', ''),
             significance=data.get('significance', ''),
             rank=data.get('rank', 99),
-            batch_id=batch_id
+            batch_id=batch_id,
+            image_url=image_url,
+            emoji=data.get('emoji')
         )
 
         if categories := data.get('categories'):
@@ -356,6 +386,11 @@ def _store_papers(papers_data: list, batch_id: str) -> list[dict]:
     """
     Store research papers in the database.
 
+    If no imageUrl is provided by Claude, attempts to extract one from
+    the paper URL using Open Graph meta tags. Note that many paper
+    repositories (like arXiv) don't have og:image tags, so papers will
+    often not have images.
+
     Args:
         papers_data: List of paper dictionaries from Claude's response
         batch_id: Unique identifier for this fetch batch
@@ -366,6 +401,13 @@ def _store_papers(papers_data: list, batch_id: str) -> list[dict]:
     stored = []
 
     for data in papers_data:
+        # Get image URL from Claude's response, or try to extract from paper URL
+        image_url = data.get('imageUrl')
+        if not image_url:
+            paper_url = data.get('paperUrl')
+            if paper_url:
+                image_url = extract_image_for_paper(paper_url)
+
         paper = AIResearchPaper(
             title=data.get('title', 'Untitled'),
             authors=data.get('authors'),
@@ -375,7 +417,9 @@ def _store_papers(papers_data: list, batch_id: str) -> list[dict]:
             paper_url=data.get('paperUrl'),
             source_name=data.get('sourceName'),
             rank=data.get('rank', 99),
-            batch_id=batch_id
+            batch_id=batch_id,
+            image_url=image_url,
+            emoji=data.get('emoji')
         )
 
         if categories := data.get('categories'):

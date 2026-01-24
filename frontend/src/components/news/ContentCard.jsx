@@ -6,37 +6,24 @@
  * type-specific content sections.
  *
  * Features:
+ * - Emoji badge with gradient background
+ * - Hero image with fallback to emoji on gradient
  * - Summary mode with type-specific content (sources for news, findings for papers)
  * - Interactive AI chat that replaces summary when active
- * - Rank badge with configurable gradient colors
  * - Back button to return from chat to summary
  *
  * @component
- *
- * @example
- * // News story
- * <ContentCard
- *   item={story}
- *   rank={1}
- *   type="story"
- *   chatMutation={useStoryChatMutation()}
- * />
- *
- * @example
- * // Research paper
- * <ContentCard
- *   item={paper}
- *   rank={1}
- *   type="paper"
- *   chatMutation={usePaperChatMutation()}
- * />
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { ExternalLinkIcon, ArrowLeftIcon, MessageCircleIcon, SendIcon } from '../icons';
+import { ExternalLinkIcon, ArrowLeftIcon, MessageCircleIcon, SendIcon, SparklesIcon } from '../icons';
 import { useStoryChatMutation, usePaperChatMutation } from '../../hooks/useNews';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
+
+// =============================================================================
+// UTILITY FUNCTIONS
+// =============================================================================
 
 /**
  * Strip citation tags from text.
@@ -67,6 +54,47 @@ function generateSessionId() {
 }
 
 /**
+ * Format a date string to "Month YYYY" format
+ */
+function formatDateToMonthYear(dateString) {
+  if (!dateString) return null;
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get the primary category from a categories array
+ */
+function getPrimaryCategory(categories) {
+  if (!categories || categories.length === 0) return null;
+  return categories[0];
+}
+
+/**
+ * Get the primary link URL for an item
+ * For stories: first source URL
+ * For papers: paperUrl
+ */
+function getPrimaryUrl(item, type) {
+  if (type === 'paper') {
+    return item.paperUrl || null;
+  }
+  // For stories, use first source URL
+  if (item.sources && item.sources.length > 0) {
+    return item.sources[0].url || null;
+  }
+  return null;
+}
+
+// =============================================================================
+// SUB-COMPONENTS
+// =============================================================================
+
+/**
  * Chat message display component
  */
 function ChatMessage({ role, content }) {
@@ -74,11 +102,10 @@ function ChatMessage({ role, content }) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
       <div
-        className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
-          isUser
-            ? 'bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white rounded-tr-md'
-            : 'bg-muted text-foreground rounded-tl-md'
-        }`}
+        className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isUser
+          ? 'bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white rounded-tr-md'
+          : 'bg-muted text-foreground rounded-tl-md'
+          }`}
       >
         {content}
       </div>
@@ -164,8 +191,92 @@ function ChatInterface({ messages, isLoading, onSendMessage }) {
 }
 
 /**
- * Configuration for each content type
+ * Hero image with fallback to emoji on gradient background
  */
+function HeroImage({ imageUrl, emoji, type }) {
+  const [imageError, setImageError] = useState(false);
+
+  const gradientClasses = type === 'paper'
+    ? 'from-[hsl(280,70%,50%)] via-[hsl(300,60%,45%)] to-[hsl(320,70%,50%)]'
+    : 'from-[hsl(220,70%,50%)] via-[hsl(200,70%,45%)] to-[hsl(185,70%,50%)]';
+
+  // Show fallback if no image URL or image failed to load
+  if (!imageUrl || imageError) {
+    return (
+      <div className={`relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-gradient-to-br ${gradientClasses}`}>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-6xl drop-shadow-lg" role="img" aria-label="Topic emoji">
+            {emoji || (type === 'paper' ? '📄' : '📰')}
+          </span>
+        </div>
+        {/* Subtle pattern overlay */}
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+            backgroundSize: '24px 24px'
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted">
+      <img
+        src={imageUrl}
+        alt=""
+        className="w-full h-full object-cover"
+        onError={() => setImageError(true)}
+        loading="lazy"
+      />
+    </div>
+  );
+}
+
+/**
+ * Emoji badge component
+ */
+function EmojiBadge({ emoji, type }) {
+  const gradientClasses = type === 'paper'
+    ? 'from-[hsl(280,85%,60%)] to-[hsl(320,85%,55%)]'
+    : 'from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)]';
+
+  const defaultEmoji = type === 'paper' ? '📄' : '📰';
+
+  return (
+    <div className={`w-10 h-10 bg-gradient-to-br ${gradientClasses} rounded-xl flex items-center justify-center shadow-sm`}>
+      <span className="text-lg" role="img" aria-hidden="true">
+        {emoji || defaultEmoji}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Category tags component for papers
+ */
+function CategoryTags({ categories }) {
+  if (!categories || categories.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-3">
+      {categories.slice(0, 3).map((category, idx) => (
+        <span
+          key={idx}
+          className="px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded-md"
+        >
+          {category}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// =============================================================================
+// TYPE CONFIGURATION
+// =============================================================================
+
 const TYPE_CONFIG = {
   story: {
     gradientFrom: 'from-[hsl(220,85%,60%)]',
@@ -183,6 +294,10 @@ const TYPE_CONFIG = {
   },
 };
 
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
+
 /**
  * Main ContentCard component
  */
@@ -197,15 +312,22 @@ export default function ContentCard({
   const [messages, setMessages] = useState([]);
   const [sessionId, setSessionId] = useState(null);
   const [summaryInput, setSummaryInput] = useState('');
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Use appropriate chat mutation based on type
-  // Both hooks are called unconditionally to follow React's rules of hooks
   const storyMutation = useStoryChatMutation();
   const paperMutation = usePaperChatMutation();
   const mutation = type === 'paper' ? paperMutation : storyMutation;
 
   const config = TYPE_CONFIG[type] || TYPE_CONFIG.story;
   const cleanSummary = stripCitations(item.summary);
+
+  // Derive display values
+  const primaryCategory = getPrimaryCategory(item.categories);
+  const primaryUrl = getPrimaryUrl(item, type);
+  const dateLabel = type === 'paper'
+    ? formatDateToMonthYear(item.publicationDate)
+    : formatDateToMonthYear(item.eventDate);
 
   // Handle sending a message from chat interface
   const handleSendMessage = useCallback(
@@ -283,15 +405,13 @@ export default function ContentCard({
   );
 
   return (
-    <article className="bg-card border border-border rounded-lg overflow-hidden shadow-card hover:shadow-hover transition-all duration-200">
-      <div className="p-5">
-        {/* Card Header */}
-        <div className="flex items-start gap-4">
-          {/* Rank Badge Column */}
+    <article className="bg-card border border-border rounded-xl overflow-hidden shadow-card hover:shadow-hover transition-all duration-200 flex flex-col">
+      <div className="p-4 flex flex-col flex-1">
+        {/* Card Header: Emoji + Title + Subtitle */}
+        <div className="flex items-start gap-3 mb-3">
+          {/* Emoji Badge */}
           <div className="flex-shrink-0 flex flex-col items-center gap-2">
-            <div className={`w-8 h-8 bg-gradient-to-br ${config.gradientFrom} ${config.gradientTo} rounded-lg flex items-center justify-center`}>
-              <span className="text-white font-bold text-sm">{rank}</span>
-            </div>
+            <EmojiBadge emoji={item.emoji} type={type} />
             {isChatMode && (
               <button
                 onClick={handleBackToSummary}
@@ -305,38 +425,80 @@ export default function ContentCard({
 
           {/* Title and Meta */}
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold text-foreground leading-snug mb-1">
-              {stripCitations(item.title)}
-            </h3>
-
-            {/* Paper-specific: Authors */}
-            {type === 'paper' && item.authors && (
-              <p className="text-sm text-muted-foreground mb-2">{stripCitations(item.authors)}</p>
+            {primaryUrl ? (
+              <a
+                href={primaryUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block group"
+              >
+                <h3 className="text-base font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                  {stripCitations(item.title)}
+                </h3>
+              </a>
+            ) : (
+              <h3 className="text-base font-semibold text-foreground leading-snug line-clamp-2">
+                {stripCitations(item.title)}
+              </h3>
             )}
+
+            {/* Subtitle: Category • Date OR Source for papers */}
+            <p className="text-sm text-muted-foreground mt-1">
+              {type === 'paper' && item.sourceName ? (
+                <>
+                  {primaryCategory && <span>{primaryCategory}</span>}
+                  {primaryCategory && item.sourceName && <span className="mx-1.5">•</span>}
+                  <span className="text-primary font-medium">{item.sourceName}</span>
+                </>
+              ) : (
+                <>
+                  {primaryCategory && <span>{primaryCategory}</span>}
+                  {primaryCategory && dateLabel && <span className="mx-1.5">•</span>}
+                  {dateLabel && <span>{dateLabel}</span>}
+                </>
+              )}
+            </p>
           </div>
         </div>
 
-        {/* Conditional Content */}
+        {/* Hero Image */}
+        <div className="mb-3">
+          <HeroImage imageUrl={item.imageUrl} emoji={item.emoji} type={type} />
+        </div>
+
+        {/* Conditional Content: Summary or Chat */}
         {!isChatMode ? (
-          <div className="mt-4">
-            {/* Summary */}
-            <p className="text-muted-foreground text-sm leading-relaxed">{cleanSummary}</p>
+          <div className="flex-1 flex flex-col">
+            {/* Summary - expandable */}
+            <div>
+              <p className={`text-muted-foreground text-sm leading-relaxed ${!isExpanded ? 'line-clamp-3' : ''}`}>
+                {cleanSummary}
+              </p>
+              {cleanSummary && cleanSummary.length > 150 && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="text-sm text-primary hover:text-primary/80 font-medium mt-1 transition-colors"
+                >
+                  {isExpanded ? 'Show less' : 'Read more'}
+                </button>
+              )}
+            </div>
 
             {/* Story-specific: Sources */}
             {type === 'story' && item.sources && item.sources.length > 0 && (
-              <div className="mt-4">
-                <h4 className="text-sm font-medium text-foreground mb-2">Sources</h4>
-                <ul className="space-y-1.5">
-                  {item.sources.map((source, idx) => (
+              <div className="mt-3">
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Sources</h4>
+                <ul className="space-y-1">
+                  {item.sources.slice(0, 2).map((source, idx) => (
                     <li key={idx}>
                       <a
                         href={source.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-start gap-2 text-sm text-primary hover:text-primary/80 transition-colors group"
+                        className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors group"
                       >
-                        <ExternalLinkIcon className="h-4 w-4 mt-0.5 flex-shrink-0 opacity-60 group-hover:opacity-100" />
-                        <span className="font-medium">{source.sourceName || 'Source'}</span>
+                        <ExternalLinkIcon className="h-3.5 w-3.5 flex-shrink-0 opacity-60 group-hover:opacity-100" />
+                        <span className="font-medium truncate">{source.sourceName || 'Source'}</span>
                       </a>
                     </li>
                   ))}
@@ -344,36 +506,24 @@ export default function ContentCard({
               </div>
             )}
 
-            {/* Paper-specific: Key Findings */}
-            {type === 'paper' && item.keyFindings && (
-              <div className="mt-4">
-                <h4 className="text-sm font-medium text-foreground mb-1.5">Key Findings</h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {stripCitations(item.keyFindings)}
-                </p>
-              </div>
+            {/* Paper-specific: Authors */}
+            {type === 'paper' && item.authors && (
+              <p className="text-sm text-muted-foreground mt-2 line-clamp-1">
+                {stripCitations(item.authors)}
+              </p>
             )}
 
-            {/* Paper-specific: Read Paper Link */}
-            {type === 'paper' && item.paperUrl && (
-              <div className="mt-4">
-                <a
-                  href={item.paperUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                >
-                  <span>Read Paper</span>
-                  <ExternalLinkIcon className="h-3.5 w-3.5" />
-                </a>
-              </div>
-            )}
+            {/* Paper-specific: Category tags */}
+            {type === 'paper' && <CategoryTags categories={item.categories} />}
+
+            {/* Spacer to push chat input to bottom */}
+            <div className="flex-1" />
 
             {/* Chat Input */}
-            <form onSubmit={handleStartChat} className="mt-4 pt-4 border-t border-border">
+            <form onSubmit={handleStartChat} className="mt-4 pt-3 border-t border-border">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MessageCircleIcon className="h-5 w-5" />
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <MessageCircleIcon className="h-4 w-4" />
                 </div>
                 <input
                   type="text"
@@ -381,22 +531,15 @@ export default function ContentCard({
                   onChange={(e) => setSummaryInput(e.target.value)}
                   onKeyDown={handleSummaryInputKeyDown}
                   placeholder={config.placeholder}
-                  className="flex-1 bg-transparent border-none text-sm placeholder:text-muted-foreground focus:outline-none"
+                  className="flex-1 bg-transparent border-none text-sm placeholder:text-muted-foreground focus:outline-none min-w-0"
                 />
-                <button
-                  type="submit"
-                  disabled={!summaryInput.trim() || mutation.isPending}
-                  className={`p-2 rounded-lg bg-gradient-to-br ${config.gradientFrom} ${config.gradientTo} text-white hover:shadow-lg hover:${config.shadowColor} transition-all duration-200 disabled:opacity-50 disabled:shadow-none`}
-                  aria-label="Start chat"
-                >
-                  <SendIcon />
-                </button>
+                <SparklesIcon className="h-4 w-4 text-primary/60 flex-shrink-0" />
               </div>
             </form>
           </div>
         ) : (
           // Chat Mode
-          <div className="mt-4">
+          <div className="flex-1">
             <ChatInterface
               messages={messages}
               isLoading={mutation.isPending}
@@ -408,3 +551,4 @@ export default function ContentCard({
     </article>
   );
 }
+
