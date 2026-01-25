@@ -41,10 +41,9 @@ export default function FeedCard({
           </div>
         </Link>
 
-        {/* Right side: optional badges, timestamp, edit, delete */}
+        {/* Right side: optional badges, edit, delete, timestamp */}
         <div className="flex items-center space-x-2">
           {headerBadges}
-          <span className="text-sm text-muted-foreground">{item.timeAgo}</span>
           {canEdit && (
             <button
               onClick={() => onEdit(item.id)}
@@ -65,6 +64,7 @@ export default function FeedCard({
               <TrashIcon />
             </button>
           )}
+          <span className="text-sm text-muted-foreground">{item.timeAgo}</span>
         </div>
       </div>
 
