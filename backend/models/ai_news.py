@@ -96,6 +96,16 @@ class AINewsStory(db.Model):
     event_date = db.Column(db.Date, nullable=True)
 
     # =========================================================================
+    # Visual & Display Fields
+    # =========================================================================
+
+    # URL to the main article image (hero image, og:image, etc.)
+    image_url = db.Column(db.String(2000), nullable=True)
+
+    # Single emoji representing the story's topic (e.g., "🤖", "🧠", "💰")
+    emoji = db.Column(db.String(10), nullable=True)
+
+    # =========================================================================
     # Relationships
     # =========================================================================
 
@@ -156,6 +166,8 @@ class AINewsStory(db.Model):
             'batchId': self.batch_id,
             'fetchedAt': self.fetched_at.isoformat() if self.fetched_at else None,
             'eventDate': self.event_date.isoformat() if self.event_date else None,
+            'imageUrl': self.image_url,
+            'emoji': self.emoji,
             # Include all sources as nested objects
             'sources': [source.to_dict() for source in self.sources.all()]
         }
@@ -317,6 +329,16 @@ class AIResearchPaper(db.Model):
     publication_date = db.Column(db.Date, nullable=True)
 
     # =========================================================================
+    # Visual & Display Fields
+    # =========================================================================
+
+    # URL to a paper figure, diagram, or related image
+    image_url = db.Column(db.String(2000), nullable=True)
+
+    # Single emoji representing the paper's topic (e.g., "🧬", "🔬", "📊")
+    emoji = db.Column(db.String(10), nullable=True)
+
+    # =========================================================================
     # Helper Methods for JSON Fields
     # =========================================================================
 
@@ -352,7 +374,9 @@ class AIResearchPaper(db.Model):
             'categories': self.get_categories_list(),
             'batchId': self.batch_id,
             'fetchedAt': self.fetched_at.isoformat() if self.fetched_at else None,
-            'publicationDate': self.publication_date.isoformat() if self.publication_date else None
+            'publicationDate': self.publication_date.isoformat() if self.publication_date else None,
+            'imageUrl': self.image_url,
+            'emoji': self.emoji
         }
 
     def __repr__(self) -> str:

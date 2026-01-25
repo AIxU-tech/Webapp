@@ -9,6 +9,7 @@ import {
   fetchNotes,
   fetchNote,
   createNote,
+  updateNote,
   toggleLikeNote,
   toggleBookmarkNote,
   deleteNote,
@@ -88,6 +89,80 @@ export const useCreateNote = createCreateHook({
   keys: noteKeys,
   createFn: createNote,
 });
+
+/**
+ * useUpdateNote Hook
+ *
+ * Mutation hook for updating a note with optimistic updates.
+ * Updates note in infinite and detail caches.
+ *
+ * @returns {object} React Query mutation result
+ *
+ * @example
+ * const updateMutation = useUpdateNote();
+ * updateMutation.mutate({
+ *   noteId: 123,
+ *   data: { title: 'New Title', content: 'New content', tags: ['NLP'], universityOnly: false }
+ * });
+ */
+export function useUpdateNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ noteId, data }) => updateNote(noteId, data),
+
+    onMutate: async ({ noteId, data }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: noteKeys.all });
+
+      // Snapshot previous queries for rollback
+      const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
+
+      // Optimistically update infinite query cache
+      updateNotesCache(queryClient, noteId, (note) => ({
+        ...note,
+        title: data.title,
+        content: data.content,
+        tags: data.tags ?? note.tags,
+        universityOnly: data.universityOnly ?? note.universityOnly,
+      }));
+
+      // Optimistically update detail cache
+      queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          title: data.title,
+          content: data.content,
+          tags: data.tags ?? oldData.tags,
+          universityOnly: data.universityOnly ?? oldData.universityOnly,
+        };
+      });
+
+      return { previousQueries, noteId };
+    },
+
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+
+    onSuccess: (result, { noteId }) => {
+      // Update infinite query cache with server response
+      updateNotesCache(queryClient, noteId, () => result.note);
+
+      // Update detail cache with server response
+      queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
+        if (!oldData) return oldData;
+        return result.note;
+      });
+    },
+  });
+}
 
 // Helper function to update note comment count in infinite queries
 // (Uses the shared factory-created updateNotesCache)

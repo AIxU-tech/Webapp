@@ -31,6 +31,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   useInfiniteNotes,
   useCreateNote,
+  useUpdateNote,
   useLikeNote,
   useBookmarkNote,
   useDeleteNote,
@@ -46,7 +47,7 @@ import {
   FeedItemList,
   ConfirmationModal,
 } from '../components/ui';
-import { NoteCard, NotesFilter, CreateNoteModal } from '../components/community';
+import { NoteCard, NotesFilter, CreateNoteModal, EditNoteModal } from '../components/community';
 
 // Icons
 import {
@@ -147,6 +148,7 @@ export default function CommunityPage() {
    * If server request fails, changes are automatically rolled back.
    */
   const createNoteMutation = useCreateNote();
+  const updateNoteMutation = useUpdateNote();
   const likeNoteMutation = useLikeNote();
   const bookmarkNoteMutation = useBookmarkNote();
   const deleteNoteMutation = useDeleteNote();
@@ -156,6 +158,12 @@ export default function CommunityPage() {
    */
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [createNoteError, setCreateNoteError] = useState(null);
+
+  /**
+   * Edit Note Modal State
+   */
+  const [noteToEdit, setNoteToEdit] = useState(null);
+  const [editNoteError, setEditNoteError] = useState(null);
 
   /**
    * Delete Confirmation Modal State
@@ -302,6 +310,50 @@ export default function CommunityPage() {
   }
 
   /**
+   * Handle Edit Button Click
+   *
+   * Opens edit modal with the note data.
+   */
+  function handleEditClick(noteId) {
+    const noteToEditData = notes.find((n) => n.id === noteId);
+    if (noteToEditData) {
+      setEditNoteError(null);
+      setNoteToEdit(noteToEditData);
+    }
+  }
+
+  /**
+   * Close Edit Note Modal
+   */
+  function closeEditModal() {
+    setNoteToEdit(null);
+    setEditNoteError(null);
+  }
+
+  /**
+   * Handle Update Note Form Submission
+   *
+   * Uses React Query mutation with optimistic updates.
+   */
+  function handleUpdateNote(noteData) {
+    if (!noteToEdit) return;
+    
+    setEditNoteError(null);
+    updateNoteMutation.mutate(
+      { noteId: noteToEdit.id, data: noteData },
+      {
+        onSuccess: () => {
+          closeEditModal();
+        },
+        onError: (err) => {
+          console.error('Error updating note:', err);
+          setEditNoteError(err.message || 'Failed to update note. Please try again.');
+        },
+      }
+    );
+  }
+
+  /**
    * Handle Delete Button Click
    *
    * Opens confirmation modal before deleting.
@@ -442,6 +494,7 @@ export default function CommunityPage() {
             note={note}
             onLike={handleLike}
             onBookmark={handleBookmark}
+            onEdit={handleEditClick}
             onDelete={handleDeleteClick}
             currentUserId={user?.id}
             isAuthenticated={isAuthenticated}
@@ -471,6 +524,17 @@ export default function CommunityPage() {
         isCreating={createNoteMutation.isPending}
         userUniversity={user?.university}
         error={createNoteError}
+      />
+
+      {/* Edit Note Modal */}
+      <EditNoteModal
+        isOpen={noteToEdit !== null}
+        onClose={closeEditModal}
+        onUpdate={handleUpdateNote}
+        isUpdating={updateNoteMutation.isPending}
+        note={noteToEdit}
+        userUniversity={user?.university}
+        error={editNoteError}
       />
 
       {/* Delete Confirmation Modal */}

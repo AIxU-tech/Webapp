@@ -63,6 +63,75 @@ def create_note():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# Route for updating a note
+# RESTful: PUT to resource updates it
+@community_bp.route('/api/notes/<int:note_id>', methods=['PUT'])
+@login_required
+def update_note(note_id):
+    """
+    Update a note. Only the author can edit their note.
+    
+    Request body:
+        - title (required): Note title
+        - content (required): Note content
+        - tags (optional): Array of tag strings
+        - universityOnly (optional): Boolean for visibility
+    
+    Returns:
+        - success: Boolean
+        - note: Updated note object
+    """
+    try:
+        note = Note.query.get(note_id)
+
+        if not note:
+            return jsonify({'success': False, 'error': 'Note not found'}), 404
+
+        # Check if current user is the author
+        if note.author_id != current_user.id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+        data = request.get_json()
+
+        # Validate required fields
+        title = data.get('title', '').strip()
+        content = data.get('content', '').strip()
+        
+        if not title or not content:
+            return jsonify({'success': False, 'error': 'Title and content are required'}), 400
+
+        # Content moderation
+        if not moderate_content(title):
+            return jsonify({'success': False, 'error': 'Title contains inappropriate language'}), 400
+        
+        if not moderate_content(content):
+            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
+
+        # Update note fields
+        note.title = title
+        note.content = content
+        
+        # Update tags if provided
+        if 'tags' in data:
+            tags = data.get('tags', [])
+            note.set_tags_list(tags)
+        
+        # Update university_only if provided
+        if 'universityOnly' in data:
+            note.university_only = data.get('universityOnly', False)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'note': note.to_dict()
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # Route for deleting a note
 # RESTful: DELETE to resource deletes it
 @community_bp.route('/api/notes/<int:note_id>', methods=['DELETE'])

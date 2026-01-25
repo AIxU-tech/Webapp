@@ -696,6 +696,8 @@ def seed_ai_news():
             "significance": "This release marks a major milestone in AI capabilities, with implications for education, research, and software development. Students and researchers should pay attention to how these enhanced reasoning abilities might impact their work.",
             "rank": 1,
             "categories": ["LLMs", "Industry", "Research"],
+            "image_url": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800",
+            "emoji": "🤖",
             "sources": [
                 {"url": "https://example.com/gpt5-release", "source_name": "TechCrunch", "article_title": "OpenAI's GPT-5 Sets New Benchmarks"},
                 {"url": "https://example.com/gpt5-analysis", "source_name": "MIT Technology Review", "article_title": "Inside GPT-5's Reasoning Engine"}
@@ -707,6 +709,8 @@ def seed_ai_news():
             "significance": "This advancement could accelerate pharmaceutical research and deepen our understanding of biological processes. AI students interested in computational biology should explore how deep learning is transforming this field.",
             "rank": 2,
             "categories": ["Research", "Healthcare", "Deep Learning"],
+            "image_url": "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=800",
+            "emoji": "🧬",
             "sources": [
                 {"url": "https://example.com/alphafold3", "source_name": "Nature", "article_title": "AlphaFold 3 Revolutionizes Structural Biology"},
                 {"url": "https://example.com/protein-ai", "source_name": "Science Daily", "article_title": "AI Predicts Complex Protein Interactions"}
@@ -718,6 +722,8 @@ def seed_ai_news():
             "significance": "This regulation will shape how AI is developed and deployed globally, as companies serving EU markets must comply. Understanding AI governance is becoming essential for anyone working in the field.",
             "rank": 3,
             "categories": ["Policy", "Ethics", "Industry"],
+            "image_url": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800",
+            "emoji": "⚖️",
             "sources": [
                 {"url": "https://example.com/eu-ai-act", "source_name": "Reuters", "article_title": "EU AI Act Becomes Law"},
                 {"url": "https://example.com/ai-regulation", "source_name": "The Verge", "article_title": "What the EU AI Act Means for Developers"}
@@ -736,7 +742,9 @@ def seed_ai_news():
             "paper_url": "https://arxiv.org/abs/example1",
             "source_name": "arXiv",
             "rank": 1,
-            "categories": ["LLMs", "Training", "Efficiency"]
+            "categories": ["LLMs", "Training", "Efficiency"],
+            "image_url": "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=800",
+            "emoji": "📈"
         },
         {
             "title": "Attention Is All You Need: Revisited for Multimodal Learning",
@@ -747,7 +755,9 @@ def seed_ai_news():
             "paper_url": "https://arxiv.org/abs/example2",
             "source_name": "NeurIPS 2024",
             "rank": 2,
-            "categories": ["Multimodal", "Transformers", "Vision"]
+            "categories": ["Multimodal", "Transformers", "Vision"],
+            "image_url": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800",
+            "emoji": "👁️"
         },
         {
             "title": "Reinforcement Learning from Human Feedback: Best Practices and Pitfalls",
@@ -758,7 +768,9 @@ def seed_ai_news():
             "paper_url": "https://arxiv.org/abs/example3",
             "source_name": "ICML 2024",
             "rank": 3,
-            "categories": ["RLHF", "Alignment", "Safety"]
+            "categories": ["RLHF", "Alignment", "Safety"],
+            "image_url": "https://images.unsplash.com/photo-1507146153580-69a1fe6d8aa1?w=800",
+            "emoji": "🎯"
         }
     ]
 
@@ -769,7 +781,9 @@ def seed_ai_news():
             summary=data["summary"],
             significance=data["significance"],
             rank=data["rank"],
-            batch_id=batch_id
+            batch_id=batch_id,
+            image_url=data.get("image_url"),
+            emoji=data.get("emoji")
         )
         story.set_categories_list(data["categories"])
         db.session.add(story)
@@ -797,7 +811,9 @@ def seed_ai_news():
             paper_url=data["paper_url"],
             source_name=data["source_name"],
             rank=data["rank"],
-            batch_id=batch_id
+            batch_id=batch_id,
+            image_url=data.get("image_url"),
+            emoji=data.get("emoji")
         )
         paper.set_categories_list(data["categories"])
         db.session.add(paper)

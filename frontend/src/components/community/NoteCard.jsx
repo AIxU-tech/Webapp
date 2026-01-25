@@ -19,6 +19,7 @@ export default function NoteCard({
   onLike,
   onBookmark,
   onDelete,
+  onEdit,
   currentUserId,
   isAuthenticated = false,
   initialCommentsExpanded = false,
@@ -98,9 +99,11 @@ export default function NoteCard({
     <>
       <FeedCard
         item={note}
+        canEdit={isOwner}
         canDelete={isOwner}
         isBookmarked={note.isBookmarked}
         onBookmark={onBookmark}
+        onEdit={onEdit}
         onDelete={onDelete}
         tags={note.tags || []}
         headerBadges={headerBadges}
