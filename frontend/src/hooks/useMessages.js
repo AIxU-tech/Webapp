@@ -275,7 +275,7 @@ export function useSendMessage() {
     // -------------------------------------------------------------------------
     // Optimistic Update
     // -------------------------------------------------------------------------
-    onMutate: async ({ recipientId, content }) => {
+    onMutate: async ({ recipientId, content, recipientUser }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({
         queryKey: messageKeys.conversation(recipientId),
@@ -344,9 +344,24 @@ export function useSendMessage() {
             ...oldData,
             conversations: updatedConversations,
           };
+        } else if (recipientUser) {
+          // New conversation with known user data - add optimistically
+          const lastMessage = createLastMessageObject(content);
+          const newConversation = {
+            otherUser: {
+              id: recipientUser.id,
+              name: recipientUser.name,
+              avatar: recipientUser.avatar,
+              university: recipientUser.university || '',
+            },
+            lastMessage,
+            hasUnread: false,
+          };
+          return {
+            ...oldData,
+            conversations: [newConversation, ...oldData.conversations],
+          };
         } else {
-          // Conversation doesn't exist - we'll add it in onSuccess after fetching user info
-          // For now, just return the existing data
           return oldData;
         }
       });

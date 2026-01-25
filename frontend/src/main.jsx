@@ -36,6 +36,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
 import { TermsProvider } from './contexts/TermsContext';
 import { AuthModalProvider } from './contexts/AuthModalContext';
+import { MessageTargetProvider } from './contexts/MessageTargetContext';
 import { TermsModalWrapper } from './components/auth';
 import { AppPrefetcher } from './components/layout';
 import App from './App';
@@ -64,11 +65,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               {/* Runs once after auth check, doesn't block initial render */}
               <AppPrefetcher />
 
-              {/* SocketProvider manages WebSocket connection for real-time features */}
-              {/* Must be inside AuthProvider to access user state */}
-              <SocketProvider>
-                <App />
-              </SocketProvider>
+              {/* MessageTargetProvider enables "Message" buttons to pass target user */}
+              <MessageTargetProvider>
+                {/* SocketProvider manages WebSocket connection for real-time features */}
+                {/* Must be inside AuthProvider to access user state */}
+                <SocketProvider>
+                  <App />
+                </SocketProvider>
+              </MessageTargetProvider>
             </AuthModalProvider>
           </AuthProvider>
         </TermsProvider>

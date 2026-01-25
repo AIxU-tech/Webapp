@@ -20,6 +20,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useMessageTarget } from '../contexts/MessageTargetContext';
 import { logout } from '../api/auth';
 import {
   useUser,
@@ -28,7 +29,6 @@ import {
   useUploadProfilePicture,
   useUploadProfileBanner,
 } from '../hooks';
-import { ConversationModal } from '../components/messages';
 
 // UI Components
 import {
@@ -51,6 +51,7 @@ export default function ProfilePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const { user: currentUser, setUser: setCurrentUser, logoutUser } = useAuth();
+  const { setTargetUserId } = useMessageTarget();
 
   // Determine if viewing own profile
   const isOwnProfile = !userId || (currentUser && currentUser.id === parseInt(userId));
@@ -82,7 +83,6 @@ export default function ProfilePage() {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showMessageModal, setShowMessageModal] = useState(false);
   const [showBannerModal, setShowBannerModal] = useState(false);
   const [bannerPreviewUrl, setBannerPreviewUrl] = useState(null);
   const [bannerKey, setBannerKey] = useState(Date.now());
@@ -198,11 +198,9 @@ export default function ProfilePage() {
     }
   };
 
-  /**
-   * Open message modal to chat with user
-   */
   const handleMessage = () => {
-    setShowMessageModal(true);
+    setTargetUserId(user?.id);
+    navigate('/messages');
   };
 
   /**
@@ -337,14 +335,6 @@ export default function ProfilePage() {
         title="Update Profile Banner"
       />
 
-      {/* Message Modal - for messaging other users */}
-      {!isOwnProfile && (
-        <ConversationModal
-          userId={user?.id}
-          isOpen={showMessageModal}
-          onClose={() => setShowMessageModal(false)}
-        />
-      )}
     </div>
   );
 }
