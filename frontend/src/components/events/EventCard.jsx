@@ -5,6 +5,7 @@
  * Used in university detail pages to show upcoming events.
  */
 
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../ui';
 import { ClockIcon, MapPinIcon, UsersIcon, TrashIcon, CheckIcon } from '../icons';
@@ -67,6 +68,9 @@ export default function EventCard({
   currentUserId,
   isAuthenticated = false,
 }) {
+  // State for expanding/collapsing description
+  const [isExpanded, setIsExpanded] = useState(false);
+
   // Determine if current user can delete this event
   const isCreator = isAuthenticated && currentUserId && event.createdById === currentUserId;
 
@@ -122,9 +126,22 @@ export default function EventCard({
 
           {/* Description */}
           {event.description && (
-            <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
-              {event.description}
-            </p>
+            <div className="mb-3">
+              <p
+                className={`text-muted-foreground text-sm ${!isExpanded ? 'line-clamp-2' : ''
+                  }`}
+              >
+                {event.description}
+              </p>
+              {event.description.length > 100 && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="text-primary text-sm font-medium hover:text-primary/80 transition-colors mt-1 cursor-pointer"
+                >
+                  {isExpanded ? 'Show less' : 'Show more'}
+                </button>
+              )}
+            </div>
           )}
 
           {/* Metadata Row */}
@@ -154,11 +171,10 @@ export default function EventCard({
           <div className="flex items-center gap-2">
             <button
               onClick={handleRsvp}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                event.isAttending
-                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  : 'bg-muted text-foreground hover:bg-accent'
-              }`}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${event.isAttending
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                : 'bg-muted text-foreground hover:bg-accent'
+                }`}
               aria-label={event.isAttending ? 'Cancel RSVP' : 'RSVP to event'}
             >
               {event.isAttending && <CheckIcon className="h-4 w-4" />}

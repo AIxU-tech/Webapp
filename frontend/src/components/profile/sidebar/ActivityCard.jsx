@@ -21,7 +21,6 @@ import {
 const TABS = [
   { id: 'posts', label: 'Posts', icon: FileTextIcon },
   { id: 'comments', label: 'Comments', icon: MessageCircleIcon },
-  { id: 'connections', label: 'Connections', icon: UsersIcon },
 ];
 
 // Post item component
@@ -66,27 +65,27 @@ function CommentItem({ comment }) {
 }
 
 // Connection item component
-function ConnectionItem({ connection }) {
-  return (
-    <Link
-      to={`/users/${connection.id}`}
-      className="flex items-center gap-3 py-2.5 border-b border-border last:border-b-0 group"
-    >
-      <Avatar user={connection} src={connection.avatarUrl} size="sm" className="w-9 h-9" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-          {connection.name}
-        </p>
-        {connection.university && (
-          <p className="text-xs text-muted-foreground truncate">
-            {connection.university}
-          </p>
-        )}
-      </div>
-      <ExternalLinkIcon className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-    </Link>
-  );
-}
+// function ConnectionItem({ connection }) {
+//   return (
+//     <Link
+//       to={`/users/${connection.id}`}
+//       className="flex items-center gap-3 py-2.5 border-b border-border last:border-b-0 group"
+//     >
+//       <Avatar user={connection} src={connection.avatarUrl} size="sm" className="w-9 h-9" />
+//       <div className="flex-1 min-w-0">
+//         <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+//           {connection.name}
+//         </p>
+//         {connection.university && (
+//           <p className="text-xs text-muted-foreground truncate">
+//             {connection.university}
+//           </p>
+//         )}
+//       </div>
+//       <ExternalLinkIcon className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+//     </Link>
+//   );
+// }
 
 // Empty state for each tab
 function TabEmptyState({ tabId, isOwnProfile }) {
@@ -100,11 +99,6 @@ function TabEmptyState({ tabId, isOwnProfile }) {
       icon: <MessageCircleIcon className="h-6 w-6" />,
       title: isOwnProfile ? 'No comments yet' : 'No comments yet',
       description: isOwnProfile ? 'Join the conversation on posts' : null,
-    },
-    connections: {
-      icon: <UsersIcon className="h-6 w-6" />,
-      title: isOwnProfile ? 'No connections yet' : 'No connections yet',
-      description: isOwnProfile ? 'Connect with other AI enthusiasts' : null,
     },
   };
 
@@ -159,8 +153,6 @@ export default function ActivityCard({
         return `/community?user=${userId}`;
       case 'comments':
         return `/community?user=${userId}&tab=comments`;
-      case 'connections':
-        return `/users/${userId}/connections`;
       default:
         return null;
     }
@@ -193,18 +185,6 @@ export default function ActivityCard({
           </div>
         );
 
-      case 'connections':
-        if (connections.length === 0) {
-          return <TabEmptyState tabId="connections" isOwnProfile={isOwnProfile} />;
-        }
-        return (
-          <div>
-            {connections.slice(0, 4).map((connection) => (
-              <ConnectionItem key={connection.id} connection={connection} />
-            ))}
-          </div>
-        );
-
       default:
         return null;
     }
@@ -217,8 +197,6 @@ export default function ActivityCard({
         return posts.length > 3;
       case 'comments':
         return comments.length > 3;
-      case 'connections':
-        return connections.length > 4;
       default:
         return false;
     }
@@ -231,8 +209,6 @@ export default function ActivityCard({
         return posts.length;
       case 'comments':
         return comments.length;
-      case 'connections':
-        return connections.length;
       default:
         return 0;
     }
