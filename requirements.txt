@@ -40,4 +40,7 @@ APScheduler>=3.10.0
 Flask-Migrate==4.0.5
 
 # Content Moderation
+
 better-profanity>=0.7.0
+
+
