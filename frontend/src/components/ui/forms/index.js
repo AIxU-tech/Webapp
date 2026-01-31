@@ -13,3 +13,4 @@ export { default as FormTextarea } from './FormTextarea';
 export { default as NameInputPair } from './NameInputPair';
 export { default as SocialLinksInput } from './SocialLinksInput';
 export { default as CitySearchInput } from './CitySearchInput';
+export { default as FileUpload, FilePreview, FileTypeIcon, formatSize as formatFileSize } from './FileUpload';

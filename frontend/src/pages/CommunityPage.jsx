@@ -40,6 +40,7 @@ import {
   useDelayedLoading,
   prefetchInfiniteNotes,
 } from '../hooks';
+import { uploadMultipleAttachments } from '../api/uploads';
 
 // UI Components
 import {
@@ -263,11 +264,28 @@ export default function CommunityPage() {
    * Handle Create Note Form Submission
    *
    * Uses React Query mutation with automatic cache invalidation.
+   * After note creation, uploads any attached files.
    */
-  function handleCreateNote(noteData) {
+  async function handleCreateNote(noteData) {
     setCreateNoteError(null);
-    createNoteMutation.mutate(noteData, {
-      onSuccess: () => {
+    const { files, ...notePayload } = noteData;
+
+    createNoteMutation.mutate(notePayload, {
+      onSuccess: async (result) => {
+        // If there are files to upload, upload them to the newly created note
+        if (files && files.length > 0 && result?.note?.id) {
+          try {
+            await uploadMultipleAttachments({
+              noteId: result.note.id,
+              files,
+            });
+          } catch (uploadError) {
+            // Note was created but file upload failed
+            // We don't fail the whole operation, just log the error
+            console.error('Error uploading attachments:', uploadError);
+            // Could show a warning toast here
+          }
+        }
         closeModal();
       },
       onError: (err) => {
@@ -334,15 +352,31 @@ export default function CommunityPage() {
    * Handle Update Note Form Submission
    *
    * Uses React Query mutation with optimistic updates.
+   * After note update, uploads any new attachments.
    */
-  function handleUpdateNote(noteData) {
+  async function handleUpdateNote(noteData) {
     if (!noteToEdit) return;
-    
+
     setEditNoteError(null);
+    const { newFiles, ...updatePayload } = noteData;
+
     updateNoteMutation.mutate(
-      { noteId: noteToEdit.id, data: noteData },
+      { noteId: noteToEdit.id, data: updatePayload },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
+          // If there are new files to upload, upload them
+          if (newFiles && newFiles.length > 0) {
+            try {
+              await uploadMultipleAttachments({
+                noteId: noteToEdit.id,
+                files: newFiles,
+              });
+            } catch (uploadError) {
+              // Note was updated but file upload failed
+              console.error('Error uploading new attachments:', uploadError);
+              // Could show a warning toast here
+            }
+          }
           closeEditModal();
         },
         onError: (err) => {

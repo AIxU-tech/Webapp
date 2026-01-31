@@ -1,5 +1,107 @@
-# Allowed file extensions
+# Allowed file extensions for profile pictures
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+
+# =============================================================================
+# Note Attachment Constants
+# =============================================================================
+
+# Maximum file size for note attachments (10 MB)
+MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024
+
+# Maximum number of attachments per note
+MAX_ATTACHMENTS_PER_NOTE = 5
+
+# Allowed MIME types for note attachments (Option C: most common file types)
+ALLOWED_ATTACHMENT_TYPES = {
+    # Images
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    
+    # Documents
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',  # .docx
+    'application/vnd.oasis.opendocument.text',  # .odt
+    
+    # Spreadsheets
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',  # .xlsx
+    'text/csv',
+    
+    # Presentations
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',  # .pptx
+    
+    # Text/Code files
+    'text/plain',
+    'text/markdown',
+    'text/html',
+    'text/css',
+    'text/javascript',
+    'application/json',
+    'application/xml',
+    'text/xml',
+    
+    # Archives (common for sharing code/data)
+    'application/zip',
+    'application/gzip',
+    'application/x-tar',
+}
+
+# File extension to MIME type mapping (for validation)
+EXTENSION_TO_MIME = {
+    # Images
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'svg': 'image/svg+xml',
+    
+    # Documents
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'odt': 'application/vnd.oasis.opendocument.text',
+    
+    # Spreadsheets
+    'xls': 'application/vnd.ms-excel',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'csv': 'text/csv',
+    
+    # Presentations
+    'ppt': 'application/vnd.ms-powerpoint',
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    
+    # Text/Code
+    'txt': 'text/plain',
+    'md': 'text/markdown',
+    'html': 'text/html',
+    'css': 'text/css',
+    'js': 'text/javascript',
+    'json': 'application/json',
+    'xml': 'application/xml',
+    'py': 'text/plain',
+    'java': 'text/plain',
+    'c': 'text/plain',
+    'cpp': 'text/plain',
+    'h': 'text/plain',
+    'rs': 'text/plain',
+    'go': 'text/plain',
+    'rb': 'text/plain',
+    'ts': 'text/plain',
+    'tsx': 'text/plain',
+    'jsx': 'text/plain',
+    
+    # Archives
+    'zip': 'application/zip',
+    'gz': 'application/gzip',
+    'tar': 'application/x-tar',
+}
 
 
 # =============================================================================

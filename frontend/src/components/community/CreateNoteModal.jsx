@@ -1,12 +1,14 @@
 /**
  * CreateNoteModal Component
  *
- * Modal for creating new community notes with title, content, tags, and visibility settings.
+ * Modal for creating new community notes with title, content, tags, visibility settings,
+ * and file attachments.
  *
  * Features:
  * - Title and content inputs with validation
  * - Multi-tag selection
  * - University-only visibility toggle (when user has a university)
+ * - File attachment upload (up to 5 files, max 10 MB each)
  * - Character count display
  * - Loading state during submission
  *
@@ -14,7 +16,7 @@
  */
 
 import { useState } from 'react';
-import { BaseModal, TagSelector, GradientButton, Alert } from '../ui';
+import { BaseModal, TagSelector, GradientButton, Alert, FileUpload } from '../ui';
 import { ClockIcon } from '../icons';
 
 /**
@@ -36,7 +38,7 @@ const CREATE_TAGS = [
  * @typedef {Object} CreateNoteModalProps
  * @property {boolean} isOpen - Whether the modal is open
  * @property {Function} onClose - Callback when modal is closed
- * @property {Function} onCreate - Callback when note is created, receives {title, content, tags, universityOnly}
+ * @property {Function} onCreate - Callback when note is created, receives {title, content, tags, universityOnly, files}
  * @property {boolean} isCreating - Whether the note is currently being created
  * @property {string|null} userUniversity - User's university name (null if no university)
  * @property {string|null} error - Error message from failed creation attempt
@@ -56,6 +58,7 @@ export default function CreateNoteModal({
   const [selectedTags, setSelectedTags] = useState([]);
   const [universityOnly, setUniversityOnly] = useState(false);
   const [validationError, setValidationError] = useState(null);
+  const [files, setFiles] = useState([]);
 
   /**
    * Reset form to initial state
@@ -66,6 +69,7 @@ export default function CreateNoteModal({
     setSelectedTags([]);
     setUniversityOnly(false);
     setValidationError(null);
+    setFiles([]);
   }
 
   /**
@@ -91,12 +95,13 @@ export default function CreateNoteModal({
       return;
     }
 
-    // Call parent onCreate with note data
+    // Call parent onCreate with note data including files
     onCreate({
       title: noteTitle.trim(),
       content: noteContent.trim(),
       tags: selectedTags,
       universityOnly,
+      files,
     });
   }
 
@@ -141,6 +146,19 @@ export default function CreateNoteModal({
           />
         </div>
 
+        {/* File Upload */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-foreground mb-2">
+            Attachments
+          </label>
+          <FileUpload
+            files={files}
+            onChange={setFiles}
+            maxFiles={5}
+            disabled={isCreating}
+          />
+        </div>
+
         {/* Tags Selection */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-foreground mb-2">
@@ -182,10 +200,15 @@ export default function CreateNoteModal({
 
         {/* Submit Button Row */}
         <div className="flex items-center justify-between pt-4 border-t border-border">
-          {/* Character Count */}
-          <div className="text-sm text-muted-foreground flex items-center">
-            <ClockIcon />
-            <span className="ml-1">{charCount} characters</span>
+          {/* Character Count and File Count */}
+          <div className="text-sm text-muted-foreground flex items-center gap-4">
+            <span className="flex items-center">
+              <ClockIcon />
+              <span className="ml-1">{charCount} characters</span>
+            </span>
+            {files.length > 0 && (
+              <span>{files.length} file{files.length !== 1 ? 's' : ''} attached</span>
+            )}
           </div>
 
           {/* Submit Button */}

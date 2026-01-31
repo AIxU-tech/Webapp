@@ -58,6 +58,15 @@ class Config:
     SMTP_PASS = os.getenv('SMTP_PASS')
     ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'admin@aixu.tech')
 
+    # Google Cloud Storage configuration
+    GCS_BUCKET_NAME = os.getenv('GCS_BUCKET_NAME')
+    GCS_PROJECT_ID = os.getenv('GCS_PROJECT_ID')  # Required when using ADC (e.g. Docker)
+    GCS_CREDENTIALS_PATH = os.getenv('GCS_CREDENTIALS_PATH')
+    
+    # Signed URL expiration times (in seconds)
+    GCS_UPLOAD_URL_EXPIRATION = 15 * 60  # 15 minutes for uploads
+    GCS_DOWNLOAD_URL_EXPIRATION = 60 * 60  # 1 hour for downloads
+
 
 class TestConfig(Config):
     """Test configuration - uses SQLite for isolated, fast tests"""
@@ -89,3 +98,8 @@ class TestConfig(Config):
     SMTP_HOST = None
     SMTP_USER = None
     SMTP_PASS = None
+
+    # Disable GCS in tests
+    GCS_BUCKET_NAME = None
+    GCS_PROJECT_ID = None
+    GCS_CREDENTIALS_PATH = None

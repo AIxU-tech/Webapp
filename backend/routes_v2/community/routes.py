@@ -147,7 +147,16 @@ def delete_note(note_id):
         if note.author_id != current_user.id:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
-        # Delete the note
+        # Clean up GCS attachments before deleting the note
+        try:
+            from backend.services.storage import delete_note_attachments, is_gcs_configured
+            if is_gcs_configured():
+                delete_note_attachments(note_id)
+        except Exception:
+            # Log but don't fail the delete if GCS cleanup fails
+            pass
+
+        # Delete the note (cascades to attachments table)
         db.session.delete(note)
         db.session.commit()
 

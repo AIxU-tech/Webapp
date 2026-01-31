@@ -1,7 +1,7 @@
 /**
  * NoteCard Component
  * Displays a community note using the shared FeedCard layout.
- * Includes expandable comment section.
+ * Includes expandable comment section and file attachments.
  */
 
 import { useState } from 'react';
@@ -12,6 +12,7 @@ import {
   BuildingIcon,
 } from '../icons';
 import CommentSection from './CommentSection';
+import NoteAttachments from './NoteAttachments';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 
 export default function NoteCard({
@@ -62,11 +63,10 @@ export default function NoteCard({
       {/* Comment Button */}
       <button
         onClick={handleToggleComments}
-        className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer ${
-          isCommentsExpanded
+        className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer ${isCommentsExpanded
             ? 'text-primary bg-primary/10'
             : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-        }`}
+          }`}
         aria-label={isCommentsExpanded ? 'Hide comments' : 'View comments'}
         aria-expanded={isCommentsExpanded}
       >
@@ -111,7 +111,12 @@ export default function NoteCard({
         expandableContent={<CommentSection noteId={note.id} isExpanded={isCommentsExpanded} />}
       >
         <h3 className="text-xl font-bold text-foreground mb-2">{note.title}</h3>
-        <p className="text-muted-foreground mb-4">{note.content}</p>
+        <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{note.content}</p>
+
+        {/* File Attachments */}
+        {note.attachments && note.attachments.length > 0 && (
+          <NoteAttachments attachments={note.attachments} />
+        )}
       </FeedCard>
       <Toast
         message="Link copied!"

@@ -450,7 +450,7 @@ def check_note_visibility(note, user):
     return False
 
 
-def notes_to_dict(db_notes, current_user):
+def notes_to_dict(db_notes, current_user, include_attachments=True):
     """
     Convert a list of Note objects to dictionaries with user-specific data.
 
@@ -467,6 +467,7 @@ def notes_to_dict(db_notes, current_user):
     Args:
         db_notes: List of Note objects (already filtered for visibility)
         current_user: The current authenticated user (or anonymous)
+        include_attachments: Whether to include attachment data (default True)
 
     Returns:
         List of note dictionaries ready for JSON serialization
@@ -482,6 +483,11 @@ def notes_to_dict(db_notes, current_user):
         note_ids = [note.id for note in db_notes]
         liked_ids, bookmarked_ids = get_user_note_interactions(current_user.id, note_ids)
 
+    # Pre-fetch attachments for all notes in one query if needed
+    attachments_by_note = {}
+    if include_attachments:
+        attachments_by_note = get_attachments_for_notes([n.id for n in db_notes])
+
     # Build response with O(1) lookups
     notes = []
     for note in db_notes:
@@ -491,9 +497,53 @@ def notes_to_dict(db_notes, current_user):
             note_dict['isLiked'] = note.id in liked_ids
             note_dict['isBookmarked'] = note.id in bookmarked_ids
 
+        # Add attachments
+        if include_attachments:
+            note_dict['attachments'] = attachments_by_note.get(note.id, [])
+
         notes.append(note_dict)
 
     return notes
+
+
+def get_attachments_for_notes(note_ids: list[int]) -> dict[int, list[dict]]:
+    """
+    Fetch all attachments for multiple notes in a single query.
+    
+    Args:
+        note_ids: List of note IDs
+        
+    Returns:
+        Dictionary mapping note_id to list of attachment dicts with download URLs
+    """
+    if not note_ids:
+        return {}
+    
+    from backend.models import NoteAttachment
+    from backend.services.storage import is_gcs_configured, generate_download_url
+    
+    attachments = NoteAttachment.query.filter(
+        NoteAttachment.note_id.in_(note_ids)
+    ).order_by(NoteAttachment.created_at).all()
+    
+    # Group by note_id
+    result = {note_id: [] for note_id in note_ids}
+    gcs_configured = is_gcs_configured()
+    
+    for attachment in attachments:
+        if gcs_configured:
+            try:
+                download_url = generate_download_url(attachment.gcs_path)
+                result[attachment.note_id].append(
+                    attachment.to_dict(include_download_url=True, download_url=download_url)
+                )
+            except Exception:
+                # If URL generation fails, include attachment without URL
+                result[attachment.note_id].append(attachment.to_dict())
+        else:
+            result[attachment.note_id].append(attachment.to_dict())
+    
+    return result
 
 
 def toggle_like_status(current_user, note):
