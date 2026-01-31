@@ -41,9 +41,3 @@ Flask-Migrate==4.0.5
 
 # Content Moderation
 better-profanity>=0.7.0
-
-# HTTP Requests
-requests>=2.31.0
-
-# HTML Parsing
-beautifulsoup4>=4.12.0
