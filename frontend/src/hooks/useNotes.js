@@ -19,7 +19,7 @@ import {
   deleteComment,
   toggleLikeComment,
 } from '../api/notes';
-import { STALE_TIMES } from '../config/cache';
+import { STALE_TIMES, GC_TIMES } from '../config/cache';
 import {
   createFeedItemKeys,
   createCreateHook,
@@ -76,11 +76,29 @@ export function useInfiniteNotes(params = {}) {
 
 // Detail hook
 export function useNote(noteId) {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: noteKeys.detail(noteId),
     queryFn: () => fetchNote(noteId),
     enabled: !!noteId,
     staleTime: STALE_TIMES.NOTES,
+    gcTime: GC_TIMES.NOTES,
+
+    // Seed from infinite query cache to show data instantly
+    placeholderData: () => {
+      const infiniteQueries = queryClient.getQueriesData({
+        queryKey: [...noteKeys.all, 'infinite'],
+      });
+      for (const [, data] of infiniteQueries) {
+        if (!data?.pages) continue;
+        for (const page of data.pages) {
+          const match = page?.notes?.find((n) => String(n.id) === String(noteId));
+          if (match) return match;
+        }
+      }
+      return undefined;
+    },
   });
 }
 

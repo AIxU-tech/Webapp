@@ -27,6 +27,7 @@ RESTful Endpoints:
 
 from flask import Blueprint, request, jsonify, Response
 from flask_login import login_required, current_user
+import hashlib
 import json
 from backend.extensions import db
 from backend.models import University, User, UniversityRole
@@ -728,11 +729,17 @@ def get_university_logo(university_id: int):
     if not uni.logo:
         return jsonify({'error': 'No logo available'}), 404
 
+    etag = hashlib.md5(uni.logo).hexdigest()
+    if_none_match = request.headers.get('If-None-Match')
+    if if_none_match and if_none_match.strip('"') == etag:
+        return Response(status=304, headers={'ETag': f'"{etag}"'})
+
     return Response(
         uni.logo,
         mimetype=uni.logo_mimetype or 'image/jpeg',
         headers={
-            'Cache-Control': 'public, max-age=86400',  # Cache for 24 hours
+            'Cache-Control': 'public, max-age=2592000',
+            'ETag': f'"{etag}"',
         }
     )
 
@@ -830,11 +837,17 @@ def get_university_banner(university_id: int):
     if not uni.banner:
         return jsonify({'error': 'No banner available'}), 404
 
+    etag = hashlib.md5(uni.banner).hexdigest()
+    if_none_match = request.headers.get('If-None-Match')
+    if if_none_match and if_none_match.strip('"') == etag:
+        return Response(status=304, headers={'ETag': f'"{etag}"'})
+
     return Response(
         uni.banner,
         mimetype=uni.banner_mimetype or 'image/jpeg',
         headers={
-            'Cache-Control': 'public, max-age=86400',  # Cache for 24 hours
+            'Cache-Control': 'public, max-age=2592000',
+            'ETag': f'"{etag}"',
         }
     )
 
