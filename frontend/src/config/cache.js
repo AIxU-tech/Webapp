@@ -45,8 +45,8 @@ export const STALE_TIMES = {
   // Conversations - WebSocket handles real-time, this is a safety net
   CONVERSATIONS: 2 * 60 * 1000, // 2 minutes
 
-  // Individual conversation messages - slightly shorter for active chats
-  CONVERSATION: 10 * 1000, // 10 seconds
+  // Individual conversation messages - WebSocket handles real-time updates
+  CONVERSATION: 60 * 1000, // 1 minute
 
   // User profiles rarely change
   USERS: 5 * 60 * 1000, // 5 minutes
@@ -72,6 +72,9 @@ export const GC_TIMES = {
 
   // Opportunities - moderate retention
   OPPORTUNITIES: 30 * 60 * 1000, // 30 minutes
+
+  // Events - keep for navigation between university pages
+  EVENTS: 30 * 60 * 1000, // 30 minutes
 
   // Conversations - keep for quick access when switching chats
   CONVERSATIONS: 10 * 60 * 1000, // 10 minutes

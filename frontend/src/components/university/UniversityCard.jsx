@@ -4,17 +4,26 @@
  * Displays a university card with name, location, club info, and stats.
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, StatItem, SecondaryButton, UniversityLogo } from '../ui';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
+import { prefetchUniversityData } from '../../services/prefetch';
 
 export default function UniversityCard({ university }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const handleHoverPrefetch = useCallback(() => {
+    if (isAuthenticated) {
+      prefetchUniversityData(queryClient, university.id);
+    }
+  }, [queryClient, university.id, isAuthenticated]);
 
   const handleViewUniversity = (e) => {
     if (!isAuthenticated) {
@@ -74,6 +83,7 @@ export default function UniversityCard({ university }) {
       {/* View University Button */}
       <SecondaryButton
         onClick={handleViewUniversity}
+        onMouseEnter={handleHoverPrefetch}
         variant="primary"
         className="w-full"
       >

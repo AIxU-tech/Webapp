@@ -4,10 +4,13 @@
  * Provides consistent header, content area, tags, and actions.
  */
 
+import { useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Tag, TagGroup } from '../display';
 import { Avatar } from '../display';
 import { BookmarkIcon, TrashIcon, PencilIcon } from '../../icons';
+import { prefetchUser } from '../../../hooks/useUsers';
 
 export default function FeedCard({
   item,
@@ -24,11 +27,16 @@ export default function FeedCard({
   expandableContent = null,
   children,
 }) {
+  const queryClient = useQueryClient();
+  const handleAuthorHover = useCallback(() => {
+    prefetchUser(queryClient, item.author?.id);
+  }, [queryClient, item.author?.id]);
+
   return (
     <article className="bg-card border border-border rounded-lg p-6 shadow-card hover:shadow-hover transition-all duration-200">
       {/* Header - Author info, timestamp, optional badges, delete button */}
       <div className="flex items-center justify-between mb-4">
-        <Link to={`/users/${item.author.id}`} className="flex items-center space-x-3 group">
+        <Link to={`/users/${item.author.id}`} className="flex items-center space-x-3 group" onMouseEnter={handleAuthorHover}>
           {/* Author Avatar */}
           <Avatar user={item.author} size="md" name={item.author.name} />
 
