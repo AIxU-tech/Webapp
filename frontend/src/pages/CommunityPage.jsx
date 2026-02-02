@@ -40,7 +40,7 @@ import {
   useDelayedLoading,
   prefetchInfiniteNotes,
 } from '../hooks';
-import { uploadMultipleAttachments } from '../api/uploads';
+import { uploadMultipleToStaging, deleteAttachment } from '../api/uploads';
 
 // UI Components
 import {
@@ -167,6 +167,12 @@ export default function CommunityPage() {
   const [editNoteError, setEditNoteError] = useState(null);
 
   /**
+   * File upload progress (create and edit) – 0–100 or null when not uploading files
+   */
+  const [createNoteUploadProgress, setCreateNoteUploadProgress] = useState(null);
+  const [editNoteUploadProgress, setEditNoteUploadProgress] = useState(null);
+
+  /**
    * Delete Confirmation Modal State
    */
   const [noteToDelete, setNoteToDelete] = useState(null);
@@ -263,34 +269,46 @@ export default function CommunityPage() {
   /**
    * Handle Create Note Form Submission
    *
-   * Uses React Query mutation with automatic cache invalidation.
-   * After note creation, uploads any attached files.
+   * Upload-first flow when there are files: upload all to staging, then create
+   * note with sessionId so the post is only created (and added to cache) when
+   * attachments are successfully committed. No files: create note only.
    */
   async function handleCreateNote(noteData) {
     setCreateNoteError(null);
     const { files, ...notePayload } = noteData;
 
-    createNoteMutation.mutate(notePayload, {
-      onSuccess: async (result) => {
-        // If there are files to upload, upload them to the newly created note
-        if (files && files.length > 0 && result?.note?.id) {
-          try {
-            await uploadMultipleAttachments({
-              noteId: result.note.id,
-              files,
-            });
-          } catch (uploadError) {
-            // Note was created but file upload failed
-            // We don't fail the whole operation, just log the error
-            console.error('Error uploading attachments:', uploadError);
-            // Could show a warning toast here
-          }
-        }
+    let sessionId = null;
+    if (files && files.length > 0) {
+      try {
+        sessionId = crypto.randomUUID();
+        setCreateNoteUploadProgress(0);
+        await uploadMultipleToStaging({
+          sessionId,
+          files,
+          onFileProgress: (fileIndex, percent) => {
+            const overall = ((fileIndex + percent / 100) / files.length) * 100;
+            setCreateNoteUploadProgress(Math.round(Math.min(overall, 100)));
+          },
+        });
+      } catch (err) {
+        console.error('Error uploading attachments:', err);
+        const message = err.data?.error || err.message || 'Failed to upload attachments. Please try again.';
+        setCreateNoteError(message);
+        return;
+      } finally {
+        setCreateNoteUploadProgress(null);
+      }
+    }
+
+    const payload = { ...notePayload, ...(sessionId ? { sessionId } : {}) };
+    createNoteMutation.mutate(payload, {
+      onSuccess: () => {
         closeModal();
       },
       onError: (err) => {
         console.error('Error creating note:', err);
-        setCreateNoteError('Failed to create note. Please try again.');
+        const message = err.data?.error || err.message || 'Failed to create note. Please try again.';
+        setCreateNoteError(message);
       },
     });
   }
@@ -351,37 +369,61 @@ export default function CommunityPage() {
   /**
    * Handle Update Note Form Submission
    *
-   * Uses React Query mutation with optimistic updates.
-   * After note update, uploads any new attachments.
+   * Removes marked attachments, uploads new files to staging (if any), then PUT update.
+   * Attachment removals and new files are only committed when Save is clicked.
    */
   async function handleUpdateNote(noteData) {
     if (!noteToEdit) return;
 
     setEditNoteError(null);
-    const { newFiles, ...updatePayload } = noteData;
+    const { newFiles, attachmentIdsToRemove = [], ...updatePayload } = noteData;
 
+    // Delete attachments user marked for removal (only when Save is clicked)
+    if (attachmentIdsToRemove.length > 0) {
+      try {
+        await Promise.all(attachmentIdsToRemove.map((id) => deleteAttachment(id)));
+      } catch (err) {
+        console.error('Error removing attachments:', err);
+        const message = err.data?.error || err.message || 'Failed to remove attachments. Please try again.';
+        setEditNoteError(message);
+        return;
+      }
+    }
+
+    let sessionId = null;
+    if (newFiles && newFiles.length > 0) {
+      try {
+        sessionId = crypto.randomUUID();
+        setEditNoteUploadProgress(0);
+        await uploadMultipleToStaging({
+          sessionId,
+          files: newFiles,
+          onFileProgress: (fileIndex, percent) => {
+            const overall = ((fileIndex + percent / 100) / newFiles.length) * 100;
+            setEditNoteUploadProgress(Math.round(Math.min(overall, 100)));
+          },
+        });
+      } catch (err) {
+        console.error('Error uploading new attachments:', err);
+        const message = err.data?.error || err.message || 'Failed to upload attachments. Please try again.';
+        setEditNoteError(message);
+        return;
+      } finally {
+        setEditNoteUploadProgress(null);
+      }
+    }
+
+    const data = { ...updatePayload, ...(sessionId ? { sessionId } : {}) };
     updateNoteMutation.mutate(
-      { noteId: noteToEdit.id, data: updatePayload },
+      { noteId: noteToEdit.id, data },
       {
-        onSuccess: async () => {
-          // If there are new files to upload, upload them
-          if (newFiles && newFiles.length > 0) {
-            try {
-              await uploadMultipleAttachments({
-                noteId: noteToEdit.id,
-                files: newFiles,
-              });
-            } catch (uploadError) {
-              // Note was updated but file upload failed
-              console.error('Error uploading new attachments:', uploadError);
-              // Could show a warning toast here
-            }
-          }
+        onSuccess: () => {
           closeEditModal();
         },
         onError: (err) => {
           console.error('Error updating note:', err);
-          setEditNoteError(err.message || 'Failed to update note. Please try again.');
+          const message = err.data?.error || err.message || 'Failed to update note. Please try again.';
+          setEditNoteError(message);
         },
       }
     );
@@ -555,7 +597,8 @@ export default function CommunityPage() {
         isOpen={isModalOpen}
         onClose={closeModal}
         onCreate={handleCreateNote}
-        isCreating={createNoteMutation.isPending}
+        isCreating={createNoteUploadProgress !== null || createNoteMutation.isPending}
+        uploadProgress={createNoteUploadProgress}
         userUniversity={user?.university}
         error={createNoteError}
       />
@@ -565,7 +608,8 @@ export default function CommunityPage() {
         isOpen={noteToEdit !== null}
         onClose={closeEditModal}
         onUpdate={handleUpdateNote}
-        isUpdating={updateNoteMutation.isPending}
+        isUpdating={editNoteUploadProgress !== null || updateNoteMutation.isPending}
+        uploadProgress={editNoteUploadProgress}
         note={noteToEdit}
         userUniversity={user?.university}
         error={editNoteError}

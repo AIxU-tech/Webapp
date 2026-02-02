@@ -1,15 +1,103 @@
 /**
  * Uploads API Module
- * 
+ *
  * Handles file upload operations for note attachments using signed URLs.
- * 
- * Upload flow:
- * 1. Request a signed URL from backend
- * 2. Upload file directly to GCS using the signed URL
- * 3. Confirm upload completion to backend
+ *
+ * Two flows:
+ * 1. Staging (create post with attachments): upload to staging first, then create note with sessionId
+ * 2. Existing note (edit): request URL by noteId, upload to GCS, confirm attachment
  */
 
 import { api } from './client';
+
+// -----------------------------------------------------------------------------
+// Staging uploads (upload media first, then create post)
+// -----------------------------------------------------------------------------
+
+/**
+ * Request a signed URL for uploading a file to staging (before note exists).
+ *
+ * @param {Object} params - Staging upload parameters
+ * @param {string} params.sessionId - Client-generated session ID for this create attempt
+ * @param {string} params.filename - Original filename
+ * @param {string} params.contentType - MIME type
+ * @param {number} params.sizeBytes - File size in bytes
+ * @returns {Promise<Object>} Response with uploadUrl, gcsPath, expiresIn
+ */
+export async function requestStagingUploadUrl({ sessionId, filename, contentType, sizeBytes }) {
+  return api.post('/uploads/staging/request-url', {
+    sessionId,
+    filename,
+    contentType,
+    sizeBytes,
+  });
+}
+
+/**
+ * Confirm that a file was uploaded to staging.
+ *
+ * @param {Object} params - Confirmation parameters
+ * @param {string} params.sessionId - Same session ID used in request-url
+ * @param {string} params.gcsPath - GCS path from requestStagingUploadUrl
+ * @param {string} params.filename - Original filename
+ * @param {string} params.contentType - MIME type
+ * @param {number} params.sizeBytes - File size in bytes
+ * @returns {Promise<Object>} Response with success status
+ */
+export async function confirmStagingUpload({ sessionId, gcsPath, filename, contentType, sizeBytes }) {
+  return api.post('/uploads/staging/confirm', {
+    sessionId,
+    gcsPath,
+    filename,
+    contentType,
+    sizeBytes,
+  });
+}
+
+/**
+ * Upload multiple files to staging for a new note (upload-first flow).
+ * Fails fast: if any file fails, the whole operation rejects.
+ *
+ * @param {Object} params - Upload parameters
+ * @param {string} params.sessionId - Client-generated session ID (e.g. crypto.randomUUID())
+ * @param {File[]} params.files - Array of files to upload
+ * @param {Function} [params.onFileProgress] - Per-file progress callback (fileIndex, percent)
+ * @returns {Promise<void>} Resolves when all files are staged; rejects on first failure
+ */
+export async function uploadMultipleToStaging({ sessionId, files, onFileProgress }) {
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+
+    const urlResponse = await requestStagingUploadUrl({
+      sessionId,
+      filename: file.name,
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+    });
+
+    if (!urlResponse.success) {
+      throw new Error(urlResponse.error || 'Failed to get staging upload URL');
+    }
+
+    await uploadToGCS(urlResponse.uploadUrl, file, onFileProgress ? (percent) => onFileProgress(i, percent) : undefined);
+
+    const confirmResponse = await confirmStagingUpload({
+      sessionId,
+      gcsPath: urlResponse.gcsPath,
+      filename: file.name,
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+    });
+
+    if (!confirmResponse.success) {
+      throw new Error(confirmResponse.error || 'Failed to confirm staging upload');
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Note attachment uploads (existing note; e.g. edit flow)
+// -----------------------------------------------------------------------------
 
 /**
  * Request a signed URL for uploading a file

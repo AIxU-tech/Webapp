@@ -51,22 +51,22 @@ export default function NoteAttachments({ attachments }) {
 }
 
 /**
- * ImageGallery - Displays images in a responsive grid with lightbox
+ * ImageGallery - Displays images in a compact grid (256px tall) with lightbox for full-size view
  */
 function ImageGallery({ images }) {
   const [selectedImage, setSelectedImage] = useState(null);
+  const isSingleImage = images.length === 1;
 
   return (
     <>
-      <div className={`grid gap-2 ${images.length === 1 ? 'grid-cols-1' :
-          images.length === 2 ? 'grid-cols-2' :
-            'grid-cols-2 sm:grid-cols-3'
-        }`}>
-        {images.map((image, index) => (
+      <div
+        className={`grid gap-2 ${isSingleImage ? 'grid-cols-1 max-w-2xl' : images.length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}
+      >
+        {images.map((image) => (
           <button
             key={image.id}
             onClick={() => setSelectedImage(image)}
-            className="relative aspect-video bg-muted rounded-lg overflow-hidden hover:opacity-90 transition-opacity cursor-pointer group"
+            className="relative w-full h-64 bg-muted rounded-lg overflow-hidden hover:opacity-90 transition-opacity cursor-pointer group"
           >
             <img
               src={image.downloadUrl}

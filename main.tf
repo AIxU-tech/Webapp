@@ -41,6 +41,7 @@ resource "google_storage_bucket" "media_bucket" {
       "https://aixu.tech",       # Production
       "http://localhost:5173",   # Vite dev server
       "http://localhost:5000",   # Flask dev server (if needed)
+      "http://localhost:8000",
     ]
     method          = ["GET", "PUT", "POST", "DELETE", "OPTIONS"]
     response_header = ["Content-Type", "Content-Length", "Content-Disposition"]

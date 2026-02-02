@@ -146,6 +146,67 @@ def get_content_type_from_extension(filename: str) -> Optional[str]:
     return EXTENSION_TO_MIME.get(ext)
 
 
+def generate_staging_upload_url(session_id: str, filename: str, content_type: str) -> dict:
+    """
+    Generate a signed URL for uploading a file to staging (before note exists).
+
+    Used in the "upload media first, then create post" flow. Files are stored
+    under staging/{session_id}/{uuid}_{filename} and later moved to notes/{note_id}/.
+
+    Args:
+        session_id: Client-generated session ID for this create-note attempt
+        filename: Original filename (for generating unique path)
+        content_type: MIME type of the file
+
+    Returns:
+        dict with uploadUrl, gcsPath, expiresIn
+
+    Raises:
+        ValueError: If content type is not allowed
+    """
+    if not validate_content_type(content_type):
+        raise ValueError(f"Content type '{content_type}' is not allowed")
+
+    unique_id = str(uuid.uuid4())[:8]
+    safe_filename = _sanitize_filename(filename)
+    gcs_path = f"staging/{session_id}/{unique_id}_{safe_filename}"
+
+    bucket = _get_bucket()
+    blob = bucket.blob(gcs_path)
+
+    expiration_seconds = current_app.config.get('GCS_UPLOAD_URL_EXPIRATION', 900)
+    url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(seconds=expiration_seconds),
+        method="PUT",
+        content_type=content_type,
+    )
+
+    return {
+        'uploadUrl': url,
+        'gcsPath': gcs_path,
+        'expiresIn': expiration_seconds,
+    }
+
+
+def copy_blob(src_gcs_path: str, dest_gcs_path: str) -> None:
+    """
+    Copy a blob from one GCS path to another (same bucket).
+
+    Used when committing staging uploads to a note: copy from staging/... to notes/{note_id}/...
+
+    Args:
+        src_gcs_path: Source path in GCS
+        dest_gcs_path: Destination path in GCS
+
+    Raises:
+        Exception: If copy fails
+    """
+    bucket = _get_bucket()
+    source_blob = bucket.blob(src_gcs_path)
+    bucket.copy_blob(source_blob, bucket, dest_gcs_path)
+
+
 def generate_upload_url(
     note_id: int,
     filename: str,
@@ -276,9 +337,16 @@ def delete_note_attachments(note_id: int) -> int:
     return deleted_count
 
 
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize a filename for safe storage (public helper for use by other services).
+    """
+    return _sanitize_filename(filename)
+
+
 def _sanitize_filename(filename: str) -> str:
     """
-    Sanitize a filename for safe storage.
+    Sanitize a filename for safe storage (internal implementation).
     
     Removes or replaces characters that could cause issues in URLs or paths.
     """

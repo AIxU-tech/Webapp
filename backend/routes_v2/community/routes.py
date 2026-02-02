@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from backend.extensions import db
-from backend.models import Note, NoteComment, User, University
+from backend.models import Note, NoteComment, User, University, NoteAttachment, StagingUpload
 from backend.routes_v2.community.helpers import (
     create_db_note,
     get_paginated_notes,
@@ -16,12 +16,15 @@ from backend.routes_v2.community.helpers import (
     toggle_comment_like_status,
 )
 from backend.services.content_moderator import moderate_content
+from backend.services.staging_commit import commit_staging_attachments_to_note
+from backend.constants import MAX_ATTACHMENTS_PER_NOTE
 
 community_bp = Blueprint('community', __name__)
 
 
 # Route for creating a new note
 # RESTful: POST to collection creates a new resource
+# Optional sessionId: when present, commits staging uploads to this note (upload-first flow)
 @community_bp.route('/api/notes', methods=['POST'])
 @login_required
 def create_note():
@@ -36,13 +39,38 @@ def create_note():
         title = data.get('title', '').strip()
         if not moderate_content(title):
             return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
-        
+
         content = data.get('content', '').strip()
         if not moderate_content(content):
             return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
 
         # Create new note
         note = create_db_note(data)
+
+        # If client sent staging sessionId, commit staging uploads to this note
+        session_id = data.get('sessionId')
+        if session_id:
+            try:
+                commit_staging_attachments_to_note(
+                    session_id=session_id,
+                    note_id=note.id,
+                    user_id=current_user.id,
+                )
+            except ValueError as e:
+                db.session.rollback()
+                # Note was created but staging commit failed (e.g. no attachments)
+                note = Note.query.get(note.id)
+                if note:
+                    db.session.delete(note)
+                    db.session.commit()
+                return jsonify({'success': False, 'error': str(e)}), 400
+            except Exception as e:
+                db.session.rollback()
+                note = Note.query.get(note.id)
+                if note:
+                    db.session.delete(note)
+                    db.session.commit()
+                return jsonify({'success': False, 'error': f'Failed to attach files: {e}'}), 500
 
         # Increment user's post count
         current_user.increment_post_count()
@@ -53,9 +81,12 @@ def create_note():
             if university:
                 university.update_post_count()
 
+        # Return note with attachments and interaction flags (same shape as feed)
+        note_dict = notes_to_dict([note], current_user, include_attachments=True)[0]
+
         return jsonify({
             'success': True,
-            'note': note.to_dict()
+            'note': note_dict
         }), 201
 
     except Exception as e:
@@ -65,21 +96,23 @@ def create_note():
 
 # Route for updating a note
 # RESTful: PUT to resource updates it
+# Optional sessionId: when present, commits staging uploads to this note (same flow as create)
 @community_bp.route('/api/notes/<int:note_id>', methods=['PUT'])
 @login_required
 def update_note(note_id):
     """
     Update a note. Only the author can edit their note.
-    
+
     Request body:
         - title (required): Note title
         - content (required): Note content
         - tags (optional): Array of tag strings
         - universityOnly (optional): Boolean for visibility
-    
+        - sessionId (optional): Staging session ID; when present, commits staging uploads to this note
+
     Returns:
         - success: Boolean
-        - note: Updated note object
+        - note: Updated note object (with attachments when sessionId was used)
     """
     try:
         note = Note.query.get(note_id)
@@ -96,35 +129,66 @@ def update_note(note_id):
         # Validate required fields
         title = data.get('title', '').strip()
         content = data.get('content', '').strip()
-        
+
         if not title or not content:
             return jsonify({'success': False, 'error': 'Title and content are required'}), 400
 
         # Content moderation
         if not moderate_content(title):
             return jsonify({'success': False, 'error': 'Title contains inappropriate language'}), 400
-        
+
         if not moderate_content(content):
             return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
 
-        # Update note fields
+        session_id = data.get('sessionId')
+
+        # If committing staging uploads, enforce attachment limit (existing + new)
+        if session_id:
+            existing_count = NoteAttachment.count_for_note(note_id)
+            staging_count = StagingUpload.count_for_session(session_id, current_user.id)
+            if existing_count + staging_count > MAX_ATTACHMENTS_PER_NOTE:
+                return jsonify({
+                    'success': False,
+                    'error': f'Maximum {MAX_ATTACHMENTS_PER_NOTE} attachments per note'
+                }), 400
+
+        # Update note fields (do not commit yet if we have staging to commit)
         note.title = title
         note.content = content
-        
+
         # Update tags if provided
         if 'tags' in data:
             tags = data.get('tags', [])
             note.set_tags_list(tags)
-        
+
         # Update university_only if provided
         if 'universityOnly' in data:
             note.university_only = data.get('universityOnly', False)
 
-        db.session.commit()
+        if session_id:
+            # Commit note update and staging attachments together; roll back both on failure
+            try:
+                commit_staging_attachments_to_note(
+                    session_id=session_id,
+                    note_id=note_id,
+                    user_id=current_user.id,
+                )
+                # Note update is in the same session; commit_staging already committed it
+            except ValueError as e:
+                db.session.rollback()
+                return jsonify({'success': False, 'error': str(e)}), 400
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({'success': False, 'error': f'Failed to attach files: {e}'}), 500
+        else:
+            db.session.commit()
+
+        # Return note with attachments and interaction flags (same shape as feed)
+        note_dict = notes_to_dict([note], current_user, include_attachments=True)[0]
 
         return jsonify({
             'success': True,
-            'note': note.to_dict()
+            'note': note_dict
         }), 200
 
     except Exception as e:

@@ -13,10 +13,11 @@ from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 
 from backend.extensions import db
-from backend.models import Note, NoteAttachment
+from backend.models import Note, NoteAttachment, StagingUpload
 from backend.services.storage import (
     is_gcs_configured,
     generate_upload_url,
+    generate_staging_upload_url,
     generate_download_url,
     delete_file,
     validate_content_type,
@@ -30,6 +31,197 @@ from backend.constants import (
 
 uploads_bp = Blueprint('uploads', __name__)
 
+
+# -----------------------------------------------------------------------------
+# Staging uploads (upload media first, then create post)
+# -----------------------------------------------------------------------------
+
+@uploads_bp.route('/api/uploads/staging/request-url', methods=['POST'])
+@login_required
+def request_staging_upload_url():
+    """
+    Request a signed URL for uploading a file to staging (before note exists).
+
+    Used when creating a new note with attachments: client uploads files to
+    staging, then POSTs create_note with sessionId. No noteId required.
+
+    Request body:
+        - sessionId (str): Client-generated session ID for this create attempt
+        - filename (str): Original filename
+        - contentType (str): MIME type
+        - sizeBytes (int): File size in bytes
+
+    Returns:
+        JSON with uploadUrl, gcsPath, expiresIn on success
+    """
+    if not is_gcs_configured():
+        return jsonify({
+            'success': False,
+            'error': 'File storage is not configured'
+        }), 503
+
+    data = request.get_json()
+    if not data:
+        return jsonify({
+            'success': False,
+            'error': 'Request body required'
+        }), 400
+
+    required_fields = ['sessionId', 'filename', 'contentType', 'sizeBytes']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({
+                'success': False,
+                'error': f'Missing required field: {field}'
+            }), 400
+
+    session_id = data['sessionId']
+    filename = data['filename']
+    content_type = data['contentType']
+    size_bytes = data['sizeBytes']
+
+    # Enforce per-session limit (same as per-note)
+    current_count = StagingUpload.count_for_session(session_id, current_user.id)
+    if current_count >= MAX_ATTACHMENTS_PER_NOTE:
+        return jsonify({
+            'success': False,
+            'error': f'Maximum {MAX_ATTACHMENTS_PER_NOTE} attachments per post'
+        }), 400
+
+    if not validate_file_extension(filename):
+        return jsonify({
+            'success': False,
+            'error': 'File type not allowed'
+        }), 400
+
+    if not validate_content_type(content_type):
+        return jsonify({
+            'success': False,
+            'error': f'Content type "{content_type}" is not allowed'
+        }), 400
+
+    if size_bytes > MAX_ATTACHMENT_SIZE_BYTES:
+        max_mb = MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
+        return jsonify({
+            'success': False,
+            'error': f'File size exceeds maximum of {max_mb:.0f} MB'
+        }), 400
+
+    if size_bytes <= 0:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid file size'
+        }), 400
+
+    try:
+        result = generate_staging_upload_url(
+            session_id=session_id,
+            filename=filename,
+            content_type=content_type,
+        )
+        return jsonify({
+            'success': True,
+            'uploadUrl': result['uploadUrl'],
+            'gcsPath': result['gcsPath'],
+            'expiresIn': result['expiresIn'],
+        })
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': 'Failed to generate upload URL: ' + str(e)
+        }), 500
+
+
+@uploads_bp.route('/api/uploads/staging/confirm', methods=['POST'])
+@login_required
+def confirm_staging_upload():
+    """
+    Confirm that a file was uploaded to staging and create the StagingUpload record.
+
+    Request body:
+        - sessionId (str): Same session ID used in request-url
+        - gcsPath (str): GCS path returned from request-url
+        - filename (str): Original filename
+        - contentType (str): MIME type
+        - sizeBytes (int): File size in bytes
+
+    Returns:
+        JSON with success status
+    """
+    if not is_gcs_configured():
+        return jsonify({
+            'success': False,
+            'error': 'File storage is not configured'
+        }), 503
+
+    data = request.get_json()
+    if not data:
+        return jsonify({
+            'success': False,
+            'error': 'Request body required'
+        }), 400
+
+    required_fields = ['sessionId', 'gcsPath', 'filename', 'contentType', 'sizeBytes']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({
+                'success': False,
+                'error': f'Missing required field: {field}'
+            }), 400
+
+    session_id = data['sessionId']
+    gcs_path = data['gcsPath']
+    filename = data['filename']
+    content_type = data['contentType']
+    size_bytes = data['sizeBytes']
+
+    # Ensure path is under this session (security)
+    expected_prefix = f"staging/{session_id}/"
+    if not gcs_path.startswith(expected_prefix):
+        return jsonify({
+            'success': False,
+            'error': 'Invalid GCS path for this session'
+        }), 400
+
+    # Per-session limit
+    current_count = StagingUpload.count_for_session(session_id, current_user.id)
+    if current_count >= MAX_ATTACHMENTS_PER_NOTE:
+        return jsonify({
+            'success': False,
+            'error': f'Maximum {MAX_ATTACHMENTS_PER_NOTE} attachments per post'
+        }), 400
+
+    try:
+        record = StagingUpload(
+            session_id=session_id,
+            user_id=current_user.id,
+            gcs_path=gcs_path,
+            filename=filename,
+            content_type=content_type,
+            size_bytes=size_bytes,
+        )
+        db.session.add(record)
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': 'Staging upload confirmed'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': 'Failed to save staging upload'
+        }), 500
+
+
+# -----------------------------------------------------------------------------
+# Note attachment uploads (existing note; e.g. edit flow)
+# -----------------------------------------------------------------------------
 
 @uploads_bp.route('/api/uploads/request-url', methods=['POST'])
 @login_required

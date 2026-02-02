@@ -15,7 +15,7 @@
  * @component
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BaseModal, TagSelector, GradientButton, Alert, FileUpload } from '../ui';
 import { ClockIcon } from '../icons';
 
@@ -40,6 +40,7 @@ const CREATE_TAGS = [
  * @property {Function} onClose - Callback when modal is closed
  * @property {Function} onCreate - Callback when note is created, receives {title, content, tags, universityOnly, files}
  * @property {boolean} isCreating - Whether the note is currently being created
+ * @property {number|null} uploadProgress - File upload progress 0–100 (null when not uploading files)
  * @property {string|null} userUniversity - User's university name (null if no university)
  * @property {string|null} error - Error message from failed creation attempt
  */
@@ -49,6 +50,7 @@ export default function CreateNoteModal({
   onClose,
   onCreate,
   isCreating = false,
+  uploadProgress = null,
   userUniversity = null,
   error = null,
 }) {
@@ -61,7 +63,7 @@ export default function CreateNoteModal({
   const [files, setFiles] = useState([]);
 
   /**
-   * Reset form to initial state
+   * Reset form to initial state (single source of truth for clearing create form).
    */
   function resetForm() {
     setNoteTitle('');
@@ -73,11 +75,17 @@ export default function CreateNoteModal({
   }
 
   /**
-   * Handle modal close
-   * Resets form and calls parent onClose callback
+   * Reset form when modal closes so next open starts fresh.
+   * Handles both user close (Cancel/X/backdrop) and parent close after successful create.
+   */
+  useEffect(() => {
+    if (!isOpen) resetForm();
+  }, [isOpen]);
+
+  /**
+   * Handle modal close. Form reset is handled by useEffect when isOpen becomes false.
    */
   function handleClose() {
-    resetForm();
     onClose();
   }
 
@@ -112,7 +120,7 @@ export default function CreateNoteModal({
     <BaseModal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Creating a note"
+      title="New note"
       size="2xl"
     >
       <form onSubmit={handleSubmit} className="p-6">
@@ -198,6 +206,21 @@ export default function CreateNoteModal({
           </div>
         )}
 
+        {/* Upload progress bar – shown while files are uploading to staging */}
+        {isCreating && uploadProgress !== null && (
+          <div className="mb-4">
+            <p className="text-sm text-muted-foreground mb-1">
+              Uploading files… {uploadProgress}%
+            </p>
+            <div className="h-2 bg-background border border-border rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-300 ease-out"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Submit Button Row */}
         <div className="flex items-center justify-between pt-4 border-t border-border">
           {/* Character Count and File Count */}
@@ -216,7 +239,8 @@ export default function CreateNoteModal({
             type="submit"
             size="sm"
             loading={isCreating}
-            loadingText="Posting..."
+            disabled={isCreating}
+            loadingText={uploadProgress !== null ? `Uploading files… ${uploadProgress}%` : 'Posting…'}
           >
             Post
           </GradientButton>

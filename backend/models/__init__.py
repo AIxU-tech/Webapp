@@ -23,6 +23,7 @@ from backend.models.ai_news import (
 )
 from backend.models.password_reset_token import PasswordResetToken
 from backend.models.note_attachment import NoteAttachment
+from backend.models.staging_upload import StagingUpload
 
 __all__ = [
     'User',
@@ -47,5 +48,6 @@ __all__ = [
     'AIResearchPaper',
     'AINewsChatMessage',
     'PasswordResetToken',
-    'NoteAttachment'
+    'NoteAttachment',
+    'StagingUpload',
 ]
