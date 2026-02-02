@@ -8,12 +8,13 @@
 import { useUniversityEvents } from '../../hooks';
 import { Card, SecondaryButton } from '../ui';
 import { SpinnerIcon } from '../icons';
+import { parseUtcDate } from '../../utils/time';
 
 /**
  * Format date to month/day display
  */
 function formatEventDate(dateString) {
-  const date = new Date(dateString);
+  const date = parseUtcDate(dateString) ?? new Date(NaN);
   return {
     month: date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
     day: date.getDate().toString(),

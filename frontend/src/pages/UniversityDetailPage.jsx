@@ -155,6 +155,11 @@ export default function UniversityDetailPage() {
     }
   };
 
+  // When university is not found, closing the modal must always navigate (no page to show).
+  const handleNotFoundClose = () => {
+    navigate('/universities');
+  };
+
   const handleDelete = () => {
     setConfirmModal({
       isOpen: true,
@@ -379,7 +384,7 @@ export default function UniversityDetailPage() {
     return (
       <BaseModal
         isOpen={true}
-        onClose={handleErrorModalClose}
+        onClose={handleNotFoundClose}
         title="University Not Found"
         size="sm"
       >
@@ -388,7 +393,7 @@ export default function UniversityDetailPage() {
             {fetchError.message || 'This university could not be found.'}
           </p>
           <div className="flex justify-end">
-            <SecondaryButton variant="primary" onClick={handleErrorModalClose}>
+            <SecondaryButton variant="primary" onClick={handleNotFoundClose}>
               Go Back to Universities
             </SecondaryButton>
           </div>

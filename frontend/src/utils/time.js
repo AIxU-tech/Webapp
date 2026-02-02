@@ -8,6 +8,20 @@
  */
 
 /**
+ * Parse an API date string as UTC so it displays correctly in the user's local time.
+ * ISO strings without 'Z' or offset are interpreted as local time by JS; we treat them as UTC.
+ *
+ * @param {string} dateString - ISO date string from API (may be naive, e.g. "2025-02-02T21:00:00")
+ * @returns {Date} Date object (displays in user's local time via toLocaleTimeString etc.)
+ */
+export function parseUtcDate(dateString) {
+  if (!dateString) return null;
+  const s = String(dateString).trim();
+  const hasOffset = s.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(s);
+  return new Date(hasOffset ? s : s + 'Z');
+}
+
+/**
  * Format a date as relative time (e.g., "5 minutes ago", "Yesterday")
  *
  * Returns human-readable relative time for recent dates,
