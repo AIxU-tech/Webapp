@@ -9,12 +9,13 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../ui';
 import { ClockIcon, MapPinIcon, UsersIcon, TrashIcon, CheckIcon } from '../icons';
+import { parseUtcDate } from '../../utils/time';
 
 /**
  * DateBadge - Compact date display with month and day
  */
 function DateBadge({ date }) {
-  const eventDate = new Date(date);
+  const eventDate = parseUtcDate(date) ?? new Date(NaN);
   const month = eventDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
   const day = eventDate.getDate();
 
@@ -30,12 +31,12 @@ function DateBadge({ date }) {
  * Format time range for display
  */
 function formatTimeRange(startTime, endTime) {
-  const start = new Date(startTime);
+  const start = parseUtcDate(startTime) ?? new Date(NaN);
   const options = { hour: 'numeric', minute: '2-digit', hour12: true };
   let timeStr = start.toLocaleTimeString('en-US', options);
 
   if (endTime) {
-    const end = new Date(endTime);
+    const end = parseUtcDate(endTime) ?? new Date(NaN);
     timeStr += ` - ${end.toLocaleTimeString('en-US', options)}`;
   }
 
@@ -46,7 +47,7 @@ function formatTimeRange(startTime, endTime) {
  * Get time ago string for event creation
  */
 function getTimeAgo(dateString) {
-  const date = new Date(dateString);
+  const date = parseUtcDate(dateString) ?? new Date(NaN);
   const now = new Date();
   const diffMs = now - date;
   const diffMins = Math.floor(diffMs / 60000);
