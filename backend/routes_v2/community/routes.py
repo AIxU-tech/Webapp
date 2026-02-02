@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from backend.extensions import db
-from backend.models import Note, NoteComment, User, University, NoteAttachment, StagingUpload
+from backend.models import Note, NoteComment, User, University, NoteAttachment
 from backend.routes_v2.community.helpers import (
     create_db_note,
     get_paginated_notes,
@@ -16,7 +16,6 @@ from backend.routes_v2.community.helpers import (
     toggle_comment_like_status,
 )
 from backend.services.content_moderator import moderate_content
-from backend.services.staging_commit import commit_staging_attachments_to_note
 from backend.constants import MAX_ATTACHMENTS_PER_NOTE
 
 community_bp = Blueprint('community', __name__)
@@ -24,7 +23,7 @@ community_bp = Blueprint('community', __name__)
 
 # Route for creating a new note
 # RESTful: POST to collection creates a new resource
-# Optional sessionId: when present, commits staging uploads to this note (upload-first flow)
+# Optional sessionId: when present, associates pending uploads with this note
 @community_bp.route('/api/notes', methods=['POST'])
 @login_required
 def create_note():
@@ -44,33 +43,30 @@ def create_note():
         if not moderate_content(content):
             return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
 
+        session_id = data.get('sessionId')
+
+        # If sessionId provided, verify attachments exist and check count
+        if session_id:
+            pending_count = NoteAttachment.count_for_session(session_id, current_user.id)
+            if pending_count == 0:
+                return jsonify({'success': False, 'error': 'No attachments found for this session'}), 400
+            if pending_count > MAX_ATTACHMENTS_PER_NOTE:
+                return jsonify({
+                    'success': False,
+                    'error': f'Maximum {MAX_ATTACHMENTS_PER_NOTE} attachments per note'
+                }), 400
+
         # Create new note
         note = create_db_note(data)
 
-        # If client sent staging sessionId, commit staging uploads to this note
-        session_id = data.get('sessionId')
+        # Associate pending uploads with this note (simple UPDATE)
         if session_id:
-            try:
-                commit_staging_attachments_to_note(
-                    session_id=session_id,
-                    note_id=note.id,
-                    user_id=current_user.id,
-                )
-            except ValueError as e:
-                db.session.rollback()
-                # Note was created but staging commit failed (e.g. no attachments)
-                note = Note.query.get(note.id)
-                if note:
-                    db.session.delete(note)
-                    db.session.commit()
-                return jsonify({'success': False, 'error': str(e)}), 400
-            except Exception as e:
-                db.session.rollback()
-                note = Note.query.get(note.id)
-                if note:
-                    db.session.delete(note)
-                    db.session.commit()
-                return jsonify({'success': False, 'error': f'Failed to attach files: {e}'}), 500
+            NoteAttachment.associate_with_note(
+                session_id=session_id,
+                user_id=current_user.id,
+                note_id=note.id,
+            )
+            db.session.commit()
 
         # Increment user's post count
         current_user.increment_post_count()
@@ -96,7 +92,7 @@ def create_note():
 
 # Route for updating a note
 # RESTful: PUT to resource updates it
-# Optional sessionId: when present, commits staging uploads to this note (same flow as create)
+# Optional sessionId: when present, associates pending uploads with this note
 @community_bp.route('/api/notes/<int:note_id>', methods=['PUT'])
 @login_required
 def update_note(note_id):
@@ -108,11 +104,11 @@ def update_note(note_id):
         - content (required): Note content
         - tags (optional): Array of tag strings
         - universityOnly (optional): Boolean for visibility
-        - sessionId (optional): Staging session ID; when present, commits staging uploads to this note
+        - sessionId (optional): Session ID for new uploads to associate
 
     Returns:
         - success: Boolean
-        - note: Updated note object (with attachments when sessionId was used)
+        - note: Updated note object (with attachments)
     """
     try:
         note = Note.query.get(note_id)
@@ -142,17 +138,17 @@ def update_note(note_id):
 
         session_id = data.get('sessionId')
 
-        # If committing staging uploads, enforce attachment limit (existing + new)
+        # If adding new uploads, enforce attachment limit (existing + new)
         if session_id:
             existing_count = NoteAttachment.count_for_note(note_id)
-            staging_count = StagingUpload.count_for_session(session_id, current_user.id)
-            if existing_count + staging_count > MAX_ATTACHMENTS_PER_NOTE:
+            pending_count = NoteAttachment.count_for_session(session_id, current_user.id)
+            if existing_count + pending_count > MAX_ATTACHMENTS_PER_NOTE:
                 return jsonify({
                     'success': False,
                     'error': f'Maximum {MAX_ATTACHMENTS_PER_NOTE} attachments per note'
                 }), 400
 
-        # Update note fields (do not commit yet if we have staging to commit)
+        # Update note fields
         note.title = title
         note.content = content
 
@@ -165,23 +161,15 @@ def update_note(note_id):
         if 'universityOnly' in data:
             note.university_only = data.get('universityOnly', False)
 
+        # Associate pending uploads with this note
         if session_id:
-            # Commit note update and staging attachments together; roll back both on failure
-            try:
-                commit_staging_attachments_to_note(
-                    session_id=session_id,
-                    note_id=note_id,
-                    user_id=current_user.id,
-                )
-                # Note update is in the same session; commit_staging already committed it
-            except ValueError as e:
-                db.session.rollback()
-                return jsonify({'success': False, 'error': str(e)}), 400
-            except Exception as e:
-                db.session.rollback()
-                return jsonify({'success': False, 'error': f'Failed to attach files: {e}'}), 500
-        else:
-            db.session.commit()
+            NoteAttachment.associate_with_note(
+                session_id=session_id,
+                user_id=current_user.id,
+                note_id=note_id,
+            )
+
+        db.session.commit()
 
         # Return note with attachments and interaction flags (same shape as feed)
         note_dict = notes_to_dict([note], current_user, include_attachments=True)[0]
@@ -211,11 +199,13 @@ def delete_note(note_id):
         if note.author_id != current_user.id:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
-        # Clean up GCS attachments before deleting the note
+        # Clean up GCS files for this note's attachments
         try:
-            from backend.services.storage import delete_note_attachments, is_gcs_configured
+            from backend.services.storage import delete_file, is_gcs_configured
             if is_gcs_configured():
-                delete_note_attachments(note_id)
+                attachments = NoteAttachment.get_for_note(note_id)
+                for attachment in attachments:
+                    delete_file(attachment.gcs_path)
         except Exception:
             # Log but don't fail the delete if GCS cleanup fails
             pass
@@ -278,21 +268,21 @@ def api_notes():
         'tag': request.args.get('tag', '').strip(),
         'bookmarked': request.args.get('bookmarked', type=bool),
     }
-    
+
     # Validate pagination parameters if provided
     if query_dict['page'] is not None:
         if query_dict['page'] < 1:
             return jsonify({'error': 'page must be >= 1'}), 400
-        
+
         # Set default page_size if page is provided but page_size is not
         if query_dict['page_size'] is None:
             query_dict['page_size'] = 20
         elif query_dict['page_size'] < 1:
             return jsonify({'error': 'page_size must be >= 1'}), 400
-    
+
     # Get notes (with or without pagination)
     notes, pagination = get_paginated_notes(query_dict, current_user)
-    
+
     # Return appropriate response format
     if pagination:
         # Paginated response
@@ -382,13 +372,13 @@ def toggle_bookmark(note_id):
 def get_comments(note_id):
     """
     Get all comments for a note.
-    
+
     Returns array of comment objects with author info, likes, etc.
     """
     note = Note.query.get(note_id)
     if not note:
         return jsonify({'success': False, 'error': 'Note not found'}), 404
-    
+
     comments = get_comments_for_note(note_id, current_user)
     return jsonify(comments)
 
@@ -398,11 +388,11 @@ def get_comments(note_id):
 def add_comment(note_id):
     """
     Create a new comment on a note.
-    
+
     Request body:
         - text (required): The comment text
         - replyToId (optional): ID of comment being replied to
-        
+
     Threading behavior:
         - If replyToId is omitted, creates a top-level comment
         - If replying to a top-level comment, uses that comment's id as parent_id
@@ -412,43 +402,43 @@ def add_comment(note_id):
         note = Note.query.get(note_id)
         if not note:
             return jsonify({'success': False, 'error': 'Note not found'}), 404
-        
+
         data = request.get_json()
         text = data.get('text', '').strip()
         reply_to_id = data.get('replyToId')
-        
+
         if not text:
             return jsonify({'success': False, 'error': 'Comment text is required'}), 400
-        
+
         # Content moderation
         if not moderate_content(text):
             return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
-        
+
         # Resolve the parent_id based on threading rules
         try:
             parent_id = resolve_parent_id(reply_to_id)
         except ValueError as e:
             return jsonify({'success': False, 'error': str(e)}), 400
-        
+
         # Validate that the replied-to comment belongs to this note
         if reply_to_id is not None:
             replied_to = NoteComment.query.get(reply_to_id)
             if replied_to and replied_to.note_id != note_id:
                 return jsonify({'success': False, 'error': 'Cannot reply to comment from different note'}), 400
-        
+
         comment = create_comment(note, current_user.id, text, parent_id)
         db.session.commit()
-        
+
         # Get the comment dict with isLiked set correctly
         comment_dict = comment.to_dict()
         comment_dict['isLiked'] = False  # New comment, not liked yet
-        
+
         return jsonify({
             'success': True,
             'comment': comment_dict,
             'commentCount': note.comments
         }), 201
-    
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -464,32 +454,32 @@ def edit_comment(note_id, comment_id):
         comment = NoteComment.query.filter_by(id=comment_id, note_id=note_id).first()
         if not comment:
             return jsonify({'success': False, 'error': 'Comment not found'}), 404
-        
+
         # Check authorization
         if comment.user_id != current_user.id:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-        
+
         data = request.get_json()
         text = data.get('text', '').strip()
-        
+
         if not text:
             return jsonify({'success': False, 'error': 'Comment text is required'}), 400
-        
+
         # Content moderation
         if not moderate_content(text):
             return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
-        
+
         update_comment(comment, text)
         db.session.commit()
-        
+
         comment_dict = comment.to_dict()
         comment_dict['isLiked'] = comment.is_liked_by(current_user.id)
-        
+
         return jsonify({
             'success': True,
             'comment': comment_dict
         })
-    
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -505,20 +495,20 @@ def remove_comment(note_id, comment_id):
         comment = NoteComment.query.filter_by(id=comment_id, note_id=note_id).first()
         if not comment:
             return jsonify({'success': False, 'error': 'Comment not found'}), 404
-        
+
         # Check authorization
         if comment.user_id != current_user.id:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-        
+
         note = Note.query.get(note_id)
         delete_comment(comment, note)
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
             'commentCount': note.comments
         })
-    
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -535,15 +525,15 @@ def toggle_comment_like(note_id, comment_id):
         comment = NoteComment.query.filter_by(id=comment_id, note_id=note_id).first()
         if not comment:
             return jsonify({'success': False, 'error': 'Comment not found'}), 404
-        
+
         is_liked = toggle_comment_like_status(current_user, comment)
-        
+
         return jsonify({
             'success': True,
             'likes': comment.likes,
             'isLiked': is_liked
         })
-    
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500

@@ -297,7 +297,7 @@ export default function EditNoteModal({
           </div>
         )}
 
-        {/* Upload progress bar – shown while new files are uploading to staging */}
+        {/* Upload progress bar – shown while new files are uploading */}
         {isUpdating && uploadProgress !== null && (
           <div className="mb-4">
             <p className="text-sm text-muted-foreground mb-1">

@@ -12,6 +12,11 @@ The signed URL pattern allows:
 2. Frontend uploads/downloads directly to/from GCS
 3. No credentials exposed to the client
 
+Simplified upload flow:
+- All uploads go to uploads/{user_id}/{uuid}_{filename}
+- No staging area, no file copying
+- Files are associated with notes via database UPDATE
+
 Credentials are loaded in this order:
 1. GCS_CREDENTIALS_JSON env var (base64-encoded service account JSON - for Render)
 2. GCS_CREDENTIALS_PATH config (path to service account key file)
@@ -45,20 +50,20 @@ _bucket: Optional[storage.Bucket] = None
 def _get_storage_client() -> storage.Client:
     """
     Get or create the GCS client.
-    
+
     Tries credentials in this order:
     1. GCS_CREDENTIALS_JSON env var (base64-encoded JSON - for Render production)
     2. Service account key file (if GCS_CREDENTIALS_PATH is set and file exists)
     3. GOOGLE_APPLICATION_CREDENTIALS env var (for Docker with mounted ADC)
     4. Application Default Credentials (gcloud auth application-default login)
-    
+
     Client is cached at module level for reuse.
     """
     global _storage_client
-    
+
     if _storage_client is None:
         project_id = current_app.config.get('GCS_PROJECT_ID')
-        
+
         # Option 1: Base64-encoded JSON in environment variable (Render production)
         credentials_json_b64 = os.environ.get('GCS_CREDENTIALS_JSON')
         if credentials_json_b64:
@@ -75,7 +80,7 @@ def _get_storage_client() -> storage.Client:
                 return _storage_client
             except Exception as e:
                 current_app.logger.warning(f"Failed to load GCS_CREDENTIALS_JSON: {e}")
-        
+
         # Option 2: Service account key file path
         credentials_path = current_app.config.get('GCS_CREDENTIALS_PATH')
         if credentials_path and os.path.exists(credentials_path):
@@ -87,7 +92,7 @@ def _get_storage_client() -> storage.Client:
                 project=project_id or credentials.project_id,
             )
             return _storage_client
-        
+
         # Option 3 & 4: GOOGLE_APPLICATION_CREDENTIALS or ADC
         # Project must be set explicitly when using ADC (e.g. in Docker)
         if not project_id:
@@ -96,26 +101,26 @@ def _get_storage_client() -> storage.Client:
                 "(e.g. Docker with mounted ADC). Add GCS_PROJECT_ID to your .env."
             )
         _storage_client = storage.Client(project=project_id)
-    
+
     return _storage_client
 
 
 def _get_bucket() -> storage.Bucket:
     """
     Get the configured GCS bucket.
-    
+
     Bucket reference is cached at module level for reuse.
     """
     global _bucket
-    
+
     if _bucket is None:
         bucket_name = current_app.config.get('GCS_BUCKET_NAME')
         if not bucket_name:
             raise ValueError("GCS_BUCKET_NAME not configured")
-        
+
         client = _get_storage_client()
         _bucket = client.bucket(bucket_name)
-    
+
     return _bucket
 
 
@@ -146,109 +151,42 @@ def get_content_type_from_extension(filename: str) -> Optional[str]:
     return EXTENSION_TO_MIME.get(ext)
 
 
-def generate_staging_upload_url(session_id: str, filename: str, content_type: str) -> dict:
-    """
-    Generate a signed URL for uploading a file to staging (before note exists).
-
-    Used in the "upload media first, then create post" flow. Files are stored
-    under staging/{session_id}/{uuid}_{filename} and later moved to notes/{note_id}/.
-
-    Args:
-        session_id: Client-generated session ID for this create-note attempt
-        filename: Original filename (for generating unique path)
-        content_type: MIME type of the file
-
-    Returns:
-        dict with uploadUrl, gcsPath, expiresIn
-
-    Raises:
-        ValueError: If content type is not allowed
-    """
-    if not validate_content_type(content_type):
-        raise ValueError(f"Content type '{content_type}' is not allowed")
-
-    unique_id = str(uuid.uuid4())[:8]
-    safe_filename = _sanitize_filename(filename)
-    gcs_path = f"staging/{session_id}/{unique_id}_{safe_filename}"
-
-    bucket = _get_bucket()
-    blob = bucket.blob(gcs_path)
-
-    expiration_seconds = current_app.config.get('GCS_UPLOAD_URL_EXPIRATION', 900)
-    url = blob.generate_signed_url(
-        version="v4",
-        expiration=timedelta(seconds=expiration_seconds),
-        method="PUT",
-        content_type=content_type,
-    )
-
-    return {
-        'uploadUrl': url,
-        'gcsPath': gcs_path,
-        'expiresIn': expiration_seconds,
-    }
-
-
-def copy_blob(src_gcs_path: str, dest_gcs_path: str) -> None:
-    """
-    Copy a blob from one GCS path to another (same bucket).
-
-    Used when committing staging uploads to a note: copy from staging/... to notes/{note_id}/...
-
-    Args:
-        src_gcs_path: Source path in GCS
-        dest_gcs_path: Destination path in GCS
-
-    Raises:
-        Exception: If copy fails
-    """
-    bucket = _get_bucket()
-    source_blob = bucket.blob(src_gcs_path)
-    bucket.copy_blob(source_blob, bucket, dest_gcs_path)
-
-
-def generate_upload_url(
-    note_id: int,
-    filename: str,
-    content_type: str,
-    user_id: int,
-) -> dict:
+def generate_upload_url(user_id: int, filename: str, content_type: str) -> dict:
     """
     Generate a signed URL for uploading a file.
-    
-    The URL is valid for a limited time and scoped to a specific
-    file path and content type.
-    
+
+    All files are uploaded to a permanent location: uploads/{user_id}/{uuid}_{filename}
+    No staging area, no file copying needed.
+
     Args:
-        note_id: ID of the note this attachment belongs to
+        user_id: ID of the uploading user (for path organization and ownership)
         filename: Original filename (for generating unique path)
         content_type: MIME type of the file
-        user_id: ID of the uploading user (for path organization)
-        
+
     Returns:
         dict with:
             - uploadUrl: Signed PUT URL for direct upload
             - gcsPath: Path where the file will be stored
             - expiresIn: Seconds until URL expires
-            
+
     Raises:
         ValueError: If content type is not allowed
     """
     if not validate_content_type(content_type):
         raise ValueError(f"Content type '{content_type}' is not allowed")
-    
+
     # Generate unique filename to prevent overwrites
-    # Format: notes/{note_id}/{uuid}_{original_filename}
+    # Format: uploads/{user_id}/{uuid}_{original_filename}
     unique_id = str(uuid.uuid4())[:8]
     safe_filename = _sanitize_filename(filename)
-    gcs_path = f"notes/{note_id}/{unique_id}_{safe_filename}"
-    
+    gcs_path = f"uploads/{user_id}/{unique_id}_{safe_filename}"
+
     bucket = _get_bucket()
     blob = bucket.blob(gcs_path)
-    
+
     # Get expiration from config
     expiration_seconds = current_app.config.get('GCS_UPLOAD_URL_EXPIRATION', 900)
-    
+
     # Generate signed URL for PUT request
     url = blob.generate_signed_url(
         version="v4",
@@ -256,7 +194,7 @@ def generate_upload_url(
         method="PUT",
         content_type=content_type,
     )
-    
+
     return {
         'uploadUrl': url,
         'gcsPath': gcs_path,
@@ -267,34 +205,34 @@ def generate_upload_url(
 def generate_download_url(gcs_path: str) -> str:
     """
     Generate a signed URL for downloading a file.
-    
+
     Args:
         gcs_path: Path to the file in GCS
-        
+
     Returns:
         Signed GET URL for downloading the file
     """
     bucket = _get_bucket()
     blob = bucket.blob(gcs_path)
-    
+
     expiration_seconds = current_app.config.get('GCS_DOWNLOAD_URL_EXPIRATION', 3600)
-    
+
     url = blob.generate_signed_url(
         version="v4",
         expiration=timedelta(seconds=expiration_seconds),
         method="GET",
     )
-    
+
     return url
 
 
 def delete_file(gcs_path: str) -> bool:
     """
     Delete a file from GCS.
-    
+
     Args:
         gcs_path: Path to the file in GCS
-        
+
     Returns:
         True if deleted successfully, False if file didn't exist
     """
@@ -308,24 +246,41 @@ def delete_file(gcs_path: str) -> bool:
         return False
 
 
-def delete_note_attachments(note_id: int) -> int:
+def delete_files(gcs_paths: list[str]) -> int:
     """
-    Delete all attachments for a note from GCS.
-    
-    Called when a note is deleted to clean up storage.
-    
+    Delete multiple files from GCS.
+
     Args:
-        note_id: ID of the note whose attachments to delete
-        
+        gcs_paths: List of paths to delete
+
+    Returns:
+        Number of files successfully deleted
+    """
+    deleted_count = 0
+    for path in gcs_paths:
+        if delete_file(path):
+            deleted_count += 1
+    return deleted_count
+
+
+def delete_user_uploads(user_id: int) -> int:
+    """
+    Delete all uploads for a user from GCS.
+
+    Called when a user is deleted to clean up storage.
+
+    Args:
+        user_id: ID of the user whose uploads to delete
+
     Returns:
         Number of files deleted
     """
     bucket = _get_bucket()
-    prefix = f"notes/{note_id}/"
-    
+    prefix = f"uploads/{user_id}/"
+
     blobs = list(bucket.list_blobs(prefix=prefix))
     deleted_count = 0
-    
+
     for blob in blobs:
         try:
             blob.delete()
@@ -333,7 +288,7 @@ def delete_note_attachments(note_id: int) -> int:
         except Exception:
             # Log but continue deleting others
             pass
-    
+
     return deleted_count
 
 
@@ -347,22 +302,22 @@ def sanitize_filename(filename: str) -> str:
 def _sanitize_filename(filename: str) -> str:
     """
     Sanitize a filename for safe storage (internal implementation).
-    
+
     Removes or replaces characters that could cause issues in URLs or paths.
     """
     # Keep only safe characters
     safe_chars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_')
-    
+
     # Replace spaces with underscores
     filename = filename.replace(' ', '_')
-    
+
     # Keep only safe characters
     sanitized = ''.join(c if c in safe_chars else '_' for c in filename)
-    
+
     # Ensure we have a valid filename
     if not sanitized or sanitized.startswith('.'):
         sanitized = 'file' + sanitized
-    
+
     # Limit length
     if len(sanitized) > 100:
         # Keep extension
@@ -371,5 +326,5 @@ def _sanitize_filename(filename: str) -> str:
             sanitized = name[:95] + '.' + ext[:4]
         else:
             sanitized = sanitized[:100]
-    
+
     return sanitized

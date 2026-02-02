@@ -40,7 +40,7 @@ import {
   useDelayedLoading,
   prefetchInfiniteNotes,
 } from '../hooks';
-import { uploadMultipleToStaging, deleteAttachment } from '../api/uploads';
+import { uploadMultipleFiles, deleteAttachment } from '../api/uploads';
 
 // UI Components
 import {
@@ -269,9 +269,8 @@ export default function CommunityPage() {
   /**
    * Handle Create Note Form Submission
    *
-   * Upload-first flow when there are files: upload all to staging, then create
-   * note with sessionId so the post is only created (and added to cache) when
-   * attachments are successfully committed. No files: create note only.
+   * Upload-first flow when there are files: upload all files, then create
+   * note with sessionId to associate the uploads. No files: create note only.
    */
   async function handleCreateNote(noteData) {
     setCreateNoteError(null);
@@ -282,7 +281,7 @@ export default function CommunityPage() {
       try {
         sessionId = crypto.randomUUID();
         setCreateNoteUploadProgress(0);
-        await uploadMultipleToStaging({
+        await uploadMultipleFiles({
           sessionId,
           files,
           onFileProgress: (fileIndex, percent) => {
@@ -369,7 +368,7 @@ export default function CommunityPage() {
   /**
    * Handle Update Note Form Submission
    *
-   * Removes marked attachments, uploads new files to staging (if any), then PUT update.
+   * Removes marked attachments, uploads new files (if any), then PUT update.
    * Attachment removals and new files are only committed when Save is clicked.
    */
   async function handleUpdateNote(noteData) {
@@ -395,7 +394,7 @@ export default function CommunityPage() {
       try {
         sessionId = crypto.randomUUID();
         setEditNoteUploadProgress(0);
-        await uploadMultipleToStaging({
+        await uploadMultipleFiles({
           sessionId,
           files: newFiles,
           onFileProgress: (fileIndex, percent) => {
