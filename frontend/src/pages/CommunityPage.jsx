@@ -40,13 +40,14 @@ import {
   useDelayedLoading,
   prefetchInfiniteNotes,
 } from '../hooks';
-import { uploadMultipleFiles, deleteAttachment } from '../api/uploads';
+import { uploadMultipleFiles } from '../api/uploads';
 
 // UI Components
 import {
   GradientButton,
   FeedItemList,
   ConfirmationModal,
+  Toast,
 } from '../components/ui';
 import { NoteCard, NotesFilter, CreateNoteModal, EditNoteModal } from '../components/community';
 
@@ -167,10 +168,15 @@ export default function CommunityPage() {
   const [editNoteError, setEditNoteError] = useState(null);
 
   /**
-   * File upload progress (create and edit) – 0–100 or null when not uploading files
+   * File upload progress for edit only – 0–100 or null when not uploading files
+   * (Create uses optimistic updates so no progress tracking needed)
    */
-  const [createNoteUploadProgress, setCreateNoteUploadProgress] = useState(null);
   const [editNoteUploadProgress, setEditNoteUploadProgress] = useState(null);
+
+  /**
+   * Toast notification for background errors (e.g., failed note creation)
+   */
+  const [errorToast, setErrorToast] = useState(null);
 
   /**
    * Delete Confirmation Modal State
@@ -269,47 +275,46 @@ export default function CommunityPage() {
   /**
    * Handle Create Note Form Submission
    *
-   * Upload-first flow when there are files: upload all files, then create
-   * note with sessionId to associate the uploads. No files: create note only.
+   * Uses optimistic updates: closes modal immediately and shows note in feed.
+   * File uploads and backend creation happen in the background.
+   * If creation fails, the optimistic note is removed and an error toast is shown.
    */
-  async function handleCreateNote(noteData) {
+  function handleCreateNote(noteData) {
     setCreateNoteError(null);
     const { files, ...notePayload } = noteData;
 
-    let sessionId = null;
-    if (files && files.length > 0) {
-      try {
-        sessionId = crypto.randomUUID();
-        setCreateNoteUploadProgress(0);
-        await uploadMultipleFiles({
-          sessionId,
-          files,
-          onFileProgress: (fileIndex, percent) => {
-            const overall = ((fileIndex + percent / 100) / files.length) * 100;
-            setCreateNoteUploadProgress(Math.round(Math.min(overall, 100)));
-          },
-        });
-      } catch (err) {
-        console.error('Error uploading attachments:', err);
-        const message = err.data?.error || err.message || 'Failed to upload attachments. Please try again.';
-        setCreateNoteError(message);
-        return;
-      } finally {
-        setCreateNoteUploadProgress(null);
-      }
-    }
+    // Build optimistic attachments from files (with blob URLs for image previews)
+    const optimisticAttachments = files?.map((file, index) => ({
+      id: `temp-att-${Date.now()}-${index}`,
+      filename: file.name,
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+      isImage: file.type?.startsWith('image/') || false,
+      isPdf: file.type === 'application/pdf',
+      // Create blob URL for image previews
+      downloadUrl: file.type?.startsWith('image/') ? URL.createObjectURL(file) : null,
+      isOptimistic: true,
+    })) || [];
 
-    const payload = { ...notePayload, ...(sessionId ? { sessionId } : {}) };
-    createNoteMutation.mutate(payload, {
-      onSuccess: () => {
-        closeModal();
+    // Close modal immediately for optimistic UX
+    closeModal();
+
+    // Trigger mutation with all data - uploads and creation happen in background
+    createNoteMutation.mutate(
+      {
+        ...notePayload,
+        files,
+        optimisticAttachments,
+        user,
       },
-      onError: (err) => {
-        console.error('Error creating note:', err);
-        const message = err.data?.error || err.message || 'Failed to create note. Please try again.';
-        setCreateNoteError(message);
-      },
-    });
+      {
+        onError: (err) => {
+          console.error('Error creating note:', err);
+          const message = err.data?.error || err.message || 'Failed to create note. Please try again.';
+          setErrorToast(message);
+        },
+      }
+    );
   }
 
   /**
@@ -368,8 +373,8 @@ export default function CommunityPage() {
   /**
    * Handle Update Note Form Submission
    *
-   * Removes marked attachments, uploads new files (if any), then PUT update.
-   * Attachment removals and new files are only committed when Save is clicked.
+   * Uploads new files (if any), then sends update with attachment changes.
+   * Backend handles attachment additions and removals atomically.
    */
   async function handleUpdateNote(noteData) {
     if (!noteToEdit) return;
@@ -377,25 +382,11 @@ export default function CommunityPage() {
     setEditNoteError(null);
     const { newFiles, attachmentIdsToRemove = [], ...updatePayload } = noteData;
 
-    // Delete attachments user marked for removal (only when Save is clicked)
-    if (attachmentIdsToRemove.length > 0) {
-      try {
-        await Promise.all(attachmentIdsToRemove.map((id) => deleteAttachment(id)));
-      } catch (err) {
-        console.error('Error removing attachments:', err);
-        const message = err.data?.error || err.message || 'Failed to remove attachments. Please try again.';
-        setEditNoteError(message);
-        return;
-      }
-    }
-
-    let sessionId = null;
+    let newAttachments = [];
     if (newFiles && newFiles.length > 0) {
       try {
-        sessionId = crypto.randomUUID();
         setEditNoteUploadProgress(0);
-        await uploadMultipleFiles({
-          sessionId,
+        newAttachments = await uploadMultipleFiles({
           files: newFiles,
           onFileProgress: (fileIndex, percent) => {
             const overall = ((fileIndex + percent / 100) / newFiles.length) * 100;
@@ -406,13 +397,17 @@ export default function CommunityPage() {
         console.error('Error uploading new attachments:', err);
         const message = err.data?.error || err.message || 'Failed to upload attachments. Please try again.';
         setEditNoteError(message);
-        return;
-      } finally {
         setEditNoteUploadProgress(null);
+        return;
       }
+      setEditNoteUploadProgress(null);
     }
 
-    const data = { ...updatePayload, ...(sessionId ? { sessionId } : {}) };
+    const data = {
+      ...updatePayload,
+      ...(newAttachments.length > 0 ? { attachments: newAttachments } : {}),
+      ...(attachmentIdsToRemove.length > 0 ? { attachmentIdsToRemove } : {}),
+    };
     updateNoteMutation.mutate(
       { noteId: noteToEdit.id, data },
       {
@@ -596,8 +591,6 @@ export default function CommunityPage() {
         isOpen={isModalOpen}
         onClose={closeModal}
         onCreate={handleCreateNote}
-        isCreating={createNoteUploadProgress !== null || createNoteMutation.isPending}
-        uploadProgress={createNoteUploadProgress}
         userUniversity={user?.university}
         error={createNoteError}
       />
@@ -623,6 +616,14 @@ export default function CommunityPage() {
         message="Are you sure you want to delete this note? This action cannot be undone."
         confirmText="Delete"
         variant="danger"
+      />
+
+      {/* Error Toast for background failures */}
+      <Toast
+        message={errorToast}
+        isVisible={!!errorToast}
+        onDismiss={() => setErrorToast(null)}
+        variant="error"
       />
     </div>
   );

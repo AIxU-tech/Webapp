@@ -17,15 +17,16 @@ def create_db_note(data):
     Create a new note in the database.
 
     Args:
-        data: Dictionary containing 'title', 'content', optional 'tags',
+        data: Dictionary containing 'title', optional 'content', optional 'tags',
               and optional 'universityOnly'
 
     Returns:
         The newly created Note object
     """
+    content = data.get('content', '').strip() or None
     note = Note(
         title=data['title'].strip(),
-        content=data['content'].strip(),
+        content=content,
         author_id=current_user.id,
         university_only=data.get('universityOnly', False)
     )

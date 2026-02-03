@@ -5,11 +5,11 @@ Stores metadata for files attached to community notes.
 Actual files are stored in Google Cloud Storage; this table
 tracks the GCS path and file metadata.
 
-Simplified upload flow:
-- Files are uploaded to GCS at uploads/{user_id}/{uuid}_{filename}
-- A NoteAttachment record is created with note_id=NULL and session_id set
-- When the note is created/updated, note_id is set via UPDATE
-- Orphaned uploads (note_id=NULL, older than 24h) can be cleaned up
+Upload flow:
+1. User selects files and clicks "Post"
+2. Frontend uploads files directly to GCS (gets gcs_paths)
+3. Frontend sends note data + attachment info to create_note endpoint
+4. Backend creates Note and NoteAttachments atomically in one transaction
 
 Constraints:
 - Max 5 attachments per note
@@ -23,39 +23,30 @@ from backend.extensions import db
 
 class NoteAttachment(db.Model):
     """
-    Represents a file attachment, either associated with a Note or pending association.
+    Represents a file attachment associated with a Note.
 
     Files are stored in GCS at path: uploads/{user_id}/{uuid}_{filename}
     This model stores the metadata for retrieval and display.
-
-    Lifecycle:
-    1. Upload: record created with note_id=NULL, session_id=X, user_id=Y
-    2. Associate: when note is created, UPDATE SET note_id=Z WHERE session_id=X AND user_id=Y
-    3. (Optional) Cleanup: DELETE WHERE note_id IS NULL AND created_at < NOW() - 24h
     """
     __tablename__ = 'note_attachments'
 
     id = db.Column(db.Integer, primary_key=True)
 
-    # The note this attachment belongs to (NULL while pending association)
+    # The note this attachment belongs to
     note_id = db.Column(
         db.Integer,
         db.ForeignKey('notes.id', ondelete='CASCADE'),
-        nullable=True,
+        nullable=False,
         index=True
     )
 
-    # The user who uploaded this file (for ownership verification)
+    # The user who uploaded this file
     user_id = db.Column(
         db.Integer,
         db.ForeignKey('user.id', ondelete='CASCADE'),
         nullable=False,
         index=True
     )
-
-    # Client-generated session ID for grouping uploads before note creation
-    # Used to associate uploads with a note: UPDATE ... WHERE session_id=X
-    session_id = db.Column(db.String(64), nullable=True, index=True)
 
     # GCS storage path (e.g., "uploads/123/a1b2c3d4_document.pdf")
     gcs_path = db.Column(db.String(500), nullable=False, unique=True)
@@ -132,53 +123,36 @@ class NoteAttachment(db.Model):
         return cls.query.filter_by(note_id=note_id).count()
 
     @classmethod
-    def count_for_session(cls, session_id, user_id):
-        """Get the number of pending uploads for a session."""
-        return cls.query.filter_by(
-            session_id=session_id,
-            user_id=user_id,
-            note_id=None
-        ).count()
-
-    @classmethod
     def get_for_note(cls, note_id):
-        """Get all attachments for a note."""
+        """Get all attachments for a note, ordered by creation time."""
         return cls.query.filter_by(note_id=note_id).order_by(cls.created_at).all()
 
     @classmethod
-    def get_for_session(cls, session_id, user_id):
-        """Get all pending uploads for a session (not yet associated with a note)."""
-        return cls.query.filter_by(
-            session_id=session_id,
-            user_id=user_id,
-            note_id=None
-        ).order_by(cls.created_at).all()
-
-    @classmethod
-    def associate_with_note(cls, session_id, user_id, note_id):
+    def create_for_note(cls, note_id, user_id, attachments_data):
         """
-        Associate all pending uploads for a session with a note.
-
-        This is the key operation that links uploaded files to a newly created note.
+        Create attachment records for a note.
 
         Args:
-            session_id: The client-generated session ID
-            user_id: The user ID (for verification)
-            note_id: The note ID to associate with
+            note_id: The note ID to attach to
+            user_id: The user ID who uploaded the files
+            attachments_data: List of dicts with gcsPath, filename, contentType, sizeBytes
 
         Returns:
-            Number of attachments associated
+            List of created NoteAttachment objects
         """
-        result = cls.query.filter_by(
-            session_id=session_id,
-            user_id=user_id,
-            note_id=None
-        ).update({
-            'note_id': note_id,
-            'session_id': None  # Clear session_id after association
-        })
-        return result
+        created = []
+        for data in attachments_data:
+            attachment = cls(
+                note_id=note_id,
+                user_id=user_id,
+                gcs_path=data['gcsPath'],
+                filename=data['filename'],
+                content_type=data['contentType'],
+                size_bytes=data['sizeBytes'],
+            )
+            db.session.add(attachment)
+            created.append(attachment)
+        return created
 
     def __repr__(self):
-        status = f"note={self.note_id}" if self.note_id else f"session={self.session_id}"
-        return f'<NoteAttachment {self.id}: {self.filename} ({status})>'
+        return f'<NoteAttachment {self.id}: {self.filename} (note={self.note_id})>'

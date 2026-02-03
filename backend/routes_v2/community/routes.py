@@ -23,50 +23,68 @@ community_bp = Blueprint('community', __name__)
 
 # Route for creating a new note
 # RESTful: POST to collection creates a new resource
-# Optional sessionId: when present, associates pending uploads with this note
 @community_bp.route('/api/notes', methods=['POST'])
 @login_required
 def create_note():
+    """
+    Create a new note with optional attachments.
+
+    Request body:
+        - title (required): Note title
+        - content (optional if attachments exist): Note content
+        - tags (optional): Array of tag strings
+        - universityOnly (optional): Boolean for visibility
+        - attachments (optional): Array of attachment objects with:
+            - gcsPath: GCS storage path
+            - filename: Original filename
+            - contentType: MIME type
+            - sizeBytes: File size
+
+    Returns:
+        - success: Boolean
+        - note: Created note object (with attachments)
+    """
     try:
         data = request.get_json()
 
-        # Validate required fields
-        if not data.get('title') or not data.get('content'):
-            return jsonify({'success': False, 'error': 'Title and content are required'}), 400
-
-        # Content moderation - check title first, then content
+        # Extract and validate fields
         title = data.get('title', '').strip()
-        if not moderate_content(title):
-            return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
-
         content = data.get('content', '').strip()
-        if not moderate_content(content):
+        attachments_data = data.get('attachments', [])
+
+        # Validate attachment count
+        if len(attachments_data) > MAX_ATTACHMENTS_PER_NOTE:
+            return jsonify({
+                'success': False,
+                'error': f'Maximum {MAX_ATTACHMENTS_PER_NOTE} attachments per note'
+            }), 400
+
+        # Validate required fields - title always required, content required only if no attachments
+        if not title:
+            return jsonify({'success': False, 'error': 'Title is required'}), 400
+
+        if not content and not attachments_data:
+            return jsonify({'success': False, 'error': 'Content or attachments are required'}), 400
+
+        # Content moderation
+        if not moderate_content(title):
+            return jsonify({'success': False, 'error': 'Title contains inappropriate language'}), 400
+
+        if content and not moderate_content(content):
             return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
 
-        session_id = data.get('sessionId')
-
-        # If sessionId provided, verify attachments exist and check count
-        if session_id:
-            pending_count = NoteAttachment.count_for_session(session_id, current_user.id)
-            if pending_count == 0:
-                return jsonify({'success': False, 'error': 'No attachments found for this session'}), 400
-            if pending_count > MAX_ATTACHMENTS_PER_NOTE:
-                return jsonify({
-                    'success': False,
-                    'error': f'Maximum {MAX_ATTACHMENTS_PER_NOTE} attachments per note'
-                }), 400
-
-        # Create new note
+        # Create note and attachments atomically
         note = create_db_note(data)
 
-        # Associate pending uploads with this note (simple UPDATE)
-        if session_id:
-            NoteAttachment.associate_with_note(
-                session_id=session_id,
-                user_id=current_user.id,
+        # Create attachment records
+        if attachments_data:
+            NoteAttachment.create_for_note(
                 note_id=note.id,
+                user_id=current_user.id,
+                attachments_data=attachments_data,
             )
-            db.session.commit()
+
+        db.session.commit()
 
         # Increment user's post count
         current_user.increment_post_count()
@@ -92,7 +110,6 @@ def create_note():
 
 # Route for updating a note
 # RESTful: PUT to resource updates it
-# Optional sessionId: when present, associates pending uploads with this note
 @community_bp.route('/api/notes/<int:note_id>', methods=['PUT'])
 @login_required
 def update_note(note_id):
@@ -101,10 +118,11 @@ def update_note(note_id):
 
     Request body:
         - title (required): Note title
-        - content (required): Note content
+        - content (optional if attachments exist): Note content
         - tags (optional): Array of tag strings
         - universityOnly (optional): Boolean for visibility
-        - sessionId (optional): Session ID for new uploads to associate
+        - attachments (optional): Array of NEW attachment objects to add
+        - attachmentIdsToRemove (optional): Array of attachment IDs to remove
 
     Returns:
         - success: Boolean
@@ -122,35 +140,43 @@ def update_note(note_id):
 
         data = request.get_json()
 
-        # Validate required fields
+        # Extract fields
         title = data.get('title', '').strip()
         content = data.get('content', '').strip()
+        new_attachments_data = data.get('attachments', [])
+        attachment_ids_to_remove = data.get('attachmentIdsToRemove', [])
 
-        if not title or not content:
-            return jsonify({'success': False, 'error': 'Title and content are required'}), 400
+        # Count existing attachments
+        existing_count = NoteAttachment.count_for_note(note_id)
+        remove_count = len(attachment_ids_to_remove) if attachment_ids_to_remove else 0
+        new_count = len(new_attachments_data)
+
+        # Total attachments after update (existing - removed + new)
+        total_attachments = existing_count - remove_count + new_count
+
+        if total_attachments > MAX_ATTACHMENTS_PER_NOTE:
+            return jsonify({
+                'success': False,
+                'error': f'Maximum {MAX_ATTACHMENTS_PER_NOTE} attachments per note'
+            }), 400
+
+        # Validate required fields - title always required, content required only if no attachments
+        if not title:
+            return jsonify({'success': False, 'error': 'Title is required'}), 400
+
+        if not content and total_attachments == 0:
+            return jsonify({'success': False, 'error': 'Content or attachments are required'}), 400
 
         # Content moderation
         if not moderate_content(title):
             return jsonify({'success': False, 'error': 'Title contains inappropriate language'}), 400
 
-        if not moderate_content(content):
+        if content and not moderate_content(content):
             return jsonify({'success': False, 'error': 'Content contains inappropriate language'}), 400
-
-        session_id = data.get('sessionId')
-
-        # If adding new uploads, enforce attachment limit (existing + new)
-        if session_id:
-            existing_count = NoteAttachment.count_for_note(note_id)
-            pending_count = NoteAttachment.count_for_session(session_id, current_user.id)
-            if existing_count + pending_count > MAX_ATTACHMENTS_PER_NOTE:
-                return jsonify({
-                    'success': False,
-                    'error': f'Maximum {MAX_ATTACHMENTS_PER_NOTE} attachments per note'
-                }), 400
 
         # Update note fields
         note.title = title
-        note.content = content
+        note.content = content or None
 
         # Update tags if provided
         if 'tags' in data:
@@ -161,12 +187,29 @@ def update_note(note_id):
         if 'universityOnly' in data:
             note.university_only = data.get('universityOnly', False)
 
-        # Associate pending uploads with this note
-        if session_id:
-            NoteAttachment.associate_with_note(
-                session_id=session_id,
-                user_id=current_user.id,
+        # Remove attachments marked for deletion
+        if attachment_ids_to_remove:
+            from backend.services.storage import is_gcs_configured, delete_file
+            for attachment_id in attachment_ids_to_remove:
+                attachment = NoteAttachment.query.filter_by(
+                    id=attachment_id,
+                    note_id=note_id
+                ).first()
+                if attachment:
+                    # Delete from GCS
+                    if is_gcs_configured():
+                        try:
+                            delete_file(attachment.gcs_path)
+                        except Exception:
+                            pass  # Log but continue
+                    db.session.delete(attachment)
+
+        # Add new attachments
+        if new_attachments_data:
+            NoteAttachment.create_for_note(
                 note_id=note_id,
+                user_id=current_user.id,
+                attachments_data=new_attachments_data,
             )
 
         db.session.commit()

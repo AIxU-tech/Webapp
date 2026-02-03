@@ -15,7 +15,7 @@
  * @component
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 // File size constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -318,7 +318,7 @@ function FilePreview({ file, onRemove, uploadProgress }) {
   const [previewUrl, setPreviewUrl] = useState(null);
 
   // Generate preview URL for images
-  useState(() => {
+  useEffect(() => {
     if (isImage) {
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);

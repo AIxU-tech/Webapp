@@ -132,9 +132,17 @@ export default function EditNoteModal({
     e.preventDefault();
     setValidationError(null);
 
-    // Validate required fields
-    if (!noteTitle.trim() || !noteContent.trim()) {
-      setValidationError('Please fill in both title and content');
+    // Calculate total attachments after update
+    const totalAttachments = displayedExistingAttachments.length + newFiles.length;
+
+    // Validate required fields - title always required, content required only if no attachments
+    if (!noteTitle.trim()) {
+      setValidationError('Please fill in the title');
+      return;
+    }
+
+    if (!noteContent.trim() && totalAttachments === 0) {
+      setValidationError('Please add content or attach files');
       return;
     }
 
@@ -181,13 +189,12 @@ export default function EditNoteModal({
         {/* Content Textarea */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-foreground mb-2">
-            Content *
+            Content {(displayedExistingAttachments.length + newFiles.length) === 0 && '*'}
           </label>
           <textarea
             placeholder="What do you want to talk about?"
             value={noteContent}
             onChange={(e) => setNoteContent(e.target.value)}
-            required
             rows={6}
             className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
           />
