@@ -40,7 +40,6 @@ import {
   useDelayedLoading,
   prefetchInfiniteNotes,
 } from '../hooks';
-import { uploadMultipleFiles } from '../api/uploads';
 
 // UI Components
 import {
@@ -165,16 +164,9 @@ export default function CommunityPage() {
    * Edit Note Modal State
    */
   const [noteToEdit, setNoteToEdit] = useState(null);
-  const [editNoteError, setEditNoteError] = useState(null);
 
   /**
-   * File upload progress for edit only – 0–100 or null when not uploading files
-   * (Create uses optimistic updates so no progress tracking needed)
-   */
-  const [editNoteUploadProgress, setEditNoteUploadProgress] = useState(null);
-
-  /**
-   * Toast notification for background errors (e.g., failed note creation)
+   * Toast notification for background errors (e.g., failed note creation/update)
    */
   const [errorToast, setErrorToast] = useState(null);
 
@@ -357,7 +349,6 @@ export default function CommunityPage() {
   function handleEditClick(noteId) {
     const noteToEditData = notes.find((n) => n.id === noteId);
     if (noteToEditData) {
-      setEditNoteError(null);
       setNoteToEdit(noteToEditData);
     }
   }
@@ -367,57 +358,51 @@ export default function CommunityPage() {
    */
   function closeEditModal() {
     setNoteToEdit(null);
-    setEditNoteError(null);
   }
 
   /**
    * Handle Update Note Form Submission
    *
-   * Uploads new files (if any), then sends update with attachment changes.
-   * Backend handles attachment additions and removals atomically.
+   * Uses optimistic updates: closes modal immediately and shows changes in feed.
+   * File uploads and backend update happen in the background.
+   * If update fails, the optimistic changes are rolled back and an error toast is shown.
    */
-  async function handleUpdateNote(noteData) {
+  function handleUpdateNote(noteData) {
     if (!noteToEdit) return;
 
-    setEditNoteError(null);
     const { newFiles, attachmentIdsToRemove = [], ...updatePayload } = noteData;
 
-    let newAttachments = [];
-    if (newFiles && newFiles.length > 0) {
-      try {
-        setEditNoteUploadProgress(0);
-        newAttachments = await uploadMultipleFiles({
-          files: newFiles,
-          onFileProgress: (fileIndex, percent) => {
-            const overall = ((fileIndex + percent / 100) / newFiles.length) * 100;
-            setEditNoteUploadProgress(Math.round(Math.min(overall, 100)));
-          },
-        });
-      } catch (err) {
-        console.error('Error uploading new attachments:', err);
-        const message = err.data?.error || err.message || 'Failed to upload attachments. Please try again.';
-        setEditNoteError(message);
-        setEditNoteUploadProgress(null);
-        return;
-      }
-      setEditNoteUploadProgress(null);
-    }
+    // Build optimistic attachments from new files (with blob URLs for image previews)
+    const optimisticAttachments = newFiles?.map((file, index) => ({
+      id: `temp-att-${Date.now()}-${index}`,
+      filename: file.name,
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+      isImage: file.type?.startsWith('image/') || false,
+      isPdf: file.type === 'application/pdf',
+      // Create blob URL for image previews
+      downloadUrl: file.type?.startsWith('image/') ? URL.createObjectURL(file) : null,
+      isOptimistic: true,
+    })) || [];
 
-    const data = {
-      ...updatePayload,
-      ...(newAttachments.length > 0 ? { attachments: newAttachments } : {}),
-      ...(attachmentIdsToRemove.length > 0 ? { attachmentIdsToRemove } : {}),
-    };
+    // Close modal immediately for optimistic UX
+    closeEditModal();
+
+    // Trigger mutation with all data - uploads and update happen in background
     updateNoteMutation.mutate(
-      { noteId: noteToEdit.id, data },
       {
-        onSuccess: () => {
-          closeEditModal();
-        },
+        noteId: noteToEdit.id,
+        data: updatePayload,
+        files: newFiles,
+        optimisticAttachments,
+        attachmentIdsToRemove,
+        existingAttachments: noteToEdit.attachments || [],
+      },
+      {
         onError: (err) => {
           console.error('Error updating note:', err);
           const message = err.data?.error || err.message || 'Failed to update note. Please try again.';
-          setEditNoteError(message);
+          setErrorToast(message);
         },
       }
     );
@@ -600,11 +585,8 @@ export default function CommunityPage() {
         isOpen={noteToEdit !== null}
         onClose={closeEditModal}
         onUpdate={handleUpdateNote}
-        isUpdating={editNoteUploadProgress !== null || updateNoteMutation.isPending}
-        uploadProgress={editNoteUploadProgress}
         note={noteToEdit}
         userUniversity={user?.university}
-        error={editNoteError}
       />
 
       {/* Delete Confirmation Modal */}

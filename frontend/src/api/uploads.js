@@ -3,16 +3,16 @@
  *
  * Handles file upload operations for note attachments using signed URLs.
  *
- * Simplified flow:
- * 1. Request signed upload URL for each file
- * 2. Upload directly to GCS
+ * Optimized flow:
+ * 1. Request all signed upload URLs in a single batch request
+ * 2. Upload files directly to GCS in parallel
  * 3. Return attachment metadata to include with note creation
  */
 
 import { api } from './client';
 
 /**
- * Request a signed URL for uploading a file to GCS.
+ * Request a signed URL for uploading a single file to GCS.
  *
  * @param {Object} params - Upload parameters
  * @param {string} params.filename - Original filename
@@ -25,6 +25,25 @@ export async function requestUploadUrl({ filename, contentType, sizeBytes }) {
     filename,
     contentType,
     sizeBytes,
+  });
+}
+
+/**
+ * Request signed URLs for uploading multiple files to GCS in a single request.
+ *
+ * This is more efficient than calling requestUploadUrl multiple times as it
+ * reduces HTTP round-trips from N to 1.
+ *
+ * @param {File[]} files - Array of File objects to upload
+ * @returns {Promise<Object>} Response with uploads array containing uploadUrl, gcsPath, expiresIn for each file
+ */
+export async function requestUploadUrls(files) {
+  return api.post('/uploads/request-urls', {
+    files: files.map((file) => ({
+      filename: file.name,
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+    })),
   });
 }
 
@@ -71,42 +90,90 @@ export async function uploadToGCS(uploadUrl, file, onProgress) {
 /**
  * Upload multiple files and return their metadata for note creation.
  *
+ * Uses batched signed URL requests and parallel uploads for efficiency:
+ * - 1 API call to get all signed URLs (instead of N calls)
+ * - Parallel uploads to GCS with configurable concurrency
+ *
  * @param {Object} params - Upload parameters
  * @param {File[]} params.files - Array of files to upload
  * @param {Function} [params.onFileProgress] - Per-file progress callback (fileIndex, percent)
+ * @param {number} [params.maxConcurrent=3] - Maximum concurrent uploads
  * @returns {Promise<Array>} Array of attachment metadata objects to send with note creation
+ * @throws {Error} If URL request fails or any upload fails
  */
-export async function uploadMultipleFiles({ files, onFileProgress }) {
-  const attachments = [];
+export async function uploadMultipleFiles({
+  files,
+  onFileProgress,
+  maxConcurrent = 3,
+}) {
+  if (!files || files.length === 0) {
+    return [];
+  }
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
+  // Step 1: Request ALL signed URLs in a single batch request
+  const urlsResponse = await requestUploadUrls(files);
 
-    // Step 1: Request signed URL
-    const urlResponse = await requestUploadUrl({
-      filename: file.name,
-      contentType: file.type || 'application/octet-stream',
-      sizeBytes: file.size,
-    });
+  if (!urlsResponse.success) {
+    throw new Error(urlsResponse.error || 'Failed to get upload URLs');
+  }
 
-    if (!urlResponse.success) {
-      throw new Error(urlResponse.error || 'Failed to get upload URL');
+  const { uploads } = urlsResponse;
+
+  // Validate we received URLs for all files
+  if (!uploads || uploads.length !== files.length) {
+    throw new Error('Mismatch between requested and received upload URLs');
+  }
+
+  // Step 2: Upload files to GCS in parallel with concurrency limit
+  const attachments = new Array(files.length);
+  const errors = [];
+
+  // Process files in batches to limit concurrent uploads
+  for (let batchStart = 0; batchStart < files.length; batchStart += maxConcurrent) {
+    const batchEnd = Math.min(batchStart + maxConcurrent, files.length);
+    const batchIndices = [];
+
+    for (let i = batchStart; i < batchEnd; i++) {
+      batchIndices.push(i);
     }
 
-    // Step 2: Upload to GCS
-    await uploadToGCS(
-      urlResponse.uploadUrl,
-      file,
-      onFileProgress ? (percent) => onFileProgress(i, percent) : undefined
-    );
+    const batchPromises = batchIndices.map(async (i) => {
+      const file = files[i];
+      const uploadInfo = uploads[i];
 
-    // Step 3: Collect attachment metadata
-    attachments.push({
-      gcsPath: urlResponse.gcsPath,
-      filename: file.name,
-      contentType: file.type || 'application/octet-stream',
-      sizeBytes: file.size,
+      try {
+        await uploadToGCS(
+          uploadInfo.uploadUrl,
+          file,
+          onFileProgress ? (percent) => onFileProgress(i, percent) : undefined
+        );
+
+        // Store attachment metadata at the correct index
+        attachments[i] = {
+          gcsPath: uploadInfo.gcsPath,
+          filename: file.name,
+          contentType: file.type || 'application/octet-stream',
+          sizeBytes: file.size,
+        };
+      } catch (error) {
+        errors.push({
+          index: i,
+          filename: file.name,
+          error: error.message || 'Upload failed',
+        });
+      }
     });
+
+    await Promise.all(batchPromises);
+  }
+
+  // If any uploads failed, throw an error with details
+  if (errors.length > 0) {
+    const failedFiles = errors.map((e) => e.filename).join(', ');
+    const error = new Error(`Failed to upload ${errors.length} file(s): ${failedFiles}`);
+    error.failedUploads = errors;
+    error.successfulUploads = attachments.filter(Boolean);
+    throw error;
   }
 
   return attachments;

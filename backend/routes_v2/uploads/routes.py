@@ -3,14 +3,15 @@ Upload Routes
 
 Handles file upload operations for note attachments using signed URLs.
 
-Simplified flow:
-1. Frontend requests signed upload URL
-2. Frontend uploads directly to GCS
+Optimized flow:
+1. Frontend requests signed upload URLs (batch for multiple files)
+2. Frontend uploads directly to GCS in parallel
 3. Frontend sends note data + attachment info to create_note endpoint
 4. Backend creates Note and NoteAttachments atomically
 
 Endpoints:
-- POST /api/uploads/request-url - Request a signed URL for uploading
+- POST /api/uploads/request-url - Request a signed URL for uploading a single file
+- POST /api/uploads/request-urls - Request signed URLs for multiple files (batch)
 - DELETE /api/uploads/attachments/<id> - Delete an attachment
 - GET /api/notes/<note_id>/attachments - Get all attachments for a note
 """
@@ -32,6 +33,47 @@ from backend.constants import MAX_ATTACHMENT_SIZE_BYTES
 
 
 uploads_bp = Blueprint('uploads', __name__)
+
+
+def _validate_file_upload(file_data, index=None):
+    """
+    Validate a single file's upload parameters.
+
+    Args:
+        file_data: Dict with filename, contentType, sizeBytes
+        index: Optional index for error messages (for batch requests)
+
+    Returns:
+        tuple: (is_valid, error_message or None)
+    """
+    prefix = f"File {index}: " if index is not None else ""
+
+    required_fields = ['filename', 'contentType', 'sizeBytes']
+    for field in required_fields:
+        if field not in file_data:
+            return False, f"{prefix}Missing required field: {field}"
+
+    filename = file_data['filename']
+    content_type = file_data['contentType']
+    size_bytes = file_data['sizeBytes']
+
+    if not isinstance(filename, str) or not filename.strip():
+        return False, f"{prefix}Invalid filename"
+
+    if not validate_file_extension(filename):
+        return False, f"{prefix}File type not allowed for '{filename}'"
+
+    if not validate_content_type(content_type):
+        return False, f"{prefix}Content type '{content_type}' is not allowed"
+
+    if not isinstance(size_bytes, (int, float)) or size_bytes <= 0:
+        return False, f"{prefix}Invalid file size"
+
+    if size_bytes > MAX_ATTACHMENT_SIZE_BYTES:
+        max_mb = MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
+        return False, f"{prefix}File size exceeds maximum of {max_mb:.0f} MB"
+
+    return True, None
 
 
 @uploads_bp.route('/api/uploads/request-url', methods=['POST'])
@@ -61,48 +103,18 @@ def request_upload_url():
             'error': 'Request body required'
         }), 400
 
-    required_fields = ['filename', 'contentType', 'sizeBytes']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({
-                'success': False,
-                'error': f'Missing required field: {field}'
-            }), 400
-
-    filename = data['filename']
-    content_type = data['contentType']
-    size_bytes = data['sizeBytes']
-
-    if not validate_file_extension(filename):
+    is_valid, error = _validate_file_upload(data)
+    if not is_valid:
         return jsonify({
             'success': False,
-            'error': 'File type not allowed'
-        }), 400
-
-    if not validate_content_type(content_type):
-        return jsonify({
-            'success': False,
-            'error': f'Content type "{content_type}" is not allowed'
-        }), 400
-
-    if size_bytes > MAX_ATTACHMENT_SIZE_BYTES:
-        max_mb = MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
-        return jsonify({
-            'success': False,
-            'error': f'File size exceeds maximum of {max_mb:.0f} MB'
-        }), 400
-
-    if size_bytes <= 0:
-        return jsonify({
-            'success': False,
-            'error': 'Invalid file size'
+            'error': error
         }), 400
 
     try:
         result = generate_upload_url(
             user_id=current_user.id,
-            filename=filename,
-            content_type=content_type,
+            filename=data['filename'],
+            content_type=data['contentType'],
         )
         return jsonify({
             'success': True,
@@ -119,6 +131,119 @@ def request_upload_url():
         return jsonify({
             'success': False,
             'error': 'Failed to generate upload URL'
+        }), 500
+
+
+@uploads_bp.route('/api/uploads/request-urls', methods=['POST'])
+@login_required
+def request_upload_urls():
+    """
+    Request signed URLs for uploading multiple files to GCS in a single request.
+
+    This is more efficient than calling request-url multiple times as it:
+    - Reduces HTTP round-trips from N to 1
+    - Allows the frontend to parallelize actual file uploads
+
+    Request body:
+        - files (array): Array of file objects, each containing:
+            - filename (str): Original filename
+            - contentType (str): MIME type
+            - sizeBytes (int): File size in bytes
+
+    Returns:
+        JSON with:
+            - success (bool): Whether all URLs were generated
+            - uploads (array): Array of upload info objects, each containing:
+                - uploadUrl: Signed PUT URL
+                - gcsPath: Path where file will be stored
+                - expiresIn: Seconds until URL expires
+                - index: Original index in the request array
+    """
+    if not is_gcs_configured():
+        return jsonify({
+            'success': False,
+            'error': 'File storage is not configured'
+        }), 503
+
+    data = request.get_json()
+    if not data:
+        return jsonify({
+            'success': False,
+            'error': 'Request body required'
+        }), 400
+
+    files = data.get('files')
+    if not files:
+        return jsonify({
+            'success': False,
+            'error': 'Missing required field: files'
+        }), 400
+
+    if not isinstance(files, list):
+        return jsonify({
+            'success': False,
+            'error': 'files must be an array'
+        }), 400
+
+    if len(files) == 0:
+        return jsonify({
+            'success': False,
+            'error': 'files array cannot be empty'
+        }), 400
+
+    # Reasonable limit to prevent abuse
+    max_files = 20
+    if len(files) > max_files:
+        return jsonify({
+            'success': False,
+            'error': f'Cannot upload more than {max_files} files at once'
+        }), 400
+
+    # Validate all files first before generating any URLs
+    for i, file_data in enumerate(files):
+        if not isinstance(file_data, dict):
+            return jsonify({
+                'success': False,
+                'error': f'File {i}: must be an object'
+            }), 400
+
+        is_valid, error = _validate_file_upload(file_data, index=i)
+        if not is_valid:
+            return jsonify({
+                'success': False,
+                'error': error
+            }), 400
+
+    # Generate all signed URLs
+    uploads = []
+    try:
+        for i, file_data in enumerate(files):
+            result = generate_upload_url(
+                user_id=current_user.id,
+                filename=file_data['filename'],
+                content_type=file_data['contentType'],
+            )
+            uploads.append({
+                'uploadUrl': result['uploadUrl'],
+                'gcsPath': result['gcsPath'],
+                'expiresIn': result['expiresIn'],
+                'index': i,
+            })
+
+        return jsonify({
+            'success': True,
+            'uploads': uploads,
+        })
+
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+    except Exception:
+        return jsonify({
+            'success': False,
+            'error': 'Failed to generate upload URLs'
         }), 500
 
 

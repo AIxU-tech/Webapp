@@ -245,6 +245,7 @@ export function useCreateNote() {
  * useUpdateNote Hook
  *
  * Mutation hook for updating a note with optimistic updates.
+ * Supports file uploads and attachment management with the same optimistic UX as note creation.
  * Updates note in infinite and detail caches.
  *
  * @returns {object} React Query mutation result
@@ -253,29 +254,57 @@ export function useCreateNote() {
  * const updateMutation = useUpdateNote();
  * updateMutation.mutate({
  *   noteId: 123,
- *   data: { title: 'New Title', content: 'New content', tags: ['NLP'], universityOnly: false }
+ *   data: { title: 'New Title', content: 'New content', tags: ['NLP'], universityOnly: false },
+ *   files: [File, File],                    // Optional: new files to upload
+ *   optimisticAttachments: [...],           // Optional: pre-built attachment objects for optimistic display
+ *   attachmentIdsToRemove: [1, 2],          // Optional: IDs of attachments to remove
+ *   existingAttachments: [...],             // Optional: current attachments (for optimistic update)
  * });
  */
 export function useUpdateNote() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ noteId, data }) => updateNote(noteId, data),
+    mutationFn: async ({ noteId, data, files, optimisticAttachments, attachmentIdsToRemove, existingAttachments }) => {
+      // Upload files if any
+      let uploadedAttachments = [];
+      if (files && files.length > 0) {
+        uploadedAttachments = await uploadMultipleFiles({ files });
+      }
 
-    onMutate: async ({ noteId, data }) => {
+      // Build the update payload
+      const payload = {
+        ...data,
+        ...(uploadedAttachments.length > 0 ? { attachments: uploadedAttachments } : {}),
+        ...(attachmentIdsToRemove?.length > 0 ? { attachmentIdsToRemove } : {}),
+      };
+
+      return updateNote(noteId, payload);
+    },
+
+    onMutate: async ({ noteId, data, optimisticAttachments = [], attachmentIdsToRemove = [], existingAttachments = [] }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: noteKeys.all });
 
       // Snapshot previous queries for rollback
       const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
 
+      // Build optimistic attachments list:
+      // 1. Keep existing attachments that aren't being removed
+      // 2. Add new optimistic attachments
+      const keptAttachments = existingAttachments.filter(
+        (att) => !attachmentIdsToRemove.includes(att.id)
+      );
+      const mergedAttachments = [...keptAttachments, ...optimisticAttachments];
+
       // Optimistically update infinite query cache
       updateNotesCache(queryClient, noteId, (note) => ({
         ...note,
-        title: data.title,
-        content: data.content,
+        title: data.title ?? note.title,
+        content: data.content ?? note.content,
         tags: data.tags ?? note.tags,
         universityOnly: data.universityOnly ?? note.universityOnly,
+        attachments: mergedAttachments,
       }));
 
       // Optimistically update detail cache
@@ -283,14 +312,15 @@ export function useUpdateNote() {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          title: data.title,
-          content: data.content,
+          title: data.title ?? oldData.title,
+          content: data.content ?? oldData.content,
           tags: data.tags ?? oldData.tags,
           universityOnly: data.universityOnly ?? oldData.universityOnly,
+          attachments: mergedAttachments,
         };
       });
 
-      return { previousQueries, noteId };
+      return { previousQueries, noteId, optimisticAttachments };
     },
 
     onError: (err, variables, context) => {
@@ -300,9 +330,15 @@ export function useUpdateNote() {
           queryClient.setQueryData(queryKey, data);
         });
       }
+      // Clean up blob URLs from optimistic attachments
+      context?.optimisticAttachments?.forEach((att) => {
+        if (att.downloadUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(att.downloadUrl);
+        }
+      });
     },
 
-    onSuccess: (result, { noteId }) => {
+    onSuccess: (result, { noteId }, context) => {
       // Update infinite query cache with server response
       updateNotesCache(queryClient, noteId, () => result.note);
 
@@ -310,6 +346,13 @@ export function useUpdateNote() {
       queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
         if (!oldData) return oldData;
         return result.note;
+      });
+
+      // Clean up blob URLs from optimistic attachments
+      context?.optimisticAttachments?.forEach((att) => {
+        if (att.downloadUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(att.downloadUrl);
+        }
       });
     },
   });

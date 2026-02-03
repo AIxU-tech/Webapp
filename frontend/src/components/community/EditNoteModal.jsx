@@ -42,22 +42,16 @@ const EDIT_TAGS = [
  * @property {boolean} isOpen - Whether the modal is open
  * @property {Function} onClose - Callback when modal is closed
  * @property {Function} onUpdate - Callback when note is updated, receives {title, content, tags, universityOnly, newFiles, attachmentIdsToRemove}
- * @property {boolean} isUpdating - Whether the note is currently being updated
- * @property {number|null} uploadProgress - File upload progress 0–100 (null when not uploading files)
  * @property {Object} note - The note object to edit
  * @property {string|null} userUniversity - User's university name (null if no university)
- * @property {string|null} error - Error message from failed update attempt
  */
 
 export default function EditNoteModal({
   isOpen,
   onClose,
   onUpdate,
-  isUpdating = false,
-  uploadProgress = null,
   note = null,
   userUniversity = null,
-  error = null,
 }) {
   // Form state
   const [noteTitle, setNoteTitle] = useState('');
@@ -235,8 +229,7 @@ export default function EditNoteModal({
                   <button
                     type="button"
                     onClick={() => handleMarkAttachmentForRemoval(attachment)}
-                    disabled={isUpdating}
-                    className="p-1 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded transition-colors disabled:opacity-50"
+                    className="p-1 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
                     aria-label={`Remove ${attachment.filename}`}
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -260,7 +253,6 @@ export default function EditNoteModal({
               files={newFiles}
               onChange={setNewFiles}
               maxFiles={remainingSlots}
-              disabled={isUpdating}
             />
           </div>
         )}
@@ -295,27 +287,12 @@ export default function EditNoteModal({
           </div>
         )}
 
-        {/* Error Display */}
-        {(error || validationError) && (
+        {/* Validation Error Display */}
+        {validationError && (
           <div className="mb-4">
             <Alert variant="error">
-              {error || validationError}
+              {validationError}
             </Alert>
-          </div>
-        )}
-
-        {/* Upload progress bar – shown while new files are uploading */}
-        {isUpdating && uploadProgress !== null && (
-          <div className="mb-4">
-            <p className="text-sm text-muted-foreground mb-1">
-              Uploading files… {uploadProgress}%
-            </p>
-            <div className="h-2 bg-background border border-border rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-300 ease-out"
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
           </div>
         )}
 
@@ -343,13 +320,7 @@ export default function EditNoteModal({
             >
               Cancel
             </button>
-            <GradientButton
-              type="submit"
-              size="sm"
-              loading={isUpdating}
-              disabled={isUpdating}
-              loadingText={uploadProgress !== null ? `Uploading files… ${uploadProgress}%` : 'Saving…'}
-            >
+            <GradientButton type="submit" size="sm">
               Save Changes
             </GradientButton>
           </div>
