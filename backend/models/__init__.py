@@ -22,6 +22,7 @@ from backend.models.ai_news import (
     AINewsChatMessage
 )
 from backend.models.password_reset_token import PasswordResetToken
+from backend.models.note_attachment import NoteAttachment
 
 __all__ = [
     'User',
@@ -45,5 +46,6 @@ __all__ = [
     'AINewsSource',
     'AIResearchPaper',
     'AINewsChatMessage',
-    'PasswordResetToken'
+    'PasswordResetToken',
+    'NoteAttachment',
 ]

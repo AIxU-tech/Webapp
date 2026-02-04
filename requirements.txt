@@ -44,3 +44,5 @@ Flask-Migrate==4.0.5
 better-profanity>=0.7.0
 
 
+# Google Cloud Storage (for file uploads)
+google-cloud-storage>=2.14.0

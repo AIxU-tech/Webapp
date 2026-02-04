@@ -19,10 +19,10 @@ import {
   deleteComment,
   toggleLikeComment,
 } from '../api/notes';
+import { uploadMultipleFiles } from '../api/uploads';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
 import {
   createFeedItemKeys,
-  createCreateHook,
   createPrefetchFn,
   createInfiniteQueryCacheUpdater,
   createInfiniteQueryCacheRemover,
@@ -102,16 +102,150 @@ export function useNote(noteId) {
   });
 }
 
-// Create mutation
-export const useCreateNote = createCreateHook({
-  keys: noteKeys,
-  createFn: createNote,
-});
+/**
+ * useCreateNote Hook
+ *
+ * Mutation hook for creating a note with optimistic updates.
+ * The note appears immediately in the feed while file uploads and
+ * backend creation happen in the background.
+ *
+ * @returns {object} React Query mutation result
+ *
+ * @example
+ * const createMutation = useCreateNote();
+ * createMutation.mutate({
+ *   title: 'My Note',
+ *   content: 'Content here',
+ *   tags: ['NLP'],
+ *   universityOnly: false,
+ *   files: [File, File],           // Raw File objects to upload
+ *   optimisticAttachments: [...],  // Pre-built attachment objects for optimistic display
+ *   user: currentUser,             // Current user for author info
+ * });
+ */
+export function useCreateNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ files, optimisticAttachments, user, ...notePayload }) => {
+      // Upload files if any
+      let attachments = [];
+      if (files && files.length > 0) {
+        attachments = await uploadMultipleFiles({ files });
+      }
+
+      // Create note with attachment metadata
+      const payload = { ...notePayload, ...(attachments.length > 0 ? { attachments } : {}) };
+      return createNote(payload);
+    },
+
+    onMutate: async ({ user, optimisticAttachments, files, ...noteData }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: noteKeys.all });
+
+      // Snapshot for rollback
+      const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
+
+      // Create optimistic note
+      const optimisticNoteId = `temp-${Date.now()}`;
+      const optimisticNote = {
+        id: optimisticNoteId,
+        title: noteData.title,
+        content: noteData.content,
+        tags: noteData.tags || [],
+        universityOnly: noteData.universityOnly || false,
+        author: {
+          id: user.id,
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'You',
+          university: user.university,
+          avatar: getAvatarUrl(user),
+        },
+        likes: 0,
+        comments: 0,
+        timeAgo: 'Just now',
+        isLiked: false,
+        isBookmarked: false,
+        attachments: optimisticAttachments || [],
+        isOptimistic: true,
+      };
+
+      // Insert at beginning of first page of infinite queries
+      queryClient.setQueriesData(
+        {
+          predicate: (query) => {
+            const key = query.queryKey;
+            return key[0] === 'notes' && key[1] === 'infinite';
+          },
+        },
+        (oldData) => {
+          if (!oldData?.pages) return oldData;
+          return {
+            pages: oldData.pages.map((page, index) => {
+              if (index === 0) {
+                return { ...page, notes: [optimisticNote, ...(page.notes || [])] };
+              }
+              return page;
+            }),
+            pageParams: oldData.pageParams,
+          };
+        }
+      );
+
+      return { previousQueries, optimisticNoteId, optimisticAttachments };
+    },
+
+    onError: (err, variables, context) => {
+      // Rollback to previous state
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      // Clean up blob URLs from optimistic attachments
+      context?.optimisticAttachments?.forEach((att) => {
+        if (att.downloadUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(att.downloadUrl);
+        }
+      });
+    },
+
+    onSuccess: (result, variables, context) => {
+      // Replace optimistic note with real note from server
+      queryClient.setQueriesData(
+        {
+          predicate: (query) => {
+            const key = query.queryKey;
+            return key[0] === 'notes' && key[1] === 'infinite';
+          },
+        },
+        (oldData) => {
+          if (!oldData?.pages) return oldData;
+          return {
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              notes: (page.notes || []).map((note) =>
+                note.id === context.optimisticNoteId ? result.note : note
+              ),
+            })),
+            pageParams: oldData.pageParams,
+          };
+        }
+      );
+      // Clean up blob URLs from optimistic attachments
+      context?.optimisticAttachments?.forEach((att) => {
+        if (att.downloadUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(att.downloadUrl);
+        }
+      });
+    },
+  });
+}
 
 /**
  * useUpdateNote Hook
  *
  * Mutation hook for updating a note with optimistic updates.
+ * Supports file uploads and attachment management with the same optimistic UX as note creation.
  * Updates note in infinite and detail caches.
  *
  * @returns {object} React Query mutation result
@@ -120,29 +254,57 @@ export const useCreateNote = createCreateHook({
  * const updateMutation = useUpdateNote();
  * updateMutation.mutate({
  *   noteId: 123,
- *   data: { title: 'New Title', content: 'New content', tags: ['NLP'], universityOnly: false }
+ *   data: { title: 'New Title', content: 'New content', tags: ['NLP'], universityOnly: false },
+ *   files: [File, File],                    // Optional: new files to upload
+ *   optimisticAttachments: [...],           // Optional: pre-built attachment objects for optimistic display
+ *   attachmentIdsToRemove: [1, 2],          // Optional: IDs of attachments to remove
+ *   existingAttachments: [...],             // Optional: current attachments (for optimistic update)
  * });
  */
 export function useUpdateNote() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ noteId, data }) => updateNote(noteId, data),
+    mutationFn: async ({ noteId, data, files, optimisticAttachments, attachmentIdsToRemove, existingAttachments }) => {
+      // Upload files if any
+      let uploadedAttachments = [];
+      if (files && files.length > 0) {
+        uploadedAttachments = await uploadMultipleFiles({ files });
+      }
 
-    onMutate: async ({ noteId, data }) => {
+      // Build the update payload
+      const payload = {
+        ...data,
+        ...(uploadedAttachments.length > 0 ? { attachments: uploadedAttachments } : {}),
+        ...(attachmentIdsToRemove?.length > 0 ? { attachmentIdsToRemove } : {}),
+      };
+
+      return updateNote(noteId, payload);
+    },
+
+    onMutate: async ({ noteId, data, optimisticAttachments = [], attachmentIdsToRemove = [], existingAttachments = [] }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: noteKeys.all });
 
       // Snapshot previous queries for rollback
       const previousQueries = queryClient.getQueriesData({ queryKey: noteKeys.all });
 
+      // Build optimistic attachments list:
+      // 1. Keep existing attachments that aren't being removed
+      // 2. Add new optimistic attachments
+      const keptAttachments = existingAttachments.filter(
+        (att) => !attachmentIdsToRemove.includes(att.id)
+      );
+      const mergedAttachments = [...keptAttachments, ...optimisticAttachments];
+
       // Optimistically update infinite query cache
       updateNotesCache(queryClient, noteId, (note) => ({
         ...note,
-        title: data.title,
-        content: data.content,
+        title: data.title ?? note.title,
+        content: data.content ?? note.content,
         tags: data.tags ?? note.tags,
         universityOnly: data.universityOnly ?? note.universityOnly,
+        attachments: mergedAttachments,
       }));
 
       // Optimistically update detail cache
@@ -150,14 +312,15 @@ export function useUpdateNote() {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          title: data.title,
-          content: data.content,
+          title: data.title ?? oldData.title,
+          content: data.content ?? oldData.content,
           tags: data.tags ?? oldData.tags,
           universityOnly: data.universityOnly ?? oldData.universityOnly,
+          attachments: mergedAttachments,
         };
       });
 
-      return { previousQueries, noteId };
+      return { previousQueries, noteId, optimisticAttachments };
     },
 
     onError: (err, variables, context) => {
@@ -167,9 +330,15 @@ export function useUpdateNote() {
           queryClient.setQueryData(queryKey, data);
         });
       }
+      // Clean up blob URLs from optimistic attachments
+      context?.optimisticAttachments?.forEach((att) => {
+        if (att.downloadUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(att.downloadUrl);
+        }
+      });
     },
 
-    onSuccess: (result, { noteId }) => {
+    onSuccess: (result, { noteId }, context) => {
       // Update infinite query cache with server response
       updateNotesCache(queryClient, noteId, () => result.note);
 
@@ -177,6 +346,13 @@ export function useUpdateNote() {
       queryClient.setQueryData(noteKeys.detail(noteId), (oldData) => {
         if (!oldData) return oldData;
         return result.note;
+      });
+
+      // Clean up blob URLs from optimistic attachments
+      context?.optimisticAttachments?.forEach((att) => {
+        if (att.downloadUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(att.downloadUrl);
+        }
       });
     },
   });
