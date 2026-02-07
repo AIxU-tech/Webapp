@@ -118,6 +118,7 @@ export {
   useUpdateComment,
   useDeleteComment,
   useLikeComment,
+  useNoteLikers,
   noteKeys,
   prefetchNotes,
   prefetchInfiniteNotes,

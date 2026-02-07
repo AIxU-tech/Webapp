@@ -5,11 +5,13 @@ Helper functions for community-related routes (notes, comments, likes, bookmarks
 """
 
 from datetime import datetime
+from flask import current_app
 from flask_login import current_user
 from sqlalchemy.orm import Query
 from backend.extensions import db
 from backend.models import Note, NoteComment, User, University, NoteLike, NoteBookmark, NoteCommentLike
 from sqlalchemy import func
+from typing import Optional
 
 
 def create_db_note(data):
@@ -36,9 +38,9 @@ def create_db_note(data):
     if tags:
         note.set_tags_list(tags)
 
-    # Save to database
+    # Flush to get note.id without committing (caller handles commit)
     db.session.add(note)
-    db.session.commit()
+    db.session.flush()
 
     return note
 
@@ -538,8 +540,9 @@ def get_attachments_for_notes(note_ids: list[int]) -> dict[int, list[dict]]:
                 result[attachment.note_id].append(
                     attachment.to_dict(include_download_url=True, download_url=download_url)
                 )
-            except Exception:
+            except Exception as e:
                 # If URL generation fails, include attachment without URL
+                current_app.logger.warning(f"[GCS] Failed to generate download URL for attachment {attachment.id}: {e}")
                 result[attachment.note_id].append(attachment.to_dict())
         else:
             result[attachment.note_id].append(attachment.to_dict())
@@ -563,6 +566,50 @@ def toggle_like_status(current_user, note):
     is_liked = note.toggle_like(current_user.id)
     db.session.commit()
     return is_liked
+
+
+def get_note_likers(note_id: int, limit: Optional[int] = 50, offset: int = 0) -> list[dict]:
+    """
+    Get users who liked a note with pagination support.
+    
+    Returns user info for display in a "who liked this" modal.
+    Ordered by most recent likes first.
+    
+    Args:
+        note_id: The note ID to get likers for
+        limit: Maximum number of users to return (default 50, None for all)
+        offset: Number of users to skip for pagination
+        
+    Returns:
+        List of user dictionaries with id, name, avatar info
+    """
+    # Query NoteLike joined with User, ordered by most recent first
+    query = db.session.query(User).join(
+        NoteLike, NoteLike.user_id == User.id
+    ).filter(
+        NoteLike.note_id == note_id
+    ).order_by(NoteLike.created_at.desc())
+    
+    # Apply pagination
+    if offset:
+        query = query.offset(offset)
+    if limit:
+        query = query.limit(limit)
+    
+    users = query.all()
+    
+    # Return minimal user info for the modal
+    return [
+        {
+            'id': user.id,
+            'name': f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email,
+            'firstName': user.first_name,
+            'lastName': user.last_name,
+            'profilePictureUrl': user.get_profile_picture_url(),
+            'university': user.university,
+        }
+        for user in users
+    ]
 
 
 def toggle_bookmark_status(current_user, note):
@@ -746,3 +793,69 @@ def toggle_comment_like_status(current_user, comment: NoteComment) -> bool:
     is_liked = comment.toggle_like(current_user.id)
     db.session.commit()
     return is_liked
+
+
+# =============================================================================
+# Attachment Helpers
+# =============================================================================
+
+def delete_gcs_files_parallel(gcs_paths: list[str]) -> None:
+    """
+    Delete multiple files from GCS in parallel using ThreadPoolExecutor.
+    
+    Failures are silently ignored - orphaned files can be cleaned up later
+    by a background job.
+    
+    Args:
+        gcs_paths: List of GCS paths to delete
+    """
+    if not gcs_paths:
+        return
+    
+    from concurrent.futures import ThreadPoolExecutor
+    from backend.services.storage import is_gcs_configured, delete_file
+    
+    if not is_gcs_configured():
+        return
+    
+    def safe_delete(path):
+        try:
+            delete_file(path)
+        except Exception as e:
+            current_app.logger.warning(f"[GCS] Failed to delete {path}: {e}")
+    
+    with ThreadPoolExecutor(max_workers=min(len(gcs_paths), 10)) as executor:
+        executor.map(safe_delete, gcs_paths)
+
+
+def remove_note_attachments(note_id: int, attachment_ids: list[int]) -> None:
+    """
+    Remove attachments from a note by ID, deleting from both database and GCS.
+    
+    Optimized to use a single database query and parallel GCS deletions.
+    Caller must handle db.session.commit().
+    
+    Args:
+        note_id: The note ID (used to verify attachments belong to this note)
+        attachment_ids: List of attachment IDs to remove
+    """
+    if not attachment_ids:
+        return
+    
+    from backend.models import NoteAttachment
+    
+    # Single query to fetch all attachments to remove
+    attachments_to_remove = NoteAttachment.query.filter(
+        NoteAttachment.id.in_(attachment_ids),
+        NoteAttachment.note_id == note_id
+    ).all()
+    
+    # Collect GCS paths before deleting from DB
+    gcs_paths_to_delete = [a.gcs_path for a in attachments_to_remove]
+    
+    # Delete from database
+    for attachment in attachments_to_remove:
+        db.session.delete(attachment)
+    
+    # Delete from GCS in parallel
+    delete_gcs_files_parallel(gcs_paths_to_delete)

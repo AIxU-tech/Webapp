@@ -14,6 +14,9 @@ from backend.routes_v2.community.helpers import (
     update_comment,
     delete_comment,
     toggle_comment_like_status,
+    remove_note_attachments,
+    delete_gcs_files_parallel,
+    get_note_likers,
 )
 from backend.services.content_moderator import moderate_content
 from backend.constants import MAX_ATTACHMENTS_PER_NOTE
@@ -189,20 +192,7 @@ def update_note(note_id):
 
         # Remove attachments marked for deletion
         if attachment_ids_to_remove:
-            from backend.services.storage import is_gcs_configured, delete_file
-            for attachment_id in attachment_ids_to_remove:
-                attachment = NoteAttachment.query.filter_by(
-                    id=attachment_id,
-                    note_id=note_id
-                ).first()
-                if attachment:
-                    # Delete from GCS
-                    if is_gcs_configured():
-                        try:
-                            delete_file(attachment.gcs_path)
-                        except Exception:
-                            pass  # Log but continue
-                    db.session.delete(attachment)
+            remove_note_attachments(note_id, attachment_ids_to_remove)
 
         # Add new attachments
         if new_attachments_data:
@@ -242,16 +232,10 @@ def delete_note(note_id):
         if note.author_id != current_user.id:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
-        # Clean up GCS files for this note's attachments
-        try:
-            from backend.services.storage import delete_file, is_gcs_configured
-            if is_gcs_configured():
-                attachments = NoteAttachment.get_for_note(note_id)
-                for attachment in attachments:
-                    delete_file(attachment.gcs_path)
-        except Exception:
-            # Log but don't fail the delete if GCS cleanup fails
-            pass
+        # Clean up GCS files for this note's attachments (parallel deletion)
+        attachments = NoteAttachment.get_for_note(note_id)
+        gcs_paths = [a.gcs_path for a in attachments]
+        delete_gcs_files_parallel(gcs_paths)
 
         # Delete the note (cascades to attachments table)
         db.session.delete(note)
@@ -379,6 +363,43 @@ def toggle_like(note_id):
 
     except Exception as e:
         db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# Route to get users who liked a note
+@community_bp.route('/api/notes/<int:note_id>/likes', methods=['GET'])
+def get_likes(note_id):
+    """
+    Get users who liked a note.
+    
+    Query parameters:
+        - limit: Max number of users to return (default 50)
+        - offset: Number of users to skip for pagination
+    
+    Returns:
+        - success: Boolean
+        - users: Array of user objects with id, name, avatar
+        - total: Total number of likes on the note
+    """
+    try:
+        note = Note.query.get(note_id)
+        if not note:
+            return jsonify({'success': False, 'error': 'Note not found'}), 404
+
+        # Get pagination params
+        limit = request.args.get('limit', 50, type=int)
+        offset = request.args.get('offset', 0, type=int)
+
+        # Get users who liked this note
+        users = get_note_likers(note_id, limit=limit, offset=offset)
+
+        return jsonify({
+            'success': True,
+            'users': users,
+            'total': note.likes
+        })
+
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

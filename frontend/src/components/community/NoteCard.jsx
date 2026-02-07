@@ -13,6 +13,7 @@ import {
 } from '../icons';
 import CommentSection from './CommentSection';
 import NoteAttachments from './NoteAttachments';
+import NoteLikersModal from './NoteLikersModal';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 
 export default function NoteCard({
@@ -31,6 +32,8 @@ export default function NoteCard({
   // Share popover state
   const [isSharePopoverOpen, setIsSharePopoverOpen] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  // Likers modal state
+  const [isLikersModalOpen, setIsLikersModalOpen] = useState(false);
 
   // Determine if current user owns this note
   const isOwner = isAuthenticated && currentUserId && note.author.id === currentUserId;
@@ -57,6 +60,7 @@ export default function NoteCard({
         isLiked={note.isLiked}
         likes={note.likes}
         onClick={() => onLike(note.id)}
+        onCountClick={() => setIsLikersModalOpen(true)}
         size="lg"
       />
 
@@ -122,6 +126,12 @@ export default function NoteCard({
         message="Link copied!"
         isVisible={showToast}
         onDismiss={() => setShowToast(false)}
+      />
+      <NoteLikersModal
+        isOpen={isLikersModalOpen}
+        onClose={() => setIsLikersModalOpen(false)}
+        noteId={note.id}
+        totalLikes={note.likes}
       />
     </>
   );

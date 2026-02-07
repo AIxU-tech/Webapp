@@ -18,6 +18,7 @@ import {
   updateComment,
   deleteComment,
   toggleLikeComment,
+  fetchNoteLikers,
 } from '../api/notes';
 import { uploadMultipleFiles } from '../api/uploads';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
@@ -32,12 +33,13 @@ import {
 const updateNotesCache = createInfiniteQueryCacheUpdater('notes', 'notes');
 const removeFromNotesCache = createInfiniteQueryCacheRemover('notes', 'notes');
 
-// Query Keys - extend factory keys with comments and detail keys
+// Query Keys - extend factory keys with comments, detail, and likers keys
 const baseKeys = createFeedItemKeys('notes');
 export const noteKeys = {
   ...baseKeys,
   detail: (noteId) => [...baseKeys.all, 'detail', noteId],
   comments: (noteId) => [...baseKeys.all, noteId, 'comments'],
+  likers: (noteId) => [...baseKeys.all, noteId, 'likers'],
   infinite: (params = {}) => [...baseKeys.all, 'infinite', params],
 };
 
@@ -548,6 +550,9 @@ export function useLikeNote() {
           likes: result.likes,
         };
       });
+
+      // Invalidate likers cache so it refetches when modal opens
+      queryClient.invalidateQueries({ queryKey: noteKeys.likers(noteId) });
     },
   });
 }
@@ -577,6 +582,35 @@ export function useComments(noteId, { enabled = true } = {}) {
     enabled: enabled && !!noteId,
     staleTime: STALE_TIMES.NOTES,
     select: (data) => (Array.isArray(data) ? data : []),
+  });
+}
+
+/**
+ * useNoteLikers Hook
+ *
+ * Fetches and caches the list of users who liked a specific note.
+ * Only fetches when enabled (i.e., when the likers modal is open).
+ *
+ * @param {number} noteId - The note ID to fetch likers for
+ * @param {object} options - Additional options
+ * @param {boolean} [options.enabled=true] - Whether to fetch likers
+ * @returns {object} React Query result with users array and total count
+ *
+ * @example
+ * const { data, isLoading } = useNoteLikers(noteId, { enabled: isModalOpen });
+ * const users = data?.users || [];
+ * const total = data?.total || 0;
+ */
+export function useNoteLikers(noteId, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: noteKeys.likers(noteId),
+    queryFn: () => fetchNoteLikers(noteId),
+    enabled: enabled && !!noteId,
+    staleTime: STALE_TIMES.NOTES,
+    select: (data) => ({
+      users: data?.users || [],
+      total: data?.total || 0,
+    }),
   });
 }
 
