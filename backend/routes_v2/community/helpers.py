@@ -5,11 +5,13 @@ Helper functions for community-related routes (notes, comments, likes, bookmarks
 """
 
 from datetime import datetime
+from flask import current_app
 from flask_login import current_user
 from sqlalchemy.orm import Query
 from backend.extensions import db
 from backend.models import Note, NoteComment, User, University, NoteLike, NoteBookmark, NoteCommentLike
 from sqlalchemy import func
+from typing import Optional
 
 
 def create_db_note(data):
@@ -17,15 +19,16 @@ def create_db_note(data):
     Create a new note in the database.
 
     Args:
-        data: Dictionary containing 'title', 'content', optional 'tags',
+        data: Dictionary containing 'title', optional 'content', optional 'tags',
               and optional 'universityOnly'
 
     Returns:
         The newly created Note object
     """
+    content = data.get('content', '').strip() or None
     note = Note(
         title=data['title'].strip(),
-        content=data['content'].strip(),
+        content=content,
         author_id=current_user.id,
         university_only=data.get('universityOnly', False)
     )
@@ -35,9 +38,9 @@ def create_db_note(data):
     if tags:
         note.set_tags_list(tags)
 
-    # Save to database
+    # Flush to get note.id without committing (caller handles commit)
     db.session.add(note)
-    db.session.commit()
+    db.session.flush()
 
     return note
 
@@ -450,7 +453,7 @@ def check_note_visibility(note, user):
     return False
 
 
-def notes_to_dict(db_notes, current_user):
+def notes_to_dict(db_notes, current_user, include_attachments=True):
     """
     Convert a list of Note objects to dictionaries with user-specific data.
 
@@ -467,6 +470,7 @@ def notes_to_dict(db_notes, current_user):
     Args:
         db_notes: List of Note objects (already filtered for visibility)
         current_user: The current authenticated user (or anonymous)
+        include_attachments: Whether to include attachment data (default True)
 
     Returns:
         List of note dictionaries ready for JSON serialization
@@ -482,6 +486,11 @@ def notes_to_dict(db_notes, current_user):
         note_ids = [note.id for note in db_notes]
         liked_ids, bookmarked_ids = get_user_note_interactions(current_user.id, note_ids)
 
+    # Pre-fetch attachments for all notes in one query if needed
+    attachments_by_note = {}
+    if include_attachments:
+        attachments_by_note = get_attachments_for_notes([n.id for n in db_notes])
+
     # Build response with O(1) lookups
     notes = []
     for note in db_notes:
@@ -491,9 +500,54 @@ def notes_to_dict(db_notes, current_user):
             note_dict['isLiked'] = note.id in liked_ids
             note_dict['isBookmarked'] = note.id in bookmarked_ids
 
+        # Add attachments
+        if include_attachments:
+            note_dict['attachments'] = attachments_by_note.get(note.id, [])
+
         notes.append(note_dict)
 
     return notes
+
+
+def get_attachments_for_notes(note_ids: list[int]) -> dict[int, list[dict]]:
+    """
+    Fetch all attachments for multiple notes in a single query.
+    
+    Args:
+        note_ids: List of note IDs
+        
+    Returns:
+        Dictionary mapping note_id to list of attachment dicts with download URLs
+    """
+    if not note_ids:
+        return {}
+    
+    from backend.models import NoteAttachment
+    from backend.services.storage import is_gcs_configured, generate_download_url
+    
+    attachments = NoteAttachment.query.filter(
+        NoteAttachment.note_id.in_(note_ids)
+    ).order_by(NoteAttachment.created_at).all()
+    
+    # Group by note_id
+    result = {note_id: [] for note_id in note_ids}
+    gcs_configured = is_gcs_configured()
+    
+    for attachment in attachments:
+        if gcs_configured:
+            try:
+                download_url = generate_download_url(attachment.gcs_path)
+                result[attachment.note_id].append(
+                    attachment.to_dict(include_download_url=True, download_url=download_url)
+                )
+            except Exception as e:
+                # If URL generation fails, include attachment without URL
+                current_app.logger.warning(f"[GCS] Failed to generate download URL for attachment {attachment.id}: {e}")
+                result[attachment.note_id].append(attachment.to_dict())
+        else:
+            result[attachment.note_id].append(attachment.to_dict())
+    
+    return result
 
 
 def toggle_like_status(current_user, note):
@@ -512,6 +566,50 @@ def toggle_like_status(current_user, note):
     is_liked = note.toggle_like(current_user.id)
     db.session.commit()
     return is_liked
+
+
+def get_note_likers(note_id: int, limit: Optional[int] = 50, offset: int = 0) -> list[dict]:
+    """
+    Get users who liked a note with pagination support.
+    
+    Returns user info for display in a "who liked this" modal.
+    Ordered by most recent likes first.
+    
+    Args:
+        note_id: The note ID to get likers for
+        limit: Maximum number of users to return (default 50, None for all)
+        offset: Number of users to skip for pagination
+        
+    Returns:
+        List of user dictionaries with id, name, avatar info
+    """
+    # Query NoteLike joined with User, ordered by most recent first
+    query = db.session.query(User).join(
+        NoteLike, NoteLike.user_id == User.id
+    ).filter(
+        NoteLike.note_id == note_id
+    ).order_by(NoteLike.created_at.desc())
+    
+    # Apply pagination
+    if offset:
+        query = query.offset(offset)
+    if limit:
+        query = query.limit(limit)
+    
+    users = query.all()
+    
+    # Return minimal user info for the modal
+    return [
+        {
+            'id': user.id,
+            'name': f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email,
+            'firstName': user.first_name,
+            'lastName': user.last_name,
+            'profilePictureUrl': user.get_profile_picture_url(),
+            'university': user.university,
+        }
+        for user in users
+    ]
 
 
 def toggle_bookmark_status(current_user, note):
@@ -695,3 +793,69 @@ def toggle_comment_like_status(current_user, comment: NoteComment) -> bool:
     is_liked = comment.toggle_like(current_user.id)
     db.session.commit()
     return is_liked
+
+
+# =============================================================================
+# Attachment Helpers
+# =============================================================================
+
+def delete_gcs_files_parallel(gcs_paths: list[str]) -> None:
+    """
+    Delete multiple files from GCS in parallel using ThreadPoolExecutor.
+    
+    Failures are silently ignored - orphaned files can be cleaned up later
+    by a background job.
+    
+    Args:
+        gcs_paths: List of GCS paths to delete
+    """
+    if not gcs_paths:
+        return
+    
+    from concurrent.futures import ThreadPoolExecutor
+    from backend.services.storage import is_gcs_configured, delete_file
+    
+    if not is_gcs_configured():
+        return
+    
+    def safe_delete(path):
+        try:
+            delete_file(path)
+        except Exception as e:
+            current_app.logger.warning(f"[GCS] Failed to delete {path}: {e}")
+    
+    with ThreadPoolExecutor(max_workers=min(len(gcs_paths), 10)) as executor:
+        executor.map(safe_delete, gcs_paths)
+
+
+def remove_note_attachments(note_id: int, attachment_ids: list[int]) -> None:
+    """
+    Remove attachments from a note by ID, deleting from both database and GCS.
+    
+    Optimized to use a single database query and parallel GCS deletions.
+    Caller must handle db.session.commit().
+    
+    Args:
+        note_id: The note ID (used to verify attachments belong to this note)
+        attachment_ids: List of attachment IDs to remove
+    """
+    if not attachment_ids:
+        return
+    
+    from backend.models import NoteAttachment
+    
+    # Single query to fetch all attachments to remove
+    attachments_to_remove = NoteAttachment.query.filter(
+        NoteAttachment.id.in_(attachment_ids),
+        NoteAttachment.note_id == note_id
+    ).all()
+    
+    # Collect GCS paths before deleting from DB
+    gcs_paths_to_delete = [a.gcs_path for a in attachments_to_remove]
+    
+    # Delete from database
+    for attachment in attachments_to_remove:
+        db.session.delete(attachment)
+    
+    # Delete from GCS in parallel
+    delete_gcs_files_parallel(gcs_paths_to_delete)

@@ -45,3 +45,10 @@ coverage.xml
 .hypothesis/
 test.db
 instance/test.db
+
+# GCS / Terraform
+flask-sa-key.json
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars

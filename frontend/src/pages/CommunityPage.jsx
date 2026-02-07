@@ -46,6 +46,7 @@ import {
   GradientButton,
   FeedItemList,
   ConfirmationModal,
+  Toast,
 } from '../components/ui';
 import { NoteCard, NotesFilter, CreateNoteModal, EditNoteModal } from '../components/community';
 
@@ -163,7 +164,11 @@ export default function CommunityPage() {
    * Edit Note Modal State
    */
   const [noteToEdit, setNoteToEdit] = useState(null);
-  const [editNoteError, setEditNoteError] = useState(null);
+
+  /**
+   * Toast notification for background errors (e.g., failed note creation/update)
+   */
+  const [errorToast, setErrorToast] = useState(null);
 
   /**
    * Delete Confirmation Modal State
@@ -262,19 +267,46 @@ export default function CommunityPage() {
   /**
    * Handle Create Note Form Submission
    *
-   * Uses React Query mutation with automatic cache invalidation.
+   * Uses optimistic updates: closes modal immediately and shows note in feed.
+   * File uploads and backend creation happen in the background.
+   * If creation fails, the optimistic note is removed and an error toast is shown.
    */
   function handleCreateNote(noteData) {
     setCreateNoteError(null);
-    createNoteMutation.mutate(noteData, {
-      onSuccess: () => {
-        closeModal();
+    const { files, ...notePayload } = noteData;
+
+    // Build optimistic attachments from files (with blob URLs for image previews)
+    const optimisticAttachments = files?.map((file, index) => ({
+      id: `temp-att-${Date.now()}-${index}`,
+      filename: file.name,
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+      isImage: file.type?.startsWith('image/') || false,
+      isPdf: file.type === 'application/pdf',
+      // Create blob URL for image previews
+      downloadUrl: file.type?.startsWith('image/') ? URL.createObjectURL(file) : null,
+      isOptimistic: true,
+    })) || [];
+
+    // Close modal immediately for optimistic UX
+    closeModal();
+
+    // Trigger mutation with all data - uploads and creation happen in background
+    createNoteMutation.mutate(
+      {
+        ...notePayload,
+        files,
+        optimisticAttachments,
+        user,
       },
-      onError: (err) => {
-        console.error('Error creating note:', err);
-        setCreateNoteError('Failed to create note. Please try again.');
-      },
-    });
+      {
+        onError: (err) => {
+          console.error('Error creating note:', err);
+          const message = err.data?.error || err.message || 'Failed to create note. Please try again.';
+          setErrorToast(message);
+        },
+      }
+    );
   }
 
   /**
@@ -317,7 +349,6 @@ export default function CommunityPage() {
   function handleEditClick(noteId) {
     const noteToEditData = notes.find((n) => n.id === noteId);
     if (noteToEditData) {
-      setEditNoteError(null);
       setNoteToEdit(noteToEditData);
     }
   }
@@ -327,27 +358,51 @@ export default function CommunityPage() {
    */
   function closeEditModal() {
     setNoteToEdit(null);
-    setEditNoteError(null);
   }
 
   /**
    * Handle Update Note Form Submission
    *
-   * Uses React Query mutation with optimistic updates.
+   * Uses optimistic updates: closes modal immediately and shows changes in feed.
+   * File uploads and backend update happen in the background.
+   * If update fails, the optimistic changes are rolled back and an error toast is shown.
    */
   function handleUpdateNote(noteData) {
     if (!noteToEdit) return;
-    
-    setEditNoteError(null);
+
+    const { newFiles, attachmentIdsToRemove = [], ...updatePayload } = noteData;
+
+    // Build optimistic attachments from new files (with blob URLs for image previews)
+    const optimisticAttachments = newFiles?.map((file, index) => ({
+      id: `temp-att-${Date.now()}-${index}`,
+      filename: file.name,
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+      isImage: file.type?.startsWith('image/') || false,
+      isPdf: file.type === 'application/pdf',
+      // Create blob URL for image previews
+      downloadUrl: file.type?.startsWith('image/') ? URL.createObjectURL(file) : null,
+      isOptimistic: true,
+    })) || [];
+
+    // Close modal immediately for optimistic UX
+    closeEditModal();
+
+    // Trigger mutation with all data - uploads and update happen in background
     updateNoteMutation.mutate(
-      { noteId: noteToEdit.id, data: noteData },
       {
-        onSuccess: () => {
-          closeEditModal();
-        },
+        noteId: noteToEdit.id,
+        data: updatePayload,
+        files: newFiles,
+        optimisticAttachments,
+        attachmentIdsToRemove,
+        existingAttachments: noteToEdit.attachments || [],
+      },
+      {
         onError: (err) => {
           console.error('Error updating note:', err);
-          setEditNoteError(err.message || 'Failed to update note. Please try again.');
+          const message = err.data?.error || err.message || 'Failed to update note. Please try again.';
+          setErrorToast(message);
         },
       }
     );
@@ -521,7 +576,6 @@ export default function CommunityPage() {
         isOpen={isModalOpen}
         onClose={closeModal}
         onCreate={handleCreateNote}
-        isCreating={createNoteMutation.isPending}
         userUniversity={user?.university}
         error={createNoteError}
       />
@@ -531,10 +585,8 @@ export default function CommunityPage() {
         isOpen={noteToEdit !== null}
         onClose={closeEditModal}
         onUpdate={handleUpdateNote}
-        isUpdating={updateNoteMutation.isPending}
         note={noteToEdit}
         userUniversity={user?.university}
-        error={editNoteError}
       />
 
       {/* Delete Confirmation Modal */}
@@ -546,6 +598,14 @@ export default function CommunityPage() {
         message="Are you sure you want to delete this note? This action cannot be undone."
         confirmText="Delete"
         variant="danger"
+      />
+
+      {/* Error Toast for background failures */}
+      <Toast
+        message={errorToast}
+        isVisible={!!errorToast}
+        onDismiss={() => setErrorToast(null)}
+        variant="error"
       />
     </div>
   );

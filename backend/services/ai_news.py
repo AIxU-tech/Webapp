@@ -28,10 +28,7 @@ from backend.models.ai_news import (
     AIResearchPaper,
     AINewsChatMessage
 )
-from backend.services.image_extraction import (
-    extract_image_for_story,
-    extract_image_for_paper
-)
+from backend.services.image_extraction import extract_image_for_paper
 from backend.services.agents.story_scout import fetch_story_candidates
 from backend.services.agents.paper_scout import fetch_paper_candidates
 from backend.services.agents.curator import curate_stories, curate_papers
@@ -144,11 +141,8 @@ def _store_stories(stories_data: list, batch_id: str) -> list[dict]:
     """
     Store news stories and their sources in the database.
 
-    If no imageUrl is provided by Claude, attempts to extract one from
-    the story's source URLs using Open Graph meta tags.
-
     Args:
-        stories_data: List of story dictionaries from Claude's response
+        stories_data: List of story dictionaries from the curator
         batch_id: Unique identifier for this fetch batch
 
     Returns:
@@ -157,19 +151,13 @@ def _store_stories(stories_data: list, batch_id: str) -> list[dict]:
     stored = []
 
     for data in stories_data:
-        # Get image URL from Claude's response, or extract from sources
-        image_url = data.get('imageUrl')
-        if not image_url:
-            sources = data.get('sources', [])
-            image_url = extract_image_for_story(sources)
-
         story = AINewsStory(
             title=data.get('title', 'Untitled'),
             summary=data.get('summary', ''),
             significance=data.get('significance', ''),
             rank=data.get('rank', 99),
             batch_id=batch_id,
-            image_url=image_url,
+            image_url=data.get('imageUrl'),
             emoji=data.get('emoji')
         )
 
@@ -261,6 +249,43 @@ def _store_papers(papers_data: list, batch_id: str) -> list[dict]:
 # Main Fetch Function (4-Agent Pipeline)
 # =============================================================================
 
+def _enrich_candidates_with_images(candidates: list[dict]) -> list[dict]:
+    """
+    Extract images for story candidates before curation.
+    
+    This allows the curator to filter by stories that have images.
+    Images are extracted in parallel for better performance.
+    
+    Args:
+        candidates: List of story candidate dicts from the scout
+        
+    Returns:
+        The same candidates with imageUrl added where found
+    """
+    from backend.services.image_extraction import extract_image_from_url
+    
+    print(f"[AI News] Extracting images for {len(candidates)} story candidates...")
+    
+    def extract_for_candidate(candidate):
+        """Extract image from a candidate's source URLs."""
+        source_urls = candidate.get('sourceUrls', [])
+        for url in source_urls:
+            image_url = extract_image_from_url(url)
+            if image_url:
+                candidate['imageUrl'] = image_url
+                return candidate
+        return candidate
+    
+    # Extract images in parallel (limit workers to avoid overwhelming servers)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        enriched = list(executor.map(extract_for_candidate, candidates))
+    
+    with_images = sum(1 for c in enriched if c.get('imageUrl'))
+    print(f"[AI News] Found images for {with_images}/{len(candidates)} candidates")
+    
+    return enriched
+
+
 def _run_scout_with_retry(scout_fn, client, current_date, label):
     """Run a scout function with one automatic retry on APIError."""
     try:
@@ -319,6 +344,11 @@ def fetch_top_ai_content() -> dict:
 
             story_candidates = story_future.result()
             paper_candidates = paper_future.result()
+
+        # Extract images for story candidates before curation
+        # so the curator can filter by stories that have images
+        if story_candidates:
+            story_candidates = _enrich_candidates_with_images(story_candidates)
 
         if not story_candidates and not paper_candidates:
             return {'success': False, 'error': 'Both scouts failed to find candidates', 'batch_id': batch_id}
