@@ -91,6 +91,7 @@ For each of the top 3 papers, produce a complete entry with:
 - authors: "Author1, Author2, et al."
 - summary: Plain-language summary of what the paper does (2-3 sentences), followed by a newline and then the key findings/contributions (2-3 sentences). Both parts go in the same "summary" field.
 - paperUrl: Full URL to the paper
+- sourceName: Copy the sourceName from the candidate (e.g., "arXiv", "NeurIPS 2025")
 - emoji: Single emoji representing the topic
 
 Return ONLY valid JSON:
@@ -102,6 +103,7 @@ Return ONLY valid JSON:
       "authors": "...",
       "summary": "What the paper does...\\n\\nKey findings and contributions...",
       "paperUrl": "https://...",
+      "sourceName": "arXiv",
       "emoji": "🧬"
     }}
   ]

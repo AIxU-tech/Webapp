@@ -9,17 +9,16 @@ This module defines the database models for storing AI news content:
 
 Each AINewsStory represents a significant AI news event with multiple
 supporting sources. Stories are fetched periodically using Claude's
-web search capabilities and ranked by significance.
+web search capabilities via a scout/curator pipeline.
 
 Database Schema:
 - ai_news_stories: Main story records with title, summary, and metadata
-- ai_news_sources: Supporting sources linked to each story (2-3 per story)
-- ai_research_papers: Research paper records with findings and metadata
+- ai_news_sources: Supporting sources linked to each story (2 per story)
+- ai_research_papers: Research paper records with metadata
 - ai_news_chat_messages: Chat message history for interactive AI discussions
 """
 
 from datetime import datetime, timezone
-import json
 from backend.extensions import db
 
 
@@ -29,23 +28,21 @@ class AINewsStory(db.Model):
 
     Each story captures a significant AI event/development and includes:
     - A descriptive title and comprehensive summary
-    - Significance explanation (why this story matters)
-    - Ranking position (1-10, with 1 being most significant)
     - Multiple supporting sources for verification
 
-    Stories are refreshed periodically and old stories are archived
-    or deleted based on retention policies.
+    Stories are fetched via a scout/curator pipeline and ordered by
+    array position (insertion order). Old stories are archived or
+    deleted based on retention policies.
 
     Attributes:
         id: Primary key
         title: The headline/title of the news story
-        summary: Comprehensive summary (2-4 paragraphs typically)
-        significance: Why this story matters for AI students/researchers
-        rank: Position within the batch (1 = most significant)
-        categories: JSON string of category tags for filtering
+        summary: Comprehensive summary (2-3 sentences typically)
         batch_id: Groups stories from the same fetch operation
         fetched_at: When this story was fetched and stored
         event_date: When the original news event occurred
+        image_url: Hero image URL
+        emoji: Topic emoji
         sources: Related AINewsSource objects
         chat_messages: Related AINewsChatMessage objects
     """
@@ -59,22 +56,12 @@ class AINewsStory(db.Model):
     # The headline/title of the news story
     title = db.Column(db.String(500), nullable=False)
 
-    # Comprehensive summary of the event (2-4 paragraphs typically)
+    # Comprehensive summary of the event (2-3 sentences typically)
     summary = db.Column(db.Text, nullable=False)
 
-    # Explanation of why this story is significant for AI students/researchers
-    significance = db.Column(db.Text, nullable=False)
-
-    # Ranking position within the batch (1 = most significant, 10 = least)
-    rank = db.Column(db.Integer, nullable=False)
-
     # =========================================================================
-    # Categorization & Metadata
+    # Batch & Metadata
     # =========================================================================
-
-    # Category tags for filtering (e.g., ["research", "industry", "policy"])
-    # Stored as JSON string
-    categories = db.Column(db.Text, nullable=True)
 
     # Unique identifier for the fetch batch (allows grouping stories from same fetch)
     # Format: ISO timestamp of when the fetch was initiated
@@ -109,40 +96,13 @@ class AINewsStory(db.Model):
     # Relationships
     # =========================================================================
 
-    # One-to-many relationship: each story has 2-3 supporting sources
+    # One-to-many relationship: each story has 2 supporting sources
     sources = db.relationship(
         'AINewsSource',
         backref='story',
         lazy='dynamic',
         cascade='all, delete-orphan'
     )
-
-    # =========================================================================
-    # Helper Methods for JSON Fields
-    # =========================================================================
-
-    def get_categories_list(self) -> list[str]:
-        """
-        Parse the categories JSON string into a Python list.
-
-        Returns:
-            List of category strings, or empty list if none set.
-        """
-        if self.categories:
-            try:
-                return json.loads(self.categories)
-            except json.JSONDecodeError:
-                return []
-        return []
-
-    def set_categories_list(self, categories: list[str]) -> None:
-        """
-        Convert a list of categories to JSON string for storage.
-
-        Args:
-            categories: List of category strings to store.
-        """
-        self.categories = json.dumps(categories) if categories else None
 
     # =========================================================================
     # Serialization
@@ -160,9 +120,6 @@ class AINewsStory(db.Model):
             'id': self.id,
             'title': self.title,
             'summary': self.summary,
-            'significance': self.significance,
-            'rank': self.rank,
-            'categories': self.get_categories_list(),
             'batchId': self.batch_id,
             'fetchedAt': self.fetched_at.isoformat() if self.fetched_at else None,
             'eventDate': self.event_date.isoformat() if self.event_date else None,
@@ -173,25 +130,21 @@ class AINewsStory(db.Model):
         }
 
     def __repr__(self) -> str:
-        return f'<AINewsStory #{self.rank}: {self.title[:50]}...>'
+        return f'<AINewsStory {self.id}: {self.title[:50]}...>'
 
 
 class AINewsSource(db.Model):
     """
     Represents a source/reference for an AI news story.
 
-    Each story should have 2-3 sources to provide multiple perspectives
-    and allow users to verify information. Sources include the article
-    URL, publication name, and a brief excerpt showing how this source
-    covers the story.
+    Each story has 2 sources to provide multiple perspectives
+    and allow users to verify information.
 
     Attributes:
         id: Primary key
         story_id: Foreign key to the parent AINewsStory
         url: Full URL to the source article
         source_name: Publication name (e.g., "TechCrunch")
-        article_title: Title of the specific article
-        excerpt: Brief description of how this source covers the story
     """
     __tablename__ = 'ai_news_sources'
 
@@ -218,12 +171,6 @@ class AINewsSource(db.Model):
     # Name of the publication (e.g., "TechCrunch", "MIT Technology Review")
     source_name = db.Column(db.String(200), nullable=False)
 
-    # Title of the specific article
-    article_title = db.Column(db.String(500), nullable=True)
-
-    # Brief excerpt or description of how this source covers the story
-    excerpt = db.Column(db.Text, nullable=True)
-
     # =========================================================================
     # Serialization
     # =========================================================================
@@ -233,14 +180,12 @@ class AINewsSource(db.Model):
         Convert the source to a dictionary for JSON API responses.
 
         Returns:
-            Dictionary containing source URL, name, title, and excerpt.
+            Dictionary containing source URL and name.
         """
         return {
             'id': self.id,
             'url': self.url,
             'sourceName': self.source_name,
-            'articleTitle': self.article_title,
-            'excerpt': self.excerpt
         }
 
     def __repr__(self) -> str:
@@ -253,27 +198,23 @@ class AIResearchPaper(db.Model):
 
     Each paper captures recent significant AI research findings and includes:
     - Paper title and authors
-    - A plain-language summary accessible to students
-    - Key findings and contributions
-    - Significance explanation for the AI community
+    - A plain-language summary accessible to students (includes key findings)
     - Link to the paper source (arXiv, conference proceedings, etc.)
+    - Source name (e.g., "arXiv", "NeurIPS 2025")
 
-    Papers are fetched alongside news stories and ranked by significance.
+    Papers are fetched alongside news stories via a scout/curator pipeline
+    and ordered by array position (insertion order).
 
     Attributes:
         id: Primary key
         title: Paper title
         authors: Author names (comma-separated or "et al." format)
-        summary: Plain-language summary of the paper
-        key_findings: Main contributions and results
-        significance: Why this paper matters
+        summary: Plain-language summary including key findings
         paper_url: Link to the full paper
         source_name: Where the paper was published (e.g., "arXiv", "NeurIPS")
-        rank: Position within the batch (1 = most significant)
-        categories: JSON string of category tags
         batch_id: Groups papers from the same fetch operation
         fetched_at: When this paper was fetched
-        publication_date: When the paper was published
+        emoji: Topic emoji
         chat_messages: Related AINewsChatMessage objects
     """
     __tablename__ = 'ai_research_papers'
@@ -289,14 +230,8 @@ class AIResearchPaper(db.Model):
     # Authors (e.g., "Smith, Johnson, et al." or full list)
     authors = db.Column(db.String(1000), nullable=True)
 
-    # Plain-language summary accessible to students
+    # Plain-language summary accessible to students (includes key findings)
     summary = db.Column(db.Text, nullable=False)
-
-    # Main contributions and results
-    key_findings = db.Column(db.Text, nullable=True)
-
-    # Why this paper matters for the AI community
-    significance = db.Column(db.Text, nullable=True)
 
     # Link to the full paper (arXiv, conference, etc.)
     paper_url = db.Column(db.String(2000), nullable=True)
@@ -304,15 +239,9 @@ class AIResearchPaper(db.Model):
     # Publication venue (e.g., "arXiv", "NeurIPS 2025", "Nature")
     source_name = db.Column(db.String(200), nullable=True)
 
-    # Ranking position within the batch
-    rank = db.Column(db.Integer, nullable=False)
-
     # =========================================================================
-    # Categorization & Metadata
+    # Batch & Metadata
     # =========================================================================
-
-    # Category tags for filtering (e.g., ["LLM", "reasoning", "multimodal"])
-    categories = db.Column(db.Text, nullable=True)
 
     # Batch identifier for grouping papers from the same fetch
     batch_id = db.Column(db.String(50), nullable=False, index=True)
@@ -325,35 +254,12 @@ class AIResearchPaper(db.Model):
         index=True
     )
 
-    # When the paper was originally published
-    publication_date = db.Column(db.Date, nullable=True)
-
     # =========================================================================
     # Visual & Display Fields
     # =========================================================================
 
-    # URL to a paper figure, diagram, or related image
-    image_url = db.Column(db.String(2000), nullable=True)
-
     # Single emoji representing the paper's topic (e.g., "🧬", "🔬", "📊")
     emoji = db.Column(db.String(10), nullable=True)
-
-    # =========================================================================
-    # Helper Methods for JSON Fields
-    # =========================================================================
-
-    def get_categories_list(self) -> list[str]:
-        """Parse the categories JSON string into a Python list."""
-        if self.categories:
-            try:
-                return json.loads(self.categories)
-            except json.JSONDecodeError:
-                return []
-        return []
-
-    def set_categories_list(self, categories: list[str]) -> None:
-        """Convert a list of categories to JSON string for storage."""
-        self.categories = json.dumps(categories) if categories else None
 
     # =========================================================================
     # Serialization
@@ -366,21 +272,15 @@ class AIResearchPaper(db.Model):
             'title': self.title,
             'authors': self.authors,
             'summary': self.summary,
-            'keyFindings': self.key_findings,
-            'significance': self.significance,
             'paperUrl': self.paper_url,
             'sourceName': self.source_name,
-            'rank': self.rank,
-            'categories': self.get_categories_list(),
             'batchId': self.batch_id,
             'fetchedAt': self.fetched_at.isoformat() if self.fetched_at else None,
-            'publicationDate': self.publication_date.isoformat() if self.publication_date else None,
-            'imageUrl': self.image_url,
             'emoji': self.emoji
         }
 
     def __repr__(self) -> str:
-        return f'<AIResearchPaper #{self.rank}: {self.title[:50]}...>'
+        return f'<AIResearchPaper {self.id}: {self.title[:50]}...>'
 
 
 class AINewsChatMessage(db.Model):
