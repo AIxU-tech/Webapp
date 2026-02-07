@@ -39,6 +39,8 @@ export {
   MapPinIcon,
   CalendarIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   SpinnerIcon,
   CodeIcon,
   BriefcaseIcon,
