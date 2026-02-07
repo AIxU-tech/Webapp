@@ -26,8 +26,6 @@ from backend.services.storage import (
     generate_upload_url,
     generate_download_url,
     delete_file,
-    validate_content_type,
-    validate_file_extension,
 )
 from backend.constants import MAX_ATTACHMENT_SIZE_BYTES
 from backend.routes_v2.uploads.helpers import _validate_file_upload

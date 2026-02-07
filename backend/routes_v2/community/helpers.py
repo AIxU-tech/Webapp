@@ -5,6 +5,7 @@ Helper functions for community-related routes (notes, comments, likes, bookmarks
 """
 
 from datetime import datetime
+from flask import current_app
 from flask_login import current_user
 from sqlalchemy.orm import Query
 from backend.extensions import db
@@ -37,9 +38,9 @@ def create_db_note(data):
     if tags:
         note.set_tags_list(tags)
 
-    # Save to database
+    # Flush to get note.id without committing (caller handles commit)
     db.session.add(note)
-    db.session.commit()
+    db.session.flush()
 
     return note
 
@@ -539,8 +540,9 @@ def get_attachments_for_notes(note_ids: list[int]) -> dict[int, list[dict]]:
                 result[attachment.note_id].append(
                     attachment.to_dict(include_download_url=True, download_url=download_url)
                 )
-            except Exception:
+            except Exception as e:
                 # If URL generation fails, include attachment without URL
+                current_app.logger.warning(f"[GCS] Failed to generate download URL for attachment {attachment.id}: {e}")
                 result[attachment.note_id].append(attachment.to_dict())
         else:
             result[attachment.note_id].append(attachment.to_dict())
@@ -819,8 +821,8 @@ def delete_gcs_files_parallel(gcs_paths: list[str]) -> None:
     def safe_delete(path):
         try:
             delete_file(path)
-        except Exception:
-            pass  # Log but continue - orphans can be cleaned up later
+        except Exception as e:
+            current_app.logger.warning(f"[GCS] Failed to delete {path}: {e}")
     
     with ThreadPoolExecutor(max_workers=min(len(gcs_paths), 10)) as executor:
         executor.map(safe_delete, gcs_paths)
