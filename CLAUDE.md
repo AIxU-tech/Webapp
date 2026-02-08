@@ -227,9 +227,9 @@ Normalized tag storage for efficient filtering.
 **Fields:** `id`, `sender_id`, `recipient_id`, `content`, `is_read`, `created_at`
 
 ### AI News Models (`backend/models/ai_news.py`)
-**AINewsStory:** `id`, `title`, `summary`, `significance`, `rank`, `categories` (JSON), `batch_id`, `fetched_at`
-**AINewsSource:** `id`, `story_id`, `url`, `source_name`, `article_title`, `excerpt`
-**AIResearchPaper:** `id`, `title`, `authors`, `summary`, `key_findings`, `significance`, `paper_url`, `source_name`, `rank`, `categories` (JSON), `batch_id`
+**AINewsStory:** `id`, `title`, `summary`, `batch_id`, `fetched_at`, `event_date`, `image_url`, `emoji`
+**AINewsSource:** `id`, `story_id`, `url`, `source_name`
+**AIResearchPaper:** `id`, `title`, `authors`, `summary`, `paper_url`, `source_name`, `batch_id`, `fetched_at`, `emoji`
 **AINewsChatMessage:** `id`, `session_id`, `story_id` OR `paper_id`, `role`, `content`, `created_at`
 
 ### Relationship Tables (`backend/models/relationships.py`)

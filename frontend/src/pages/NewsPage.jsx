@@ -127,7 +127,6 @@ function ContentSection({
             <ContentCard
               key={item.id || index}
               item={item}
-              rank={index + 1}
               type={type}
             />
           ))}

@@ -21,7 +21,7 @@ import { api } from './client';
 /**
  * Fetch AI news stories from the backend.
  *
- * Retrieves the latest batch of news stories, ordered by significance rank.
+ * Retrieves the latest batch of news stories, ordered by insertion order.
  * Results are cached on the server, so repeated calls are fast.
  *
  * @param {number} [limit=10] - Maximum number of stories to fetch (1-20)
@@ -43,7 +43,7 @@ export async function fetchNews(limit = 10) {
 /**
  * Fetch AI research papers from the backend.
  *
- * Retrieves the latest batch of research papers, ordered by significance rank.
+ * Retrieves the latest batch of research papers, ordered by insertion order.
  * Results are cached on the server.
  *
  * @param {number} [limit=3] - Maximum number of papers to fetch (1-10)
