@@ -421,6 +421,7 @@ export default function UniversityDetailPage() {
           <UniversityEventsTab
             universityId={id}
             canCreateEvent={canCreateEvent}
+            canManageEvents={canCreateEvent}
             currentUserId={currentUserId}
             isAuthenticated={isAuthenticated}
           />

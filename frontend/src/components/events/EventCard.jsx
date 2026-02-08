@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../ui';
-import { ClockIcon, MapPinIcon, UsersIcon, TrashIcon, CheckIcon } from '../icons';
+import { ClockIcon, MapPinIcon, UsersIcon, TrashIcon, PencilIcon, CheckIcon } from '../icons';
 import { parseUtcDate } from '../../utils/time';
 
 /**
@@ -66,14 +66,13 @@ export default function EventCard({
   event,
   onRsvp,
   onDelete,
+  onEdit,
   currentUserId,
   isAuthenticated = false,
+  canManageEvent = false,
 }) {
   // State for expanding/collapsing description
   const [isExpanded, setIsExpanded] = useState(false);
-
-  // Determine if current user can delete this event
-  const isCreator = isAuthenticated && currentUserId && event.createdById === currentUserId;
 
   // Handle RSVP click
   const handleRsvp = () => {
@@ -112,16 +111,26 @@ export default function EventCard({
               )}
             </div>
 
-            {/* Delete Button */}
-            {isCreator && (
-              <button
-                onClick={() => onDelete?.(event.id)}
-                className="text-muted-foreground hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100"
-                title="Delete event"
-                aria-label="Delete event"
-              >
-                <TrashIcon className="h-4 w-4" />
-              </button>
+            {/* Edit / Delete Buttons (executives+ or site admin) */}
+            {canManageEvent && (
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                <button
+                  onClick={() => onEdit?.(event)}
+                  className="text-muted-foreground hover:text-primary transition-colors p-1 cursor-pointer"
+                  title="Edit event"
+                  aria-label="Edit event"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => onDelete?.(event.id)}
+                  className="text-muted-foreground hover:text-red-500 transition-colors p-1 cursor-pointer"
+                  title="Delete event"
+                  aria-label="Delete event"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
             )}
           </div>
 

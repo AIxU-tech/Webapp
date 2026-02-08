@@ -97,6 +97,7 @@ export {
   useUniversityEvents,
   useEvent,
   useCreateEvent,
+  useUpdateEvent,
   useDeleteEvent,
   useToggleRsvp,
   eventKeys,
