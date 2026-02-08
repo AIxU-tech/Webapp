@@ -2,23 +2,20 @@
 AI News Fetching & Chat Service
 
 This module provides the core business logic for:
-1. Fetching AI news stories and research papers using Claude's web search
+1. Fetching AI news stories and research papers via a 4-agent pipeline
+   (Story Scout → Story Curator, Paper Scout → Paper Curator)
 2. Interactive chat functionality about news content using Claude
 
 Key Functions:
-- fetch_top_ai_stories(): Fetch news stories and papers from web sources
+- fetch_top_ai_content(): Run the scout/curator pipeline to fetch content
 - get_latest_stories(): Retrieve cached news stories
 - get_latest_papers(): Retrieve cached research papers
 - chat_with_story(): Interactive Q&A about a news story
 - chat_with_paper(): Interactive Q&A about a research paper
-
-The fetch operation uses Claude's web search tool to find recent AI news,
-then stores results in the database for fast retrieval. Chat operations
-use Claude to answer user questions with full context from the content.
 """
 
 import json
-import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -31,123 +28,31 @@ from backend.models.ai_news import (
     AIResearchPaper,
     AINewsChatMessage
 )
-from backend.services.image_extraction import (
-    extract_image_for_story,
-    extract_image_for_paper
-)
+from backend.services.image_extraction import extract_image_for_paper
+from backend.services.agents.story_scout import fetch_story_candidates
+from backend.services.agents.paper_scout import fetch_paper_candidates
+from backend.services.agents.curator import curate_stories, curate_papers
 
 
 # =============================================================================
 # Configuration Constants
 # =============================================================================
 
-# Model used for web search (news fetching)
+# Model used for chat interactions
 CHAT_MODEL = "claude-sonnet-4-5-20250929"
-
-# Model used for chat interactions (faster, cheaper)
-SEARCH_MODEL = "claude-haiku-4-5-20251001"
-
-# Token limits
-MAX_TOKENS = 16000
 CHAT_MAX_TOKENS = 8000
 
 # Content fetch settings
 NUM_STORIES = 3
 NUM_PAPERS = 3
-SOURCES_PER_STORY = 2
-MAX_SEARCH_USES = 15
 
 # Chat settings
 MAX_CONVERSATION_HISTORY = 20  # Maximum messages to include for context
 
 
 # =============================================================================
-# Prompt Building Functions
+# Chat System Prompt Builder
 # =============================================================================
-
-def _build_prompt(num_stories: int, num_papers: int, sources_per_story: int, current_date: str) -> str:
-    """
-    Build the prompt for fetching AI news and research papers.
-
-    Creates a detailed prompt that instructs Claude to find recent AI news
-    stories and notable research papers using web search.
-
-    Args:
-        num_stories: Number of news stories to fetch
-        num_papers: Number of research papers to fetch
-        sources_per_story: Number of sources to find per story
-        current_date: Today's date in YYYY-MM-DD format
-
-    Returns:
-        Formatted prompt string for Claude
-    """
-    return f"""Today is {current_date}. Find:
-1. The top {num_stories} most significant AI NEWS STORIES from the past 24-48 hours
-2. The top {num_papers} most notable AI RESEARCH PAPERS from the past week
-
-For NEWS STORIES:
-- Only include stories where the EVENT/ANNOUNCEMENT happened recently
-- Do NOT include follow-up articles about older announcements
-- For each story, find {sources_per_story} credible sources
-
-For RESEARCH PAPERS:
-- Focus on papers from arXiv, major conferences (NeurIPS, ICML, etc.), or top AI labs
-- Prioritize papers that are getting significant attention in the AI community
-- Include papers that introduce novel techniques, achieve state-of-the-art results, or have practical applications
-- CRITICAL: You MUST provide the complete, exact paper URL with the full arXiv ID (e.g., 2601.14192, not 2601.xxxxx or partial IDs)
-- Verify each paper URL is complete and valid before including it
-
-For IMAGES:
-- For each story/paper, find the main hero image or og:image URL from the article
-- Only include direct image URLs (ending in .jpg, .png, .webp, etc.) or valid og:image URLs
-- If no suitable image is found, set imageUrl to null
-
-For EMOJIS:
-- Choose a single emoji that best represents the topic/theme of each story or paper
-- Examples: 🤖 for robotics, 🧠 for neural networks, 💰 for funding, 🔬 for research, 🚀 for launches
-
-Return JSON:
-```json
-{{
-  "stories": [
-    {{
-      "rank": 1,
-      "title": "Headline",
-      "summary": "1-2 paragraph summary",
-      "significance": "Why this matters",
-      "categories": ["research", "industry"],
-      "eventDate": "YYYY-MM-DD",
-      "imageUrl": "https://example.com/image.jpg or null",
-      "emoji": "🤖",
-      "sources": [
-        {{
-          "url": "https://...",
-          "sourceName": "Publication",
-          "articleTitle": "Article title",
-          "excerpt": "Brief excerpt"
-        }}
-      ]
-    }}
-  ],
-  "papers": [
-    {{
-      "rank": 1,
-      "title": "Paper title",
-      "authors": "Author1, Author2, et al.",
-      "summary": "Plain-language summary of what the paper does",
-      "keyFindings": "Main contributions and results",
-      "significance": "Why this paper matters",
-      "paperUrl": "https://arxiv.org/abs/2501.12345",
-      "sourceName": "arXiv",
-      "categories": ["LLM", "reasoning"],
-      "publicationDate": "YYYY-MM-DD",
-      "imageUrl": "https://example.com/figure.png or null",
-      "emoji": "🧬"
-    }}
-  ]
-}}
-```"""
-
 
 def _build_chat_system_prompt(context_type: str, context_data: dict) -> str:
     """
@@ -229,95 +134,6 @@ INSTRUCTIONS:
 
 
 # =============================================================================
-# Claude API Interaction
-# =============================================================================
-
-def _call_claude_with_web_search(client: anthropic.Anthropic, prompt: str) -> list:
-    """
-    Call Claude API with web search tool and handle the agentic loop.
-
-    Web search is a server-managed tool - the API executes searches automatically.
-    We handle 'pause_turn' by continuing the conversation until 'end_turn'.
-
-    Args:
-        client: Anthropic API client instance
-        prompt: The prompt to send to Claude
-
-    Returns:
-        List of content blocks from Claude's response
-    """
-    messages = [{"role": "user", "content": prompt}]
-    web_search_tool = {
-        "type": "web_search_20250305",
-        "name": "web_search",
-        "max_uses": MAX_SEARCH_USES
-    }
-
-    for iteration in range(5):  # Safety limit
-        print(f"[AI News] API call {iteration + 1}")
-
-        with client.messages.stream(
-            model=SEARCH_MODEL,
-            max_tokens=MAX_TOKENS,
-            tools=[web_search_tool],
-            messages=messages
-        ) as stream:
-            response = stream.get_final_message()
-
-        print(f"[AI News] Stop reason: {response.stop_reason}")
-
-        if response.stop_reason == "end_turn":
-            return response.content
-
-        if response.stop_reason == "pause_turn":
-            # Server tool execution paused - continue the conversation
-            messages.append({"role": "assistant", "content": response.content})
-            messages.append({"role": "user", "content": "Continue."})
-        else:
-            # Unexpected stop reason or max_tokens - return what we have
-            return response.content
-
-    return response.content
-
-
-def _extract_json(content_blocks: list) -> dict:
-    """
-    Extract and parse JSON from Claude's response content blocks.
-
-    Handles both code-fenced JSON and raw JSON in the response.
-
-    Args:
-        content_blocks: List of content blocks from Claude
-
-    Returns:
-        Parsed JSON as a Python dictionary
-
-    Raises:
-        ValueError: If no valid JSON found in response
-    """
-    # Concatenate all text blocks
-    text = ""
-    for block in content_blocks:
-        if getattr(block, 'type', None) == "text":
-            text += block.text
-
-    if not text:
-        raise ValueError("No text content in response")
-
-    # Try to find JSON in code block first
-    match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
-    if match:
-        return json.loads(match.group(1))
-
-    # Fall back to finding raw JSON
-    match = re.search(r'\{[\s\S]*"stories"[\s\S]*\}', text)
-    if match:
-        return json.loads(match.group(0))
-
-    raise ValueError("No JSON found in response")
-
-
-# =============================================================================
 # Database Storage Functions
 # =============================================================================
 
@@ -325,11 +141,8 @@ def _store_stories(stories_data: list, batch_id: str) -> list[dict]:
     """
     Store news stories and their sources in the database.
 
-    If no imageUrl is provided by Claude, attempts to extract one from
-    the story's source URLs using Open Graph meta tags.
-
     Args:
-        stories_data: List of story dictionaries from Claude's response
+        stories_data: List of story dictionaries from the curator
         batch_id: Unique identifier for this fetch batch
 
     Returns:
@@ -338,19 +151,13 @@ def _store_stories(stories_data: list, batch_id: str) -> list[dict]:
     stored = []
 
     for data in stories_data:
-        # Get image URL from Claude's response, or extract from sources
-        image_url = data.get('imageUrl')
-        if not image_url:
-            sources = data.get('sources', [])
-            image_url = extract_image_for_story(sources)
-
         story = AINewsStory(
             title=data.get('title', 'Untitled'),
             summary=data.get('summary', ''),
             significance=data.get('significance', ''),
             rank=data.get('rank', 99),
             batch_id=batch_id,
-            image_url=image_url,
+            image_url=data.get('imageUrl'),
             emoji=data.get('emoji')
         )
 
@@ -439,18 +246,70 @@ def _store_papers(papers_data: list, batch_id: str) -> list[dict]:
 
 
 # =============================================================================
-# Main Fetch Function
+# Main Fetch Function (4-Agent Pipeline)
 # =============================================================================
+
+def _enrich_candidates_with_images(candidates: list[dict]) -> list[dict]:
+    """
+    Extract images for story candidates before curation.
+    
+    This allows the curator to filter by stories that have images.
+    Images are extracted in parallel for better performance.
+    
+    Args:
+        candidates: List of story candidate dicts from the scout
+        
+    Returns:
+        The same candidates with imageUrl added where found
+    """
+    from backend.services.image_extraction import extract_image_from_url
+    
+    print(f"[AI News] Extracting images for {len(candidates)} story candidates...")
+    
+    def extract_for_candidate(candidate):
+        """Extract image from a candidate's source URLs."""
+        source_urls = candidate.get('sourceUrls', [])
+        for url in source_urls:
+            image_url = extract_image_from_url(url)
+            if image_url:
+                candidate['imageUrl'] = image_url
+                return candidate
+        return candidate
+    
+    # Extract images in parallel (limit workers to avoid overwhelming servers)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        enriched = list(executor.map(extract_for_candidate, candidates))
+    
+    with_images = sum(1 for c in enriched if c.get('imageUrl'))
+    print(f"[AI News] Found images for {with_images}/{len(candidates)} candidates")
+    
+    return enriched
+
+
+def _run_scout_with_retry(scout_fn, client, current_date, label):
+    """Run a scout function with one automatic retry on APIError."""
+    try:
+        return scout_fn(client, current_date)
+    except anthropic.APIError as e:
+        print(f"[{label}] First attempt failed ({e}), retrying...")
+        try:
+            return scout_fn(client, current_date)
+        except Exception as retry_err:
+            print(f"[{label}] Retry also failed: {retry_err}")
+            return None
+    except Exception as e:
+        print(f"[{label}] Failed: {e}")
+        return None
+
 
 def fetch_top_ai_content() -> dict:
     """
-    Fetch top AI news stories and research papers using Claude's web search.
+    Fetch top AI news stories and research papers using a 4-agent pipeline.
 
-    This is the main entry point for fetching new content. It:
-    1. Calls Claude with web search enabled
-    2. Parses the JSON response
-    3. Stores stories and papers in the database
-    4. Returns the stored content
+    Pipeline:
+    1. Story Scout (Haiku + web search) and Paper Scout run in parallel
+    2. Story Curator (Sonnet) and Paper Curator run in parallel on the candidates
+    3. Results are stored in the database
 
     Returns:
         Dictionary containing:
@@ -467,24 +326,59 @@ def fetch_top_ai_content() -> dict:
     current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     try:
-        print(f"[AI News] Starting fetch at {batch_id}")
+        print(f"[AI News] Starting 4-agent pipeline at {batch_id}")
 
         client = anthropic.Anthropic()
-        prompt = _build_prompt(NUM_STORIES, NUM_PAPERS, SOURCES_PER_STORY, current_date)
 
-        # Call Claude with web search
-        content = _call_claude_with_web_search(client, prompt)
+        # Phase 1: Run scouts in parallel
+        story_candidates = None
+        paper_candidates = None
 
-        # Extract and parse JSON
-        data = _extract_json(content)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            story_future = executor.submit(
+                _run_scout_with_retry, fetch_story_candidates, client, current_date, "Story Scout"
+            )
+            paper_future = executor.submit(
+                _run_scout_with_retry, fetch_paper_candidates, client, current_date, "Paper Scout"
+            )
 
-        stories_data = data.get('stories', [])
-        papers_data = data.get('papers', [])
+            story_candidates = story_future.result()
+            paper_candidates = paper_future.result()
+
+        # Extract images for story candidates before curation
+        # so the curator can filter by stories that have images
+        if story_candidates:
+            story_candidates = _enrich_candidates_with_images(story_candidates)
+
+        if not story_candidates and not paper_candidates:
+            return {'success': False, 'error': 'Both scouts failed to find candidates', 'batch_id': batch_id}
+
+        # Phase 2: Run curators in parallel on the candidates
+        stories_data = []
+        papers_data = []
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = {}
+            if story_candidates:
+                futures[executor.submit(curate_stories, client, story_candidates, current_date)] = 'stories'
+            if paper_candidates:
+                futures[executor.submit(curate_papers, client, paper_candidates, current_date)] = 'papers'
+
+            for future in as_completed(futures):
+                content_type = futures[future]
+                try:
+                    result = future.result()
+                    if content_type == 'stories':
+                        stories_data = result
+                    else:
+                        papers_data = result
+                except Exception as e:
+                    print(f"[AI News] {content_type} curator failed: {e}")
 
         if not stories_data and not papers_data:
-            return {'success': False, 'error': 'No content in response', 'batch_id': batch_id}
+            return {'success': False, 'error': 'Both curators failed', 'batch_id': batch_id}
 
-        # Store in database
+        # Phase 3: Store in database
         stored_stories = _store_stories(stories_data, batch_id) if stories_data else []
         stored_papers = _store_papers(papers_data, batch_id) if papers_data else []
 
@@ -499,12 +393,6 @@ def fetch_top_ai_content() -> dict:
             'papers': stored_papers
         }
 
-    except anthropic.APIError as e:
-        db.session.rollback()
-        return {'success': False, 'error': f'API error: {e}', 'batch_id': batch_id}
-    except (ValueError, json.JSONDecodeError) as e:
-        db.session.rollback()
-        return {'success': False, 'error': f'Parse error: {e}', 'batch_id': batch_id}
     except Exception as e:
         db.session.rollback()
         return {'success': False, 'error': str(e), 'batch_id': batch_id}

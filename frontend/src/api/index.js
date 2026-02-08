@@ -17,3 +17,4 @@ export * from './universityRequests';
 export * from './notes';
 export * from './users';
 export * from './messages';
+export * from './uploads';

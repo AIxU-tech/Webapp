@@ -14,10 +14,12 @@
  * @component
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteUniversity } from '../api/universities';
+import { prefetchUniversityData } from '../services/prefetch';
 
 // Hooks
 import {
@@ -71,6 +73,16 @@ export default function UniversityDetailPage() {
   const updateUniversityMutation = useUpdateUniversity();
   const uploadLogoMutation = useUploadUniversityLogo();
   const uploadBannerMutation = useUploadUniversityBanner();
+
+  // ---------------------------------------------------------------------------
+  // Prefetch All Tab Data on Mount
+  // ---------------------------------------------------------------------------
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (id) {
+      prefetchUniversityData(queryClient, id);
+    }
+  }, [id, queryClient]);
 
   // ---------------------------------------------------------------------------
   // Local State
@@ -141,6 +153,11 @@ export default function UniversityDetailPage() {
     if (shouldNavigate) {
       navigate('/universities');
     }
+  };
+
+  // When university is not found, closing the modal must always navigate (no page to show).
+  const handleNotFoundClose = () => {
+    navigate('/universities');
   };
 
   const handleDelete = () => {
@@ -367,7 +384,7 @@ export default function UniversityDetailPage() {
     return (
       <BaseModal
         isOpen={true}
-        onClose={handleErrorModalClose}
+        onClose={handleNotFoundClose}
         title="University Not Found"
         size="sm"
       >
@@ -376,7 +393,7 @@ export default function UniversityDetailPage() {
             {fetchError.message || 'This university could not be found.'}
           </p>
           <div className="flex justify-end">
-            <SecondaryButton variant="primary" onClick={handleErrorModalClose}>
+            <SecondaryButton variant="primary" onClick={handleNotFoundClose}>
               Go Back to Universities
             </SecondaryButton>
           </div>

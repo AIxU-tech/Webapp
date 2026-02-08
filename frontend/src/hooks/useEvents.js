@@ -13,7 +13,7 @@ import {
   deleteEvent,
   toggleRsvp,
 } from '../api/events';
-import { STALE_TIMES } from '../config/cache';
+import { STALE_TIMES, GC_TIMES } from '../config/cache';
 
 // =============================================================================
 // Query Keys
@@ -54,6 +54,7 @@ export function useUniversityEvents(universityId, options = {}) {
     queryFn: () => fetchUniversityEvents(universityId, options),
     enabled: !!universityId,
     staleTime: STALE_TIMES.EVENTS,
+    gcTime: GC_TIMES.EVENTS,
     select: (data) => (Array.isArray(data) ? data : []),
   });
 }
@@ -72,6 +73,7 @@ export function useEvent(eventId) {
     queryFn: () => getEvent(eventId),
     enabled: !!eventId,
     staleTime: STALE_TIMES.EVENTS,
+    gcTime: GC_TIMES.EVENTS,
   });
 }
 

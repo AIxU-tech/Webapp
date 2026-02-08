@@ -15,7 +15,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { STALE_TIMES } from '../config/cache';
+import { STALE_TIMES, GC_TIMES } from '../config/cache';
 
 // =============================================================================
 // Query Keys
@@ -91,6 +91,8 @@ async function updateProfile(updates) {
  * }
  */
 export function useUser(userId) {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: userKeys.detail(userId),
     queryFn: () => fetchUser(userId),
@@ -100,6 +102,20 @@ export function useUser(userId) {
 
     // User profiles don't change frequently
     staleTime: STALE_TIMES.USERS,
+    gcTime: GC_TIMES.USERS,
+
+    // Seed from university member lists in cache
+    placeholderData: () => {
+      const uniQueries = queryClient.getQueriesData({
+        queryKey: ['universities', 'detail'],
+      });
+      for (const [, data] of uniQueries) {
+        if (!data?.members) continue;
+        const match = data.members.find((m) => String(m.id) === String(userId));
+        if (match) return match;
+      }
+      return undefined;
+    },
   });
 }
 

@@ -12,6 +12,20 @@ from datetime import datetime
 from backend.extensions import db
 
 
+def _datetime_to_iso_utc(dt):
+    """
+    Serialize a datetime for JSON so the frontend parses it as UTC.
+    Naive datetimes (from DB) are assumed to be UTC and get a trailing 'Z'.
+    Without 'Z', JavaScript parses the string as local time and shows wrong times.
+    """
+    if dt is None:
+        return None
+    s = dt.isoformat()
+    if dt.tzinfo is None:
+        return s + 'Z'
+    return s
+
+
 class Event(db.Model):
     """
     Event model for university club events.
@@ -74,10 +88,10 @@ class Event(db.Model):
             'title': self.title,
             'description': self.description,
             'location': self.location,
-            'startTime': self.start_time.isoformat() if self.start_time else None,
-            'endTime': self.end_time.isoformat() if self.end_time else None,
+            'startTime': _datetime_to_iso_utc(self.start_time),
+            'endTime': _datetime_to_iso_utc(self.end_time),
             'createdById': self.created_by_id,
-            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'createdAt': _datetime_to_iso_utc(self.created_at),
             'attendeeCount': len(self.attendees) if self.attendees else 0,
         }
 

@@ -15,3 +15,4 @@ export { default as CommentCard } from './CommentCard';
 export { default as NotesFilter } from './NotesFilter';
 export { default as CreateNoteModal } from './CreateNoteModal';
 export { default as EditNoteModal } from './EditNoteModal';
+export { default as NoteAttachments } from './NoteAttachments';

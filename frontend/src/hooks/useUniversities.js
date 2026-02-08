@@ -118,6 +118,8 @@ export function useUniversities() {
  * }
  */
 export function useUniversity(id) {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: universityKeys.detail(id),
     queryFn: () => getUniversity(id),
@@ -127,6 +129,18 @@ export function useUniversity(id) {
 
     // Use same stale time as universities list
     staleTime: STALE_TIMES.UNIVERSITIES,
+
+    // Keep in cache to survive navigation
+    gcTime: GC_TIMES.UNIVERSITIES,
+
+    // Seed from list cache to avoid loading spinner while detail fetches
+    placeholderData: () => {
+      const universities = queryClient.getQueryData(universityKeys.list());
+      if (Array.isArray(universities)) {
+        return universities.find((uni) => String(uni.id) === String(id));
+      }
+      return undefined;
+    },
   });
 }
 

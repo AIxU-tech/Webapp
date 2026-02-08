@@ -121,6 +121,30 @@ export async function toggleLikeNote(id) {
 }
 
 /**
+ * Get users who liked a note
+ *
+ * Returns list of users who liked the note, ordered by most recent first.
+ *
+ * @param {number} noteId - Note ID
+ * @param {object} [params] - Optional pagination parameters
+ * @param {number} [params.limit=50] - Max users to return
+ * @param {number} [params.offset=0] - Number of users to skip
+ * @returns {Promise<object>} Response with users array and total count
+ *
+ * @example
+ * const result = await fetchNoteLikers(123);
+ * console.log(result.users); // Array of user objects
+ * console.log(result.total); // Total like count
+ */
+export async function fetchNoteLikers(noteId, params = {}) {
+  const queryString = new URLSearchParams(params).toString();
+  const endpoint = queryString
+    ? `/notes/${noteId}/likes?${queryString}`
+    : `/notes/${noteId}/likes`;
+  return api.get(endpoint);
+}
+
+/**
  * Bookmark or unbookmark a note
  *
  * Toggles bookmark status for current user.

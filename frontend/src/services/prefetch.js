@@ -33,12 +33,14 @@ import { noteKeys } from '../hooks/useNotes';
 import { messageKeys } from '../hooks/useMessages';
 import { userKeys } from '../hooks/useUsers';
 import { opportunityKeys } from '../hooks/useOpportunities';
+import { eventKeys } from '../hooks/useEvents';
 import { newsKeys } from '../hooks/useNews';
-import { getUniversities } from '../api/universities';
+import { getUniversities, getUniversity } from '../api/universities';
 import { fetchNotes } from '../api/notes';
 import { getConversations } from '../api/messages';
 import { getUser } from '../api/users';
 import { fetchOpportunities } from '../api/opportunities';
+import { fetchUniversityEvents } from '../api/events';
 import { fetchAIContent } from '../api/news';
 import { STALE_TIMES } from '../config/cache';
 
@@ -147,15 +149,84 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
     );
   }
 
+  // -------------------------------------------------------------------------
+  // User's Own University - Detail + All Tab Data
+  // -------------------------------------------------------------------------
+  // Prefetch everything for the user's university so it loads instantly
+  if (currentUser?.university_id) {
+    const uniId = currentUser.university_id;
+    prefetchOperations.push(
+      queryClient.prefetchQuery({
+        queryKey: universityKeys.detail(uniId),
+        queryFn: () => getUniversity(uniId),
+        staleTime: STALE_TIMES.UNIVERSITIES,
+      }),
+      queryClient.prefetchQuery({
+        queryKey: [...eventKeys.university(uniId), {}],
+        queryFn: () => fetchUniversityEvents(uniId, {}),
+        staleTime: STALE_TIMES.EVENTS,
+      }),
+      queryClient.prefetchInfiniteQuery({
+        queryKey: noteKeys.infinite({ university_id: uniId }),
+        queryFn: () => fetchNotes({ university_id: uniId, page: 1, page_size: 20 }),
+        initialPageParam: 1,
+        staleTime: STALE_TIMES.NOTES,
+      }),
+      queryClient.prefetchInfiniteQuery({
+        queryKey: opportunityKeys.infinite({ university_id: uniId }),
+        queryFn: () => fetchOpportunities({ university_id: uniId, page: 1, page_size: 20 }),
+        initialPageParam: 1,
+        staleTime: STALE_TIMES.OPPORTUNITIES,
+      })
+    );
+  }
+
   // All prefetch operations run in parallel
   const results = await Promise.allSettled(prefetchOperations);
 
   // Log any failures for debugging (won't break the app)
-  // Order matches prefetchOperations: universities, notes, opportunities, ai news, [conversations, user profile if authenticated]
-  const dataTypes = ['universities', 'notes', 'opportunities', 'ai news', 'conversations', 'user profile'];
   results.forEach((result, index) => {
     if (result.status === 'rejected') {
-      console.warn(`[Prefetch] Failed to prefetch ${dataTypes[index] || 'unknown'}:`, result.reason);
+      console.warn(`[Prefetch] Failed to prefetch data (index ${index}):`, result.reason);
     }
+  });
+}
+
+// =============================================================================
+// University Hover Prefetch
+// =============================================================================
+
+/**
+ * Prefetch all data for a university (detail + tab data).
+ * Call on hover of "View University" button so the page loads instantly.
+ * Skips if data is already cached and fresh.
+ *
+ * @param {QueryClient} queryClient - React Query client instance
+ * @param {number|string} universityId - University ID to prefetch
+ */
+export function prefetchUniversityData(queryClient, universityId) {
+  if (!universityId) return;
+
+  queryClient.prefetchQuery({
+    queryKey: universityKeys.detail(universityId),
+    queryFn: () => getUniversity(universityId),
+    staleTime: STALE_TIMES.UNIVERSITIES,
+  });
+  queryClient.prefetchQuery({
+    queryKey: [...eventKeys.university(universityId), {}],
+    queryFn: () => fetchUniversityEvents(universityId, {}),
+    staleTime: STALE_TIMES.EVENTS,
+  });
+  queryClient.prefetchInfiniteQuery({
+    queryKey: noteKeys.infinite({ university_id: universityId }),
+    queryFn: () => fetchNotes({ university_id: universityId, page: 1, page_size: 20 }),
+    initialPageParam: 1,
+    staleTime: STALE_TIMES.NOTES,
+  });
+  queryClient.prefetchInfiniteQuery({
+    queryKey: opportunityKeys.infinite({ university_id: universityId }),
+    queryFn: () => fetchOpportunities({ university_id: universityId, page: 1, page_size: 20 }),
+    initialPageParam: 1,
+    staleTime: STALE_TIMES.OPPORTUNITIES,
   });
 }

@@ -1,13 +1,16 @@
 /**
  * EditNoteModal Component
  *
- * Modal for editing existing community notes with title, content, tags, and visibility settings.
+ * Modal for editing existing community notes with title, content, tags, visibility settings,
+ * and attachment management.
  *
  * Features:
  * - Pre-populated form fields with existing note data
  * - Title and content inputs with validation
  * - Multi-tag selection
  * - University-only visibility toggle (when user has a university)
+ * - View existing attachments with delete option
+ * - Add new attachments
  * - Character count display
  * - Loading state during submission
  *
@@ -15,7 +18,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { BaseModal, TagSelector, GradientButton, Alert } from '../ui';
+import { BaseModal, TagSelector, GradientButton, Alert, FileUpload } from '../ui';
+import { FileTypeIcon } from '../ui/forms/FileUpload';
 import { ClockIcon } from '../icons';
 
 /**
@@ -37,21 +41,17 @@ const EDIT_TAGS = [
  * @typedef {Object} EditNoteModalProps
  * @property {boolean} isOpen - Whether the modal is open
  * @property {Function} onClose - Callback when modal is closed
- * @property {Function} onUpdate - Callback when note is updated, receives {title, content, tags, universityOnly}
- * @property {boolean} isUpdating - Whether the note is currently being updated
+ * @property {Function} onUpdate - Callback when note is updated, receives {title, content, tags, universityOnly, newFiles, attachmentIdsToRemove}
  * @property {Object} note - The note object to edit
  * @property {string|null} userUniversity - User's university name (null if no university)
- * @property {string|null} error - Error message from failed update attempt
  */
 
 export default function EditNoteModal({
   isOpen,
   onClose,
   onUpdate,
-  isUpdating = false,
   note = null,
   userUniversity = null,
-  error = null,
 }) {
   // Form state
   const [noteTitle, setNoteTitle] = useState('');
@@ -59,6 +59,18 @@ export default function EditNoteModal({
   const [selectedTags, setSelectedTags] = useState([]);
   const [universityOnly, setUniversityOnly] = useState(false);
   const [validationError, setValidationError] = useState(null);
+
+  // Attachment state
+  const [existingAttachments, setExistingAttachments] = useState([]);
+  const [newFiles, setNewFiles] = useState([]);
+  /** Attachment IDs user has marked to remove this session; only committed on Save */
+  const [attachmentIdsToRemove, setAttachmentIdsToRemove] = useState([]);
+
+  // Attachments still shown (existing minus those marked to remove)
+  const displayedExistingAttachments = existingAttachments.filter(
+    (a) => !attachmentIdsToRemove.includes(a.id)
+  );
+  const remainingSlots = 5 - displayedExistingAttachments.length;
 
   /**
    * Populate form when note changes or modal opens
@@ -69,6 +81,9 @@ export default function EditNoteModal({
       setNoteContent(note.content || '');
       setSelectedTags(note.tags || []);
       setUniversityOnly(note.universityOnly || false);
+      setExistingAttachments(note.attachments || []);
+      setNewFiles([]);
+      setAttachmentIdsToRemove([]);
       setValidationError(null);
     }
   }, [note, isOpen]);
@@ -82,6 +97,9 @@ export default function EditNoteModal({
     setSelectedTags([]);
     setUniversityOnly(false);
     setValidationError(null);
+    setExistingAttachments([]);
+    setNewFiles([]);
+    setAttachmentIdsToRemove([]);
   }
 
   /**
@@ -94,6 +112,13 @@ export default function EditNoteModal({
   }
 
   /**
+   * Mark an existing attachment for removal. Only committed when user clicks Save.
+   */
+  function handleMarkAttachmentForRemoval(attachment) {
+    setAttachmentIdsToRemove((prev) => [...prev, attachment.id]);
+  }
+
+  /**
    * Handle form submission
    * Validates inputs and calls onUpdate callback with form data
    */
@@ -101,18 +126,28 @@ export default function EditNoteModal({
     e.preventDefault();
     setValidationError(null);
 
-    // Validate required fields
-    if (!noteTitle.trim() || !noteContent.trim()) {
-      setValidationError('Please fill in both title and content');
+    // Calculate total attachments after update
+    const totalAttachments = displayedExistingAttachments.length + newFiles.length;
+
+    // Validate required fields - title always required, content required only if no attachments
+    if (!noteTitle.trim()) {
+      setValidationError('Please fill in the title');
       return;
     }
 
-    // Call parent onUpdate with note data
+    if (!noteContent.trim() && totalAttachments === 0) {
+      setValidationError('Please add content or attach files');
+      return;
+    }
+
+    // Call parent onUpdate with note data including new files and attachments to remove
     onUpdate({
       title: noteTitle.trim(),
       content: noteContent.trim(),
       tags: selectedTags,
       universityOnly,
+      newFiles,
+      attachmentIdsToRemove,
     });
   }
 
@@ -148,17 +183,79 @@ export default function EditNoteModal({
         {/* Content Textarea */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-foreground mb-2">
-            Content *
+            Content {(displayedExistingAttachments.length + newFiles.length) === 0 && '*'}
           </label>
           <textarea
             placeholder="What do you want to talk about?"
             value={noteContent}
             onChange={(e) => setNoteContent(e.target.value)}
-            required
             rows={6}
             className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
           />
         </div>
+
+        {/* Existing Attachments (removals are pending until Save) */}
+        {displayedExistingAttachments.length > 0 && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Current Attachments
+            </label>
+            <div className="space-y-2">
+              {displayedExistingAttachments.map((attachment) => (
+                <div
+                  key={attachment.id}
+                  className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg"
+                >
+                  {/* Preview/Icon */}
+                  <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-background rounded overflow-hidden">
+                    {attachment.isImage && attachment.downloadUrl ? (
+                      <img
+                        src={attachment.downloadUrl}
+                        alt={attachment.filename}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <FileTypeIcon filename={attachment.filename} className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+
+                  {/* File info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground truncate">{attachment.filename}</p>
+                    <p className="text-xs text-muted-foreground">{attachment.sizeFormatted}</p>
+                  </div>
+
+                  {/* Remove (pending until Save) */}
+                  <button
+                    type="button"
+                    onClick={() => handleMarkAttachmentForRemoval(attachment)}
+                    className="p-1 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                    aria-label={`Remove ${attachment.filename}`}
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Add New Attachments */}
+        {remainingSlots > 0 && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Add Attachments
+            </label>
+            <FileUpload
+              files={newFiles}
+              onChange={setNewFiles}
+              maxFiles={remainingSlots}
+            />
+          </div>
+        )}
 
         {/* Tags Selection */}
         <div className="mb-4">
@@ -190,11 +287,11 @@ export default function EditNoteModal({
           </div>
         )}
 
-        {/* Error Display */}
-        {(error || validationError) && (
+        {/* Validation Error Display */}
+        {validationError && (
           <div className="mb-4">
             <Alert variant="error">
-              {error || validationError}
+              {validationError}
             </Alert>
           </div>
         )}
@@ -202,9 +299,16 @@ export default function EditNoteModal({
         {/* Submit Button Row */}
         <div className="flex items-center justify-between pt-4 border-t border-border">
           {/* Character Count */}
-          <div className="text-sm text-muted-foreground flex items-center">
-            <ClockIcon />
-            <span className="ml-1">{charCount} characters</span>
+          <div className="text-sm text-muted-foreground flex items-center gap-4">
+            <span className="flex items-center">
+              <ClockIcon />
+              <span className="ml-1">{charCount} characters</span>
+            </span>
+            {(displayedExistingAttachments.length + newFiles.length) > 0 && (
+              <span>
+                {displayedExistingAttachments.length + newFiles.length} file{(displayedExistingAttachments.length + newFiles.length) !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -216,12 +320,7 @@ export default function EditNoteModal({
             >
               Cancel
             </button>
-            <GradientButton
-              type="submit"
-              size="sm"
-              loading={isUpdating}
-              loadingText="Saving..."
-            >
+            <GradientButton type="submit" size="sm">
               Save Changes
             </GradientButton>
           </div>
@@ -230,4 +329,3 @@ export default function EditNoteModal({
     </BaseModal>
   );
 }
-

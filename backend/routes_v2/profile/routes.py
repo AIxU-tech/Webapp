@@ -21,10 +21,11 @@ RESTful Endpoints:
 - GET /user/<id>/banner - Serve banner image from database
 """
 
-from flask import Blueprint, request, jsonify, send_file, redirect
+from flask import Blueprint, request, jsonify, send_file, redirect, Response
 from flask_login import login_required, current_user, logout_user
 from datetime import datetime
 import base64
+import hashlib
 import io
 from sqlalchemy.orm import joinedload
 from backend.extensions import db
@@ -96,10 +97,18 @@ def get_profile_picture(user_id):
         # Return default avatar
         return redirect('https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face')
 
-    return send_file(
-        io.BytesIO(user.profile_picture),
-        mimetype=user.profile_picture_mimetype,
-        as_attachment=False
+    etag = hashlib.md5(user.profile_picture).hexdigest()
+    if_none_match = request.headers.get('If-None-Match')
+    if if_none_match and if_none_match.strip('"') == etag:
+        return Response(status=304, headers={'ETag': f'"{etag}"'})
+
+    return Response(
+        user.profile_picture,
+        mimetype=user.profile_picture_mimetype or 'image/jpeg',
+        headers={
+            'Cache-Control': 'public, max-age=2592000',
+            'ETag': f'"{etag}"',
+        }
     )
 
 
@@ -358,11 +367,18 @@ def get_banner_image(user_id):
     if not user or not user.banner_image:
         return jsonify({'error': 'No banner image'}), 404
 
-    from flask import Response
+    etag = hashlib.md5(user.banner_image).hexdigest()
+    if_none_match = request.headers.get('If-None-Match')
+    if if_none_match and if_none_match.strip('"') == etag:
+        return Response(status=304, headers={'ETag': f'"{etag}"'})
+
     return Response(
         user.banner_image,
         mimetype=user.banner_image_mimetype or 'image/jpeg',
-        headers={'Cache-Control': 'public, max-age=86400'}
+        headers={
+            'Cache-Control': 'public, max-age=2592000',
+            'ETag': f'"{etag}"',
+        }
     )
 
 

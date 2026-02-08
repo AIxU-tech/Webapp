@@ -42,6 +42,15 @@ services:
       DATABASE_URL: ${DEV_DATABASE_URL}
       SECRET_KEY: ${DEV_SECRET_KEY}
       DEV_MODE: ${DEV_MODE:-false}
+      # GCS: signed URLs require a service account key (not user ADC). Mount flask-sa-key.json and set path here.
+      GCS_CREDENTIALS_PATH: /gcloud/flask-sa-key.json
+      # Fallback if key file not mounted (won't work for signed URLs)
+      GOOGLE_APPLICATION_CREDENTIALS: /gcloud/application_default_credentials.json
+    volumes:
+      # Service account key (required for upload/signed URLs). Create via Terraform or GCP Console.
+      - ./flask-sa-key.json:/gcloud/flask-sa-key.json:ro
+      # Optional: user ADC fallback (cannot sign URLs)
+      - ~/.config/gcloud/application_default_credentials.json:/gcloud/application_default_credentials.json:ro
 
 volumes:
   postgres_data:
