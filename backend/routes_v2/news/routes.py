@@ -48,7 +48,7 @@ news_bp = Blueprint('news', __name__)
 @news_bp.route('/api/news', methods=['GET'])
 def get_news():
     """
-    Get the latest AI news stories, ordered by rank.
+    Get the latest AI news stories, ordered by insertion order.
 
     Query Parameters:
         limit (int): Maximum number of stories to return (1-20, default 10)
@@ -96,7 +96,7 @@ def get_single_story(story_id: int):
 @news_bp.route('/api/papers', methods=['GET'])
 def get_papers():
     """
-    Get the latest AI research papers, ordered by rank.
+    Get the latest AI research papers, ordered by insertion order.
 
     Query Parameters:
         limit (int): Maximum number of papers to return (1-10, default 3)

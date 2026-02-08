@@ -3,20 +3,69 @@
  *
  * Modal for creating new university events.
  * Available to executives and above at the university.
- * Follows existing modal patterns from CommunityPage and OpportunitiesPage.
+ * Uses custom DatePicker and TimePicker for intuitive date/time selection
+ * with smart defaults and duration tracking.
  */
 
-import { useState } from 'react';
-import { BaseModal, GradientButton, SecondaryButton } from '../ui';
+import { useState, useCallback } from 'react';
+import { BaseModal, GradientButton, SecondaryButton, DatePicker, TimePicker } from '../ui';
+import { timeToMinutes, minutesToTime } from '../ui/forms/TimePicker';
 import { useCreateEvent } from '../../hooks';
+
+// =============================================================================
+// UTILITIES
+// =============================================================================
+
+/**
+ * Round minutes up to the next 15-minute increment.
+ * e.g., 10:07 → "10:15", 10:00 → "10:00", 10:46 → "11:00"
+ */
+function roundToNext15(date) {
+  const h = date.getHours();
+  const m = date.getMinutes();
+  const rounded = Math.ceil(m / 15) * 15;
+  const totalMinutes = h * 60 + rounded;
+  // Clamp to 23:45
+  return minutesToTime(Math.min(totalMinutes, 23 * 60 + 45));
+}
+
+/**
+ * Merge a Date object and an "HH:MM" time string into an ISO 8601 UTC string.
+ */
+function combineDateTimeToISO(date, time) {
+  if (!date || !time) return null;
+  const [h, m] = time.split(':').map(Number);
+  const combined = new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m, 0);
+  return combined.toISOString();
+}
+
+/**
+ * Format a duration in minutes for display in the end time label.
+ */
+function formatDurationLabel(minutes) {
+  if (!minutes || minutes <= 0) return '';
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hrs === 0) return `${mins} min`;
+  if (mins === 0) return `${hrs} hr`;
+  return `${hrs} hr ${mins} min`;
+}
+
+const DEFAULT_DURATION = 60; // 1 hour
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
 
 export default function CreateEventModal({ isOpen, onClose, universityId }) {
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [date, setDate] = useState(null);
+  const [startTime, setStartTime] = useState(null);
+  const [endTime, setEndTime] = useState(null);
+  const [durationMinutes, setDurationMinutes] = useState(DEFAULT_DURATION);
 
   // Mutation
   const createEventMutation = useCreateEvent();
@@ -26,36 +75,84 @@ export default function CreateEventModal({ isOpen, onClose, universityId }) {
     setTitle('');
     setDescription('');
     setLocation('');
-    setStartTime('');
-    setEndTime('');
+    setDate(null);
+    setStartTime(null);
+    setEndTime(null);
+    setDurationMinutes(DEFAULT_DURATION);
     onClose();
   };
+
+  // Smart default: when date is selected, auto-fill start + end times
+  const handleDateChange = useCallback(
+    (newDate) => {
+      setDate(newDate);
+
+      // Only auto-fill if no start time set yet
+      if (!startTime) {
+        const now = new Date();
+        const isToday =
+          newDate.getFullYear() === now.getFullYear() &&
+          newDate.getMonth() === now.getMonth() &&
+          newDate.getDate() === now.getDate();
+
+        const defaultStart = isToday ? roundToNext15(now) : '10:00';
+        const startMinutes = timeToMinutes(defaultStart);
+        const endMinutes = Math.min(startMinutes + durationMinutes, 23 * 60 + 45);
+
+        setStartTime(defaultStart);
+        setEndTime(minutesToTime(endMinutes));
+      }
+    },
+    [startTime, durationMinutes]
+  );
+
+  // When start time changes, preserve duration gap
+  const handleStartTimeChange = useCallback(
+    (newStart) => {
+      setStartTime(newStart);
+      const startMinutes = timeToMinutes(newStart);
+      const endMinutes = Math.min(startMinutes + durationMinutes, 23 * 60 + 45);
+      setEndTime(minutesToTime(endMinutes));
+    },
+    [durationMinutes]
+  );
+
+  // When end time changes, update tracked duration
+  const handleEndTimeChange = useCallback(
+    (newEnd) => {
+      setEndTime(newEnd);
+      if (startTime) {
+        const diff = timeToMinutes(newEnd) - timeToMinutes(startTime);
+        if (diff > 0) {
+          setDurationMinutes(diff);
+        }
+      }
+    },
+    [startTime]
+  );
 
   // Form submission
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Validation
     if (!title.trim()) {
       alert('Title is required');
       return;
     }
 
-    if (!startTime) {
-      alert('Start time is required');
+    if (!date || !startTime) {
+      alert('Date and start time are required');
       return;
     }
 
-    // Prepare event data with ISO format times
     const eventData = {
       title: title.trim(),
       description: description.trim() || undefined,
       location: location.trim() || undefined,
-      startTime: new Date(startTime).toISOString(),
-      endTime: endTime ? new Date(endTime).toISOString() : undefined,
+      startTime: combineDateTimeToISO(date, startTime),
+      endTime: endTime ? combineDateTimeToISO(date, endTime) : undefined,
     };
 
-    // Create event
     createEventMutation.mutate(
       { universityId, eventData },
       {
@@ -70,15 +167,19 @@ export default function CreateEventModal({ isOpen, onClose, universityId }) {
     );
   };
 
-  // Get minimum datetime for inputs (current time)
-  const getMinDateTime = () => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
-  };
-
   // Character count for description
   const charCount = description.length;
+
+  // Duration display for end time label
+  const currentDuration =
+    startTime && endTime
+      ? timeToMinutes(endTime) - timeToMinutes(startTime)
+      : 0;
+  const durationLabel = currentDuration > 0 ? formatDurationLabel(currentDuration) : '';
+
+  // Minimum date = today
+  const today = new Date();
+  const minDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
   return (
     <BaseModal
@@ -134,20 +235,37 @@ export default function CreateEventModal({ isOpen, onClose, universityId }) {
           />
         </div>
 
-        {/* Date/Time Row */}
+        {/* Date */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-foreground mb-2">
+            Date <span className="text-red-500">*</span>
+          </label>
+          <DatePicker
+            value={date}
+            onChange={handleDateChange}
+            minDate={minDate}
+            placeholder="Select a date"
+            required
+            id="event-date"
+            ariaLabel="Event date"
+          />
+        </div>
+
+        {/* Start Time / End Time Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {/* Start Time */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
               Start Time <span className="text-red-500">*</span>
             </label>
-            <input
-              type="datetime-local"
+            <TimePicker
               value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              min={getMinDateTime()}
+              onChange={handleStartTimeChange}
+              placeholder="Start time"
+              disabled={!date}
               required
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              id="event-start-time"
+              ariaLabel="Event start time"
             />
           </div>
 
@@ -155,13 +273,21 @@ export default function CreateEventModal({ isOpen, onClose, universityId }) {
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
               End Time
+              {durationLabel && (
+                <span className="text-muted-foreground font-normal ml-1">
+                  ({durationLabel})
+                </span>
+              )}
             </label>
-            <input
-              type="datetime-local"
+            <TimePicker
               value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              min={startTime || getMinDateTime()}
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              onChange={handleEndTimeChange}
+              minTime={startTime}
+              referenceTime={startTime}
+              placeholder="End time"
+              disabled={!startTime}
+              id="event-end-time"
+              ariaLabel="Event end time"
             />
           </div>
         </div>
@@ -180,7 +306,7 @@ export default function CreateEventModal({ isOpen, onClose, universityId }) {
             type="submit"
             loading={createEventMutation.isPending}
             loadingText="Creating..."
-            disabled={!title.trim() || !startTime}
+            disabled={!title.trim() || !date || !startTime}
           >
             Create Event
           </GradientButton>
