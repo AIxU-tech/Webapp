@@ -56,6 +56,9 @@ export const messageKeys = {
 
   // Key for user search
   userSearch: (query) => [...messageKeys.all, 'userSearch', query],
+
+  // Key for unread message count (used by NavBar badge)
+  unreadCount: () => [...messageKeys.all, 'unreadCount'],
 };
 
 // =============================================================================
@@ -147,19 +150,15 @@ export function useConversations() {
       }
     });
 
-    // Also update the specific conversation cache if it exists
-    if (data.message.sender_id) {
-      queryClient.setQueryData(
-        messageKeys.conversation(data.message.sender_id),
-        (oldConversation) => {
-          if (!oldConversation?.messages) return oldConversation;
-
-          return {
-            ...oldConversation,
-            messages: [...oldConversation.messages, data.message],
-          };
-        }
-      );
+    // Invalidate the specific conversation so it refetches when opened.
+    // When the user is viewing this conversation, useConversation adds the
+    // message in real-time. When they're not, invalidation ensures a fresh
+    // refetch on open. Avoids stale/missing messages when switching back.
+    const senderId = data.message?.sender_id;
+    if (senderId != null) {
+      queryClient.invalidateQueries({
+        queryKey: messageKeys.conversation(senderId),
+      });
     }
   }, [queryClient]));
 
@@ -177,6 +176,11 @@ export function useConversations() {
 
     // Keep conversations in cache for quick access
     gcTime: GC_TIMES.CONVERSATIONS,
+
+    // Always refetch in background on mount to catch messages that arrived
+    // between prefetch and page open. Cached data renders immediately while
+    // the refetch runs, so there's no loading flash.
+    refetchOnMount: 'always',
   });
 }
 
@@ -234,7 +238,9 @@ export function useConversation(userId) {
     // Short stale time for active conversations
     staleTime: STALE_TIMES.CONVERSATION,
 
-    // When conversation opens, mark as read (handled by API)
+    // Always refetch in background on mount to ensure fresh messages,
+    // even if cached data exists from a previous visit or prefetch.
+    refetchOnMount: 'always',
   });
 }
 
@@ -645,6 +651,88 @@ export function markConversationRead(queryClient, userId) {
 }
 
 // =============================================================================
+// Unread Conversations Tracking
+// =============================================================================
+
+/**
+ * useUnreadCount Hook
+ *
+ * Tracks a list of conversation user IDs that have unread messages.
+ * Designed to be used in the NavBar (always mounted) so the unread
+ * badge updates in real time regardless of which page the user is on.
+ *
+ * How it works:
+ * - Seeded from the conversations cache (conversations with hasUnread: true)
+ * - WebSocket `new_message` events add the sender's ID to the list
+ * - clearUnreadConversation() removes an ID when the user opens that chat
+ * - Badge shows when the list is non-empty
+ *
+ * The list is stored in the React Query cache under messageKeys.unreadCount()
+ * with staleTime: Infinity so it's fully managed via setQueryData — no
+ * polling or server round-trips needed to clear the badge.
+ *
+ * @returns {number} The number of conversations with unread messages
+ *
+ * @example
+ * function NavBar() {
+ *   const unreadCount = useUnreadCount();
+ *   return unreadCount > 0 ? <UnreadDot /> : null;
+ * }
+ */
+export function useUnreadCount() {
+  const queryClient = useQueryClient();
+
+  // ---------------------------------------------------------------------------
+  // WebSocket: Add sender to unread set when a new message arrives
+  // ---------------------------------------------------------------------------
+  useSocketEvent('new_message', useCallback((data) => {
+    const senderId = data.conversation?.sender_id || data.message?.sender_id;
+    if (!senderId) return;
+
+    queryClient.setQueryData(messageKeys.unreadCount(), (old = []) => {
+      if (old.includes(senderId)) return old;
+      return [...old, senderId];
+    });
+  }, [queryClient]));
+
+  // ---------------------------------------------------------------------------
+  // Query: Subscribe to the unread IDs list in cache
+  // ---------------------------------------------------------------------------
+  const { data: unreadIds = [] } = useQuery({
+    queryKey: messageKeys.unreadCount(),
+    queryFn: () => {
+      // Fallback: derive from conversations cache if available
+      const convData = queryClient.getQueryData(messageKeys.conversations());
+      if (!convData?.conversations) return [];
+      return convData.conversations
+        .filter((c) => c.hasUnread)
+        .map((c) => c.otherUser.id);
+    },
+
+    // Fully managed via setQueryData — never auto-refetch
+    staleTime: Infinity,
+    gcTime: GC_TIMES.CONVERSATIONS,
+  });
+
+  return unreadIds.length;
+}
+
+/**
+ * Remove a conversation from the unread list
+ *
+ * Call this when the user opens a conversation to clear its unread state
+ * from the NavBar badge. If the list becomes empty, the badge disappears.
+ *
+ * @param {QueryClient} queryClient - The query client
+ * @param {number} userId - The other user's ID in the conversation
+ */
+export function clearUnreadConversation(queryClient, userId) {
+  queryClient.setQueryData(messageKeys.unreadCount(), (old = []) => {
+    return old.filter((id) => id !== userId);
+  });
+}
+
+// =============================================================================
 // Prefetch Utilities
 // =============================================================================
 
@@ -689,4 +777,24 @@ export function prefetchConversation(queryClient, userId) {
     queryFn: () => getConversation(userId),
     staleTime: STALE_TIMES.CONVERSATION,
   });
+}
+
+/**
+ * Seed the unread conversations list from the conversations cache
+ *
+ * Call this AFTER conversations have been prefetched so the NavBar badge
+ * renders immediately. Reads the conversations cache and extracts IDs
+ * of conversations with hasUnread: true.
+ *
+ * @param {QueryClient} queryClient - The query client instance
+ */
+export function seedUnreadConversations(queryClient) {
+  const convData = queryClient.getQueryData(messageKeys.conversations());
+  if (!convData?.conversations) return;
+
+  const unreadIds = convData.conversations
+    .filter((c) => c.hasUnread)
+    .map((c) => c.otherUser.id);
+
+  queryClient.setQueryData(messageKeys.unreadCount(), unreadIds);
 }

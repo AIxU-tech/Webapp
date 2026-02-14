@@ -38,8 +38,11 @@
  * - useConversation(userId) - Get conversation with user
  * - useSendMessage() - Send message mutation
  * - useSearchUsers(query) - Search users
+ * - useUnreadCount() - Unread message count with real-time updates (NavBar badge)
+ * - clearUnreadConversation() - Remove a conversation from the unread list
  * - prefetchConversations() - Prefetch conversations list
  * - prefetchConversation() - Prefetch single conversation
+ * - seedUnreadConversations() - Seed unread IDs from conversations cache
  *
  * Users:
  * - useUser(userId) - Get user profile
@@ -147,10 +150,13 @@ export {
   useConversation,
   useSendMessage,
   useSearchUsers,
+  useUnreadCount,
   messageKeys,
   markConversationRead,
+  clearUnreadConversation,
   prefetchConversations,
   prefetchConversation,
+  seedUnreadConversations,
 } from './useMessages';
 
 // =============================================================================

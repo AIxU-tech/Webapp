@@ -43,18 +43,21 @@ const FEATURES = [
     title: 'Community Notes Board',
     description:
       'Share collaborative notes, technical resources, and AI tools with students worldwide.',
+    to: '/community',
   },
   {
     icon: UsersIcon,
     title: 'University Connections',
     description:
       'Dedicated pages for each university with club events, projects, and hackathon materials.',
+    to: '/universities',
   },
   {
     icon: GlobeIcon,
     title: 'Global News & Events',
     description:
       'Stay updated with AI club events, speaker sessions, and competitions worldwide.',
+    to: '/news',
   },
   {
     icon: MessageCircleIcon,
@@ -151,6 +154,7 @@ export default function HomePage() {
                 icon={feature.icon}
                 title={feature.title}
                 description={feature.description}
+                to={feature.to}
               />
             ))}
           </div>
