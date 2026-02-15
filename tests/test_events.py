@@ -824,3 +824,88 @@ class TestToggleRsvp:
         assert response.status_code == 200
         data = response.get_json()
         assert data['status'] == 'declined'
+
+    def test_rsvp_invalid_status(self, authenticated_client, app, test_university, executive_user):
+        """Test RSVP with invalid status returns 400"""
+        event = _create_event(app, test_university.id, executive_user.id)
+
+        response = authenticated_client.post(
+            f'/api/events/{event.id}/rsvp',
+            json={'status': 'invalid'}
+        )
+        assert response.status_code == 400
+        assert 'Invalid status' in response.get_json()['error']
+
+    def test_rsvp_event_not_found(self, authenticated_client, app):
+        """Test RSVP on nonexistent event returns 404"""
+        response = authenticated_client.post('/api/events/99999/rsvp', json={})
+        assert response.status_code == 404
+
+    def test_rsvp_unauthenticated(self, client, app, test_university, executive_user):
+        """Test that unauthenticated users cannot RSVP"""
+        event = _create_event(app, test_university.id, executive_user.id)
+
+        response = client.post(f'/api/events/{event.id}/rsvp', json={})
+        assert response.status_code == 401
+
+
+# =============================================================================
+# Input Length Validation
+# =============================================================================
+
+class TestEventInputLengthValidation:
+    """Tests for input length validation on create and update endpoints"""
+
+    def test_create_event_title_too_long(self, authenticated_executive_client, app, test_university):
+        """Test that a title exceeding 200 characters returns 400"""
+        response = authenticated_executive_client.post(
+            f'/api/universities/{test_university.id}/events',
+            json={
+                'title': 'A' * 201,
+                'startTime': '2026-06-15T15:00:00Z',
+            }
+        )
+        assert response.status_code == 400
+        assert '200' in response.get_json()['error']
+
+    def test_create_event_location_too_long(self, authenticated_executive_client, app, test_university):
+        """Test that a location exceeding 300 characters returns 400"""
+        response = authenticated_executive_client.post(
+            f'/api/universities/{test_university.id}/events',
+            json={
+                'title': 'Valid Title',
+                'location': 'L' * 301,
+                'startTime': '2026-06-15T15:00:00Z',
+            }
+        )
+        assert response.status_code == 400
+        assert '300' in response.get_json()['error']
+
+    def test_update_event_title_too_long(self, authenticated_executive_client, app, test_university, executive_user):
+        """Test that updating with a title exceeding 200 characters returns 400"""
+        event = _create_event(app, test_university.id, executive_user.id)
+
+        response = authenticated_executive_client.put(
+            f'/api/events/{event.id}',
+            json={
+                'title': 'A' * 201,
+                'startTime': '2026-07-01T10:00:00Z',
+            }
+        )
+        assert response.status_code == 400
+        assert '200' in response.get_json()['error']
+
+    def test_update_event_location_too_long(self, authenticated_executive_client, app, test_university, executive_user):
+        """Test that updating with a location exceeding 300 characters returns 400"""
+        event = _create_event(app, test_university.id, executive_user.id)
+
+        response = authenticated_executive_client.put(
+            f'/api/events/{event.id}',
+            json={
+                'title': 'Valid Title',
+                'location': 'L' * 301,
+                'startTime': '2026-07-01T10:00:00Z',
+            }
+        )
+        assert response.status_code == 400
+        assert '300' in response.get_json()['error']

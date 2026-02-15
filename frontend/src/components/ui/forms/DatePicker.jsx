@@ -334,7 +334,6 @@ export default function DatePicker({
               const isFocused = isSameDay(cell.date, focusedDate);
               const isDisabled = isBeforeDay(cell.date, effectiveMinDate);
               const isOutOfMonth = !cell.isCurrentMonth;
-
               return (
                 <button
                   key={i}

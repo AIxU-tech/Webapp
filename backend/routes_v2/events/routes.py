@@ -133,6 +133,12 @@ def create_event(university_id):
     if not data.get('startTime'):
         return jsonify({'error': 'Start time is required'}), 400
 
+    # Validate field lengths
+    if len(data['title'].strip()) > 200:
+        return jsonify({'error': 'Title must be 200 characters or fewer'}), 400
+    if data.get('location') and len(data['location'].strip()) > 300:
+        return jsonify({'error': 'Location must be 300 characters or fewer'}), 400
+
     # Parse times
     try:
         start_time = datetime.fromisoformat(data['startTime'].replace('Z', '+00:00'))
@@ -145,7 +151,7 @@ def create_event(university_id):
             end_time = datetime.fromisoformat(data['endTime'].replace('Z', '+00:00'))
         except (ValueError, AttributeError):
             return jsonify({'error': 'Invalid end time format'}), 400
-        
+
         # Validate that start time is before end time
         if start_time >= end_time:
             return jsonify({'error': 'Start time must be before end time'}), 400
@@ -281,6 +287,12 @@ def update_event(event_id):
         return jsonify({'error': 'Title is required'}), 400
     if not data.get('startTime'):
         return jsonify({'error': 'Start time is required'}), 400
+
+    # Validate field lengths
+    if len(data['title'].strip()) > 200:
+        return jsonify({'error': 'Title must be 200 characters or fewer'}), 400
+    if data.get('location') and len(data['location'].strip()) > 300:
+        return jsonify({'error': 'Location must be 300 characters or fewer'}), 400
 
     # Parse times
     try:

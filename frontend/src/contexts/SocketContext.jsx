@@ -120,7 +120,7 @@ export function SocketProvider({ children }) {
       // -----------------------------------------------------------------------
       // Start with websocket, fall back to polling if needed.
       // WebSocket is preferred for lower latency.
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
 
       // -----------------------------------------------------------------------
       // Timeout

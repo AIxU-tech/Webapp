@@ -34,11 +34,13 @@ function roundToNext15(date) {
 
 /**
  * Merge a Date object and an "HH:MM" time string into an ISO 8601 UTC string.
+ * If addDay is true, the date is advanced by one day (for cross-midnight end times).
  */
-function combineDateTimeToISO(date, time) {
+function combineDateTimeToISO(date, time, addDay = false) {
   if (!date || !time) return null;
   const [h, m] = time.split(':').map(Number);
-  const combined = new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m, 0);
+  const dayOffset = addDay ? 1 : 0;
+  const combined = new Date(date.getFullYear(), date.getMonth(), date.getDate() + dayOffset, h, m, 0);
   return combined.toISOString();
 }
 
@@ -72,7 +74,6 @@ export default function CreateEventModal({ isOpen, onClose, universityId, event 
   const [startTime, setStartTime] = useState(null);
   const [endTime, setEndTime] = useState(null);
   const [durationMinutes, setDurationMinutes] = useState(DEFAULT_DURATION);
-
   // Mutations
   const createEventMutation = useCreateEvent();
   const updateEventMutation = useUpdateEvent();
@@ -187,12 +188,15 @@ export default function CreateEventModal({ isOpen, onClose, universityId, event 
       return;
     }
 
+    // Detect cross-midnight: end time is earlier in the day than start time
+    const crossesMidnight = endTime && timeToMinutes(endTime) <= timeToMinutes(startTime);
+
     const eventData = {
       title: title.trim(),
       description: description.trim() || undefined,
       location: location.trim() || undefined,
       startTime: combineDateTimeToISO(date, startTime),
-      endTime: endTime ? combineDateTimeToISO(date, endTime) : undefined,
+      endTime: endTime ? combineDateTimeToISO(date, endTime, crossesMidnight) : undefined,
     };
 
     if (isEditMode) {
@@ -339,7 +343,6 @@ export default function CreateEventModal({ isOpen, onClose, universityId, event 
             <TimePicker
               value={endTime}
               onChange={handleEndTimeChange}
-              minTime={startTime}
               referenceTime={startTime}
               placeholder="End time"
               disabled={!startTime}
