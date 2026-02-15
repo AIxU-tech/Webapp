@@ -20,7 +20,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PencilIcon, TrashIcon, XIcon, CheckIcon, MessageCircleIcon } from '../icons';
-import { IconButton, LikeButton, Avatar, ConfirmationModal } from '../ui';
+import { IconButton, LikeButton, Avatar, ConfirmationModal, LinkifyText } from '../ui';
 
 /**
  * Parse comment text and convert @mentions at the start to profile links.
@@ -179,9 +179,11 @@ export default function CommentCard({
           </div>
         </div>
       ) : (
-        <p className={`text-sm text-foreground whitespace-pre-wrap break-words ${contentOffset}`}>
-          {renderTextWithMention(comment.text)}
-        </p>
+        <LinkifyText>
+          <p className={`text-sm text-foreground whitespace-pre-wrap break-words ${contentOffset}`}>
+            {renderTextWithMention(comment.text)}
+          </p>
+        </LinkifyText>
       )}
 
       {/* Comment Actions - offset to align with content */}
