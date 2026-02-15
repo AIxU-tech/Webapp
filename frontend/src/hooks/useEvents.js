@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchUniversityEvents,
   createEvent,
+  updateEvent,
   getEvent,
   deleteEvent,
   toggleRsvp,
@@ -106,6 +107,33 @@ export function useCreateEvent() {
       queryClient.invalidateQueries({
         queryKey: eventKeys.university(universityId),
       });
+    },
+  });
+}
+
+/**
+ * useUpdateEvent Hook
+ *
+ * Mutation hook for updating an existing event.
+ * Invalidates all event caches on success for immediate UI sync.
+ *
+ * @returns {object} React Query mutation result
+ *
+ * @example
+ * const updateMutation = useUpdateEvent();
+ * updateMutation.mutate(
+ *   { eventId: 123, eventData: { title: 'Updated', startTime: '...' } },
+ *   { onSuccess: () => closeModal() }
+ * );
+ */
+export function useUpdateEvent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ eventId, eventData }) => updateEvent(eventId, eventData),
+    onSuccess: () => {
+      // Invalidate all event queries to refetch fresh data
+      queryClient.invalidateQueries({ queryKey: eventKeys.all });
     },
   });
 }

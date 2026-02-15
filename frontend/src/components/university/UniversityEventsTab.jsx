@@ -9,17 +9,19 @@ import { useState } from 'react';
 import { useUniversityEvents, useToggleRsvp, useDeleteEvent } from '../../hooks';
 import { EventCard } from '../events';
 import { CreateEventModal } from '../events';
-import { LoadingState, EmptyState, GradientButton } from '../ui';
+import { LoadingState, EmptyState, GradientButton, ConfirmationModal } from '../ui';
 import { CalendarIcon, PlusIcon } from '../icons';
 
 export default function UniversityEventsTab({
   universityId,
   canCreateEvent = false,
+  canManageEvents = false,
   currentUserId,
   isAuthenticated,
 }) {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
 
   // Fetch events for this university
   const { data: events, isLoading, error } = useUniversityEvents(universityId);
@@ -37,10 +39,23 @@ export default function UniversityEventsTab({
     rsvpMutation.mutate({ eventId });
   };
 
-  // Handle delete action
+  // Handle edit action - open modal in edit mode
+  const handleEdit = (event) => {
+    setEditingEvent(event);
+    setIsModalOpen(true);
+  };
+
+  // Handle delete action - opens confirmation modal
+  const [eventToDelete, setEventToDelete] = useState(null);
+
   const handleDelete = (eventId) => {
-    if (confirm('Are you sure you want to delete this event?')) {
-      deleteMutation.mutate(eventId);
+    setEventToDelete(eventId);
+  };
+
+  const handleConfirmDelete = () => {
+    if (eventToDelete) {
+      deleteMutation.mutate(eventToDelete);
+      setEventToDelete(null);
     }
   };
 
@@ -83,9 +98,11 @@ export default function UniversityEventsTab({
               key={event.id}
               event={event}
               onRsvp={handleRsvp}
+              onEdit={handleEdit}
               onDelete={handleDelete}
               currentUserId={currentUserId}
               isAuthenticated={isAuthenticated}
+              canManageEvent={canManageEvents}
             />
           ))}
         </div>
@@ -101,11 +118,26 @@ export default function UniversityEventsTab({
         />
       )}
 
-      {/* Create Event Modal */}
+      {/* Create / Edit Event Modal */}
       <CreateEventModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingEvent(null);
+        }}
         universityId={universityId}
+        event={editingEvent}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={eventToDelete !== null}
+        onClose={() => setEventToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Event"
+        message="Are you sure you want to delete this event? This action cannot be undone."
+        confirmText="Delete"
+        variant="danger"
       />
     </>
   );

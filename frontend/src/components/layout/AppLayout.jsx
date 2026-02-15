@@ -63,6 +63,14 @@ function AppLayout() {
           Positioned at the bottom via flexbox layout.
           ================================================================= */}
       <Footer />
+
+      {/* =================================================================
+          BOTTOM NAV SPACER (Mobile)
+
+          Prevents the footer and bottom content from being hidden behind
+          the fixed bottom navigation bar on mobile/tablet screens.
+          ================================================================= */}
+      <div className="h-16 lg:hidden" aria-hidden="true" />
     </div>
   );
 }

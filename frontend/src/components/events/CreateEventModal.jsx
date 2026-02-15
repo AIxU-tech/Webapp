@@ -1,16 +1,19 @@
 /**
  * CreateEventModal Component
  *
- * Modal for creating new university events.
+ * Modal for creating and editing university events.
  * Available to executives and above at the university.
  * Uses custom DatePicker and TimePicker for intuitive date/time selection
  * with smart defaults and duration tracking.
+ *
+ * Pass an `event` prop to enter edit mode (pre-fills form with existing data).
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { BaseModal, GradientButton, SecondaryButton, DatePicker, TimePicker } from '../ui';
 import { timeToMinutes, minutesToTime } from '../ui/forms/TimePicker';
-import { useCreateEvent } from '../../hooks';
+import { useCreateEvent, useUpdateEvent } from '../../hooks';
+import { parseUtcDate } from '../../utils/time';
 
 // =============================================================================
 // UTILITIES
@@ -31,11 +34,13 @@ function roundToNext15(date) {
 
 /**
  * Merge a Date object and an "HH:MM" time string into an ISO 8601 UTC string.
+ * If addDay is true, the date is advanced by one day (for cross-midnight end times).
  */
-function combineDateTimeToISO(date, time) {
+function combineDateTimeToISO(date, time, addDay = false) {
   if (!date || !time) return null;
   const [h, m] = time.split(':').map(Number);
-  const combined = new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m, 0);
+  const dayOffset = addDay ? 1 : 0;
+  const combined = new Date(date.getFullYear(), date.getMonth(), date.getDate() + dayOffset, h, m, 0);
   return combined.toISOString();
 }
 
@@ -57,7 +62,10 @@ const DEFAULT_DURATION = 60; // 1 hour
 // COMPONENT
 // =============================================================================
 
-export default function CreateEventModal({ isOpen, onClose, universityId }) {
+export default function CreateEventModal({ isOpen, onClose, universityId, event = null }) {
+  // Determine if we're in edit mode
+  const isEditMode = !!event;
+
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -66,9 +74,44 @@ export default function CreateEventModal({ isOpen, onClose, universityId }) {
   const [startTime, setStartTime] = useState(null);
   const [endTime, setEndTime] = useState(null);
   const [durationMinutes, setDurationMinutes] = useState(DEFAULT_DURATION);
-
-  // Mutation
+  // Mutations
   const createEventMutation = useCreateEvent();
+  const updateEventMutation = useUpdateEvent();
+  const activeMutation = isEditMode ? updateEventMutation : createEventMutation;
+
+  // Pre-fill form when editing an existing event
+  useEffect(() => {
+    if (isOpen && event) {
+      setTitle(event.title || '');
+      setDescription(event.description || '');
+      setLocation(event.location || '');
+
+      // Parse the existing start time into date + time parts
+      const startDate = parseUtcDate(event.startTime);
+      if (startDate) {
+        setDate(new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()));
+        const h = String(startDate.getHours()).padStart(2, '0');
+        const m = String(startDate.getMinutes()).padStart(2, '0');
+        setStartTime(`${h}:${m}`);
+      }
+
+      // Parse the existing end time
+      if (event.endTime) {
+        const endDate = parseUtcDate(event.endTime);
+        if (endDate) {
+          const h = String(endDate.getHours()).padStart(2, '0');
+          const m = String(endDate.getMinutes()).padStart(2, '0');
+          setEndTime(`${h}:${m}`);
+
+          // Calculate duration
+          if (startDate && endDate) {
+            const diff = (endDate - startDate) / 60000; // minutes
+            if (diff > 0) setDurationMinutes(diff);
+          }
+        }
+      }
+    }
+  }, [isOpen, event]);
 
   // Reset form and close modal
   const handleClose = () => {
@@ -145,26 +188,44 @@ export default function CreateEventModal({ isOpen, onClose, universityId }) {
       return;
     }
 
+    // Detect cross-midnight: end time is earlier in the day than start time
+    const crossesMidnight = endTime && timeToMinutes(endTime) <= timeToMinutes(startTime);
+
     const eventData = {
       title: title.trim(),
       description: description.trim() || undefined,
       location: location.trim() || undefined,
       startTime: combineDateTimeToISO(date, startTime),
-      endTime: endTime ? combineDateTimeToISO(date, endTime) : undefined,
+      endTime: endTime ? combineDateTimeToISO(date, endTime, crossesMidnight) : undefined,
     };
 
-    createEventMutation.mutate(
-      { universityId, eventData },
-      {
-        onSuccess: () => {
-          handleClose();
-        },
-        onError: (error) => {
-          console.error('Error creating event:', error);
-          alert(error.message || 'Failed to create event. Please try again.');
-        },
-      }
-    );
+    if (isEditMode) {
+      updateEventMutation.mutate(
+        { eventId: event.id, eventData },
+        {
+          onSuccess: () => {
+            handleClose();
+          },
+          onError: (error) => {
+            console.error('Error updating event:', error);
+            alert(error.message || 'Failed to update event. Please try again.');
+          },
+        }
+      );
+    } else {
+      createEventMutation.mutate(
+        { universityId, eventData },
+        {
+          onSuccess: () => {
+            handleClose();
+          },
+          onError: (error) => {
+            console.error('Error creating event:', error);
+            alert(error.message || 'Failed to create event. Please try again.');
+          },
+        }
+      );
+    }
   };
 
   // Character count for description
@@ -177,15 +238,15 @@ export default function CreateEventModal({ isOpen, onClose, universityId }) {
       : 0;
   const durationLabel = currentDuration > 0 ? formatDurationLabel(currentDuration) : '';
 
-  // Minimum date = today
+  // Minimum date = today (only for new events; editing allows past dates)
   const today = new Date();
-  const minDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const minDate = isEditMode ? undefined : new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
   return (
     <BaseModal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Create Event"
+      title={isEditMode ? 'Edit Event' : 'Create Event'}
       size="2xl"
     >
       <form onSubmit={handleSubmit} className="p-6">
@@ -282,7 +343,6 @@ export default function CreateEventModal({ isOpen, onClose, universityId }) {
             <TimePicker
               value={endTime}
               onChange={handleEndTimeChange}
-              minTime={startTime}
               referenceTime={startTime}
               placeholder="End time"
               disabled={!startTime}
@@ -298,17 +358,17 @@ export default function CreateEventModal({ isOpen, onClose, universityId }) {
             type="button"
             variant="ghost"
             onClick={handleClose}
-            disabled={createEventMutation.isPending}
+            disabled={activeMutation.isPending}
           >
             Cancel
           </SecondaryButton>
           <GradientButton
             type="submit"
-            loading={createEventMutation.isPending}
-            loadingText="Creating..."
+            loading={activeMutation.isPending}
+            loadingText={isEditMode ? 'Saving...' : 'Creating...'}
             disabled={!title.trim() || !date || !startTime}
           >
-            Create Event
+            {isEditMode ? 'Save Changes' : 'Create Event'}
           </GradientButton>
         </div>
       </form>

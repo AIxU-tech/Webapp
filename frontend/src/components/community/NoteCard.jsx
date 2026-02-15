@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { FeedCard, LikeButton, SharePopover, Toast } from '../ui';
+import { FeedCard, LikeButton, SharePopover, Toast, LinkifyText } from '../ui';
 import {
   MessageCircleIcon,
   ShareIcon,
@@ -115,7 +115,9 @@ export default function NoteCard({
         expandableContent={<CommentSection noteId={note.id} isExpanded={isCommentsExpanded} />}
       >
         <h3 className="text-xl font-bold text-foreground mb-2">{note.title}</h3>
-        <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{note.content}</p>
+        <LinkifyText>
+          <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{note.content}</p>
+        </LinkifyText>
 
         {/* File Attachments */}
         {note.attachments && note.attachments.length > 0 && (

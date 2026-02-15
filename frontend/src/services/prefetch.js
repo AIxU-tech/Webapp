@@ -30,7 +30,7 @@
 
 import { universityKeys } from '../hooks/useUniversities';
 import { noteKeys } from '../hooks/useNotes';
-import { messageKeys } from '../hooks/useMessages';
+import { messageKeys, seedUnreadConversations } from '../hooks/useMessages';
 import { userKeys } from '../hooks/useUsers';
 import { opportunityKeys } from '../hooks/useOpportunities';
 import { eventKeys } from '../hooks/useEvents';
@@ -127,11 +127,13 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
 
   if (currentUser?.id) {
     prefetchOperations.push(
+      // Prefetch conversations, then seed the unread IDs list from the result.
+      // Chained so the conversations cache is populated before we read from it.
       queryClient.prefetchQuery({
         queryKey: messageKeys.conversations(),
         queryFn: getConversations,
         staleTime: STALE_TIMES.CONVERSATIONS,
-      })
+      }).then(() => seedUnreadConversations(queryClient))
     );
   }
   // -------------------------------------------------------------------------

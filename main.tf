@@ -13,6 +13,10 @@ terraform {
       version = "~> 5.0"
     }
   }
+  backend "gcs" {
+    bucket = "aixu-terraform-state"
+    prefix = "terraform/state"
+  }
 }
 
 provider "google" {
@@ -38,9 +42,9 @@ resource "google_storage_bucket" "media_bucket" {
   # CORS Configuration - Allow browser uploads from both prod and dev
   cors {
     origin = [
-      "https://aixu.tech",       # Production
-      "http://localhost:5173",   # Vite dev server
-      "http://localhost:5000",   # Flask dev server (if needed)
+      "https://aixu.tech",     # Production
+      "http://localhost:5173", # Vite dev server
+      "http://localhost:5000", # Flask dev server (if needed)
       "http://localhost:8000",
     ]
     method          = ["GET", "PUT", "POST", "DELETE", "OPTIONS"]

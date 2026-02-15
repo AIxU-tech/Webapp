@@ -21,6 +21,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
+import { useUnreadCount } from '../../hooks';
 import {
   BrainCircuitIcon,
   CommunityIcon,
@@ -69,6 +70,117 @@ function NavLink({ to, children, currentPath }) {
     >
       {children}
     </Link>
+  );
+}
+
+// =============================================================================
+// MESSAGES NAV LINK WITH UNREAD BADGE
+// =============================================================================
+
+/**
+ * MessagesNavLink Component
+ *
+ * Wraps the Messages NavLink with a real-time unread indicator dot.
+ * Uses the useUnreadCount hook which listens for WebSocket events,
+ * so the badge updates instantly when a new message arrives.
+ *
+ * @param {Object} props - Component props
+ * @param {string} props.currentPath - The current route path for active detection
+ * @returns {JSX.Element} Messages link with optional unread dot
+ */
+function MessagesNavLink({ currentPath }) {
+  const unreadCount = useUnreadCount();
+  const hasUnread = unreadCount > 0;
+
+  return (
+    <NavLink to="/messages" currentPath={currentPath}>
+      <span className="relative">
+        <MessagesIcon />
+        {hasUnread && (
+          <span
+            className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full ring-2 ring-white"
+            aria-label="Unread messages"
+          />
+        )}
+      </span>
+      <span>Messages</span>
+    </NavLink>
+  );
+}
+
+// =============================================================================
+// BOTTOM NAV LINK COMPONENT (Mobile)
+// =============================================================================
+
+/**
+ * BottomNavLink Component
+ *
+ * A navigation link for the mobile bottom bar.
+ * Displays an icon above a small text label, styled like a native mobile tab bar.
+ *
+ * @param {Object} props
+ * @param {string} props.to - Route path
+ * @param {React.ReactNode} props.icon - Icon element
+ * @param {string} props.label - Text label
+ * @param {string} props.currentPath - Current route for active detection
+ * @returns {JSX.Element}
+ */
+function BottomNavLink({ to, icon, label, currentPath }) {
+  const isActive = currentPath === to ||
+    (to !== '/' && currentPath.startsWith(to));
+
+  return (
+    <Link
+      to={to}
+      className={`
+        flex flex-col items-center justify-center py-1.5 px-1 rounded-lg
+        text-[11px] font-medium transition-all duration-150 min-w-0 flex-1
+        ${isActive
+          ? 'text-primary'
+          : 'text-gray-400 hover:text-foreground'
+        }
+      `}
+    >
+      <span className="mb-0.5">{icon}</span>
+      <span className="truncate max-w-full">{label}</span>
+    </Link>
+  );
+}
+
+// =============================================================================
+// BOTTOM MESSAGES NAV LINK WITH UNREAD BADGE (Mobile)
+// =============================================================================
+
+/**
+ * BottomMessagesNavLink Component
+ *
+ * Mobile bottom nav version of the Messages link with unread indicator dot.
+ *
+ * @param {Object} props
+ * @param {string} props.currentPath - Current route for active detection
+ * @returns {JSX.Element}
+ */
+function BottomMessagesNavLink({ currentPath }) {
+  const unreadCount = useUnreadCount();
+  const hasUnread = unreadCount > 0;
+
+  return (
+    <BottomNavLink
+      to="/messages"
+      icon={
+        <span className="relative">
+          <MessagesIcon />
+          {hasUnread && (
+            <span
+              className="absolute -top-1 -right-1.5 w-2 h-2 bg-primary rounded-full ring-2 ring-white"
+              aria-label="Unread messages"
+            />
+          )}
+        </span>
+      }
+      label="Messages"
+      currentPath={currentPath}
+    />
   );
 }
 
@@ -135,7 +247,7 @@ export default function NavBar() {
             Uses absolute positioning to achieve true center alignment
             regardless of the widths of left/right sections.
             ================================================================= */}
-        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1">
+        <div className="absolute left-1/2 transform -translate-x-1/2 hidden lg:flex items-center gap-1">
           <NavLink to="/community" currentPath={currentPath}>
             <CommunityIcon />
             <span>Community</span>
@@ -152,10 +264,7 @@ export default function NavBar() {
           </NavLink>
 
           {isAuthenticated && (
-            <NavLink to="/messages" currentPath={currentPath}>
-              <MessagesIcon />
-              <span>Messages</span>
-            </NavLink>
+            <MessagesNavLink currentPath={currentPath} />
           )}
 
           <NavLink to="/news" currentPath={currentPath}>
@@ -209,6 +318,29 @@ export default function NavBar() {
             </Link>
           </div>
         )}
+      </div>
+
+      {/* =================================================================
+          BOTTOM NAVIGATION BAR (Mobile/Tablet)
+
+          Fixed to the bottom of the viewport on screens below the lg
+          breakpoint. Provides easy thumb-zone access to main navigation
+          on mobile devices. Hidden on desktop where the center nav is used.
+          ================================================================= */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 bg-white px-2 py-2 lg:hidden border-t border-gray-200"
+        role="navigation"
+        aria-label="Mobile navigation"
+      >
+        <div className="flex items-center justify-around">
+          <BottomNavLink to="/community" icon={<CommunityIcon />} label="Community" currentPath={currentPath} />
+          <BottomNavLink to="/universities" icon={<UniversitiesIcon />} label="Universities" currentPath={currentPath} />
+          <BottomNavLink to="/opportunities" icon={<OpportunitiesIcon />} label="Opportunities" currentPath={currentPath} />
+          {isAuthenticated && (
+            <BottomMessagesNavLink currentPath={currentPath} />
+          )}
+          <BottomNavLink to="/news" icon={<NewsIcon />} label="News" currentPath={currentPath} />
+        </div>
       </div>
     </nav>
   );

@@ -6,6 +6,7 @@ import {
   useConversations,
   usePageTitle,
   markConversationRead,
+  clearUnreadConversation,
 } from '../hooks';
 import { LoadingState, ErrorState } from '../components/ui';
 import { ArrowLeftIcon } from '../components/icons';
@@ -67,6 +68,7 @@ export default function MessagesPage() {
     if (!activeUserId && conversations.length > 0 && !isNewConversation) {
       setActiveUserId(conversations[0].otherUser.id);
       markConversationRead(queryClient, conversations[0].otherUser.id);
+      clearUnreadConversation(queryClient, conversations[0].otherUser.id);
     }
   }, [conversations, activeUserId, isNewConversation, queryClient]);
 
@@ -75,6 +77,7 @@ export default function MessagesPage() {
     setIsNewConversation(false);
     setRecipientUser(null);
     markConversationRead(queryClient, userId);
+    clearUnreadConversation(queryClient, userId);
   }, [queryClient]);
 
   const handleStartNewConversation = useCallback((user) => {
@@ -82,6 +85,7 @@ export default function MessagesPage() {
     setIsNewConversation(true);
     setRecipientUser(user);
     markConversationRead(queryClient, user.id);
+    clearUnreadConversation(queryClient, user.id);
   }, [queryClient]);
 
   const handleConversationCreated = useCallback(() => {

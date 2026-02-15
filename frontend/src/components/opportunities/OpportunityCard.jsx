@@ -3,7 +3,7 @@
  * Displays an opportunity posting using the shared FeedCard layout.
  */
 
-import { FeedCard } from '../ui';
+import { FeedCard, LinkifyText } from '../ui';
 import { MessagesIcon, BuildingIcon } from '../icons';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 
@@ -75,7 +75,9 @@ export default function OpportunityCard({
       {opportunity.compensation && (
         <p className="text-primary font-medium mb-2">{opportunity.compensation}</p>
       )}
-      <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{opportunity.description}</p>
+      <LinkifyText>
+        <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{opportunity.description}</p>
+      </LinkifyText>
     </FeedCard>
   );
 }
