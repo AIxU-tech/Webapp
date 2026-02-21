@@ -29,6 +29,7 @@ import {
   OpportunitiesIcon,
   MessagesIcon,
   NewsIcon,
+  SpeakersIcon,
   ProfileIcon,
   AdminIcon,
 } from '../icons';
@@ -271,6 +272,13 @@ export default function NavBar() {
             <NewsIcon />
             <span>News</span>
           </NavLink>
+
+          {user?.isExecutiveAnywhere && (
+            <NavLink to="/speakers" currentPath={currentPath}>
+              <SpeakersIcon />
+              <span>Speakers</span>
+            </NavLink>
+          )}
         </div>
 
 
@@ -340,6 +348,9 @@ export default function NavBar() {
             <BottomMessagesNavLink currentPath={currentPath} />
           )}
           <BottomNavLink to="/news" icon={<NewsIcon />} label="News" currentPath={currentPath} />
+          {user?.isExecutiveAnywhere && (
+            <BottomNavLink to="/speakers" icon={<SpeakersIcon />} label="Speakers" currentPath={currentPath} />
+          )}
         </div>
       </div>
     </nav>

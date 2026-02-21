@@ -56,6 +56,9 @@ export const STALE_TIMES = {
 
   // AI news content updates infrequently (admin-triggered refresh)
   NEWS: 5 * 60 * 1000, // 5 minutes
+
+  // Speakers change infrequently
+  SPEAKERS: 5 * 60 * 1000, // 5 minutes
 };
 
 // =============================================================================
@@ -84,6 +87,9 @@ export const GC_TIMES = {
 
   // User profiles - moderate retention
   USERS: 30 * 60 * 1000, // 30 minutes (uses default)
+
+  // Speakers - keep for session
+  SPEAKERS: 30 * 60 * 1000, // 30 minutes
 };
 
 // =============================================================================

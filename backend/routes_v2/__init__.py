@@ -11,6 +11,7 @@ from backend.routes_v2.notifications.routes import notifications_bp
 from backend.routes_v2.news.routes import news_bp
 from backend.routes_v2.events.routes import events_bp
 from backend.routes_v2.uploads.routes import uploads_bp
+from backend.routes_v2.speakers.routes import speakers_bp
 
 __all__ = [
     'public_bp',
@@ -25,6 +26,7 @@ __all__ = [
     'notifications_bp',
     'news_bp',
     'events_bp',
-    'uploads_bp'
+    'uploads_bp',
+    'speakers_bp',
 ]
 
