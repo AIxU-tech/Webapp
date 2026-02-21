@@ -98,6 +98,7 @@ export {
   MessagesIcon,
   NewsIcon,
   OpportunitiesIcon,
+  SpeakersIcon,
   AdminIcon,
 } from './navigation';
 

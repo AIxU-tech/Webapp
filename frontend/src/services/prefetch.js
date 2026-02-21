@@ -35,6 +35,7 @@ import { userKeys } from '../hooks/useUsers';
 import { opportunityKeys } from '../hooks/useOpportunities';
 import { eventKeys } from '../hooks/useEvents';
 import { newsKeys } from '../hooks/useNews';
+import { speakerKeys } from '../hooks/useSpeakers';
 import { getUniversities, getUniversity } from '../api/universities';
 import { fetchNotes } from '../api/notes';
 import { getConversations } from '../api/messages';
@@ -42,6 +43,7 @@ import { getUser } from '../api/users';
 import { fetchOpportunities } from '../api/opportunities';
 import { fetchUniversityEvents } from '../api/events';
 import { fetchAIContent } from '../api/news';
+import { fetchSpeakers } from '../api/speakers';
 import { STALE_TIMES } from '../config/cache';
 
 // =============================================================================
@@ -147,6 +149,19 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
         queryKey: userKeys.detail(currentUser.id),
         queryFn: () => getUser(currentUser.id),
         staleTime: STALE_TIMES.USERS,
+      })
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Speakers (for executives/admins)
+  // -------------------------------------------------------------------------
+  if (currentUser?.isExecutiveAnywhere) {
+    prefetchOperations.push(
+      queryClient.prefetchQuery({
+        queryKey: speakerKeys.list(),
+        queryFn: fetchSpeakers,
+        staleTime: STALE_TIMES.SPEAKERS,
       })
     );
   }

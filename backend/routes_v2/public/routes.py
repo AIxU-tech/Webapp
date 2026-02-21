@@ -4,6 +4,7 @@ import urllib.parse
 import json
 from backend.utils.email import send_email
 from backend.routes_v2.public.helpers import format_city_results
+from backend.models import University, User, Note, Event
 
 public_bp = Blueprint('public', __name__)
 
@@ -51,6 +52,17 @@ def search_cities():
     except Exception as e:
         print(f"City search error: {e}")
         return jsonify([]), 500
+
+
+@public_bp.route('/api/stats')
+def platform_stats():
+    """Public endpoint returning platform-wide statistics."""
+    return jsonify({
+        'universities': University.query.count(),
+        'resources': Note.query.count(),
+        'students': User.query.count(),
+        'events': Event.query.count(),
+    })
 
 
 @public_bp.route('/')

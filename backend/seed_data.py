@@ -45,6 +45,7 @@ from backend.models.university_role import UniversityRole
 from backend.models.ai_news import AINewsStory, AINewsSource, AIResearchPaper, AINewsChatMessage
 from backend.models.opportunity import Opportunity
 from backend.models.event import Event, EventAttendee
+from backend.models.speaker import Speaker
 from backend.constants import UniversityRoles, ADMIN
 
 
@@ -129,6 +130,7 @@ def clear_existing_data():
     print("Clearing existing data...")
     # Delete in order to respect foreign key constraints
     # Delete child records first (those with foreign keys)
+    Speaker.query.delete()  # References User + University
     EventAttendee.query.delete()  # References Event
     Event.query.delete()  # References User
     UserFollows.query.delete()
@@ -791,6 +793,113 @@ def seed_ai_news():
     return stories, papers
 
 
+def seed_speakers(users, universities):
+    """Create sample guest speaker contacts."""
+    print("Seeding speakers...")
+
+    domain_to_uni = {uni.email_domain: uni for uni in universities}
+
+    # Find executives/presidents to be the ones who added speakers
+    executive_users = []
+    for user in users:
+        domain = user.email.split("@")[1].replace(".edu", "")
+        if domain in domain_to_uni:
+            uni = domain_to_uni[domain]
+            role = UniversityRole.get_role(user.id, uni.id)
+            if role and role.role >= UniversityRoles.EXECUTIVE:
+                executive_users.append((user, uni))
+
+    speakers_data = [
+        {
+            "name": "Dr. Fei-Fei Li",
+            "position": "Professor of Computer Science",
+            "organization": "Stanford University",
+            "email": "feifeili@stanford.edu",
+            "linkedin_url": "https://linkedin.com/in/faboretum",
+            "notes": "Co-director of Stanford HAI. Great for talks on computer vision and AI ethics. Prefers 45-min format.",
+        },
+        {
+            "name": "Dr. Andrew Ng",
+            "position": "Founder & CEO",
+            "organization": "DeepLearning.AI",
+            "email": "andrew@deeplearning.ai",
+            "phone": "(650) 555-0142",
+            "linkedin_url": "https://linkedin.com/in/andrewyng",
+            "notes": "Excellent speaker for introductory AI topics. Very student-friendly. Books 2-3 months in advance.",
+        },
+        {
+            "name": "Dr. Timnit Gebru",
+            "position": "Founder & Executive Director",
+            "organization": "DAIR Institute",
+            "email": "timnit@dairinstitute.org",
+            "linkedin_url": "https://linkedin.com/in/timnit-gebru",
+            "notes": "Expert on AI ethics and fairness. Passionate about diversity in tech. Prefers panel or Q&A format.",
+        },
+        {
+            "name": "Dr. Yann LeCun",
+            "position": "VP & Chief AI Scientist",
+            "organization": "Meta",
+            "email": "ylecun@meta.com",
+            "linkedin_url": "https://linkedin.com/in/yann-lecun",
+            "notes": "Turing Award winner. Great for deep learning fundamentals talks. Limited availability.",
+        },
+        {
+            "name": "Rachel Thomas",
+            "position": "Co-founder",
+            "organization": "fast.ai",
+            "email": "rachel@fast.ai",
+            "linkedin_url": "https://linkedin.com/in/rachel-thomas-ai",
+            "notes": "Focuses on practical deep learning and AI accessibility. Great for workshop-style sessions.",
+        },
+        {
+            "name": "Dr. Percy Liang",
+            "position": "Associate Professor of Computer Science",
+            "organization": "Stanford University",
+            "email": "pliang@cs.stanford.edu",
+            "phone": "(650) 555-0198",
+            "notes": "Expert on foundation models and NLP. Runs the HELM benchmark. Good for research-oriented talks.",
+        },
+        {
+            "name": "Sarah Guo",
+            "position": "Founding Partner",
+            "organization": "Conviction Capital",
+            "email": "sarah@conviction.com",
+            "linkedin_url": "https://linkedin.com/in/sarahguo",
+            "notes": "AI venture capitalist. Great for talks on AI startups and entrepreneurship. Very engaging speaker.",
+        },
+        {
+            "name": "Dr. Dario Amodei",
+            "position": "CEO",
+            "organization": "Anthropic",
+            "linkedin_url": "https://linkedin.com/in/dario-amodei",
+            "notes": "Expert on AI safety. Prefers moderated discussion format. Requires 3+ months advance booking.",
+        },
+    ]
+
+    speakers = []
+    for i, data in enumerate(speakers_data):
+        # Distribute speakers among executive users
+        adder, uni = executive_users[i % len(executive_users)]
+        speaker = Speaker(
+            name=data["name"],
+            position=data["position"],
+            organization=data.get("organization"),
+            email=data.get("email"),
+            phone=data.get("phone"),
+            linkedin_url=data.get("linkedin_url"),
+            notes=data.get("notes"),
+            university_id=uni.id,
+            added_by_id=adder.id,
+            created_at=datetime.utcnow() - timedelta(days=random.randint(1, 90)),
+        )
+        db.session.add(speaker)
+        speakers.append(speaker)
+
+    db.session.commit()
+    print(f"Created {len(speakers)} speakers.")
+    return speakers
+
+
 def seed_all():
     """Run all seed functions."""
     print("\n" + "="*50)
@@ -807,6 +916,7 @@ def seed_all():
     seed_messages(users)
     seed_follows(users)
     seed_ai_news()
+    seed_speakers(users, universities)
 
     print("\n" + "="*50)
     print("Seeding complete!")
