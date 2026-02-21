@@ -76,6 +76,7 @@ export default function CommentCard({
   onReply,
   currentUserId,
   isAuthenticated = false,
+  isAdmin = false,
   isReply = false,
 }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -138,7 +139,7 @@ export default function CommentCard({
             {comment.isEdited && ' · edited'}
           </span>
         </div>
-        {isOwner && !isEditing && (
+        {(isOwner || isAdmin) && !isEditing && (
           <IconButton
             icon={TrashIcon}
             onClick={() => setShowDeleteConfirm(true)}

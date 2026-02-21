@@ -16,6 +16,7 @@ export default function UniversityPostsTab({
   universityId,
   currentUserId,
   isAuthenticated,
+  isAdmin = false,
 }) {
   const { openAuthModal } = useAuthModal();
   const [noteToDelete, setNoteToDelete] = useState(null);
@@ -115,6 +116,7 @@ export default function UniversityPostsTab({
             onDelete={handleDelete}
             currentUserId={currentUserId}
             isAuthenticated={isAuthenticated}
+            isAdmin={isAdmin}
           />
         ))}
 

@@ -414,6 +414,7 @@ export default function UniversityDetailPage() {
             universityId={id}
             currentUserId={currentUserId}
             isAuthenticated={isAuthenticated}
+            isAdmin={isAdmin}
           />
         );
       case 'events':

@@ -26,7 +26,7 @@ import {
 } from '../../hooks';
 import CommentCard from './CommentCard';
 import { Avatar } from '../ui';
-import { SpinnerIcon, XIcon } from '../icons';
+import { XIcon } from '../icons';
 
 /**
  * Group comments into threaded structure.
@@ -67,6 +67,7 @@ function groupCommentsByParent(comments) {
  */
 export default function CommentSection({ noteId, isExpanded }) {
   const { user, isAuthenticated } = useAuth();
+  const isAdmin = user?.permissionLevel >= 1;
   const { openAuthModal } = useAuthModal();
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState(null); // Comment being replied to
@@ -176,10 +177,22 @@ export default function CommentSection({ noteId, isExpanded }) {
 
   return (
     <div className="border-t border-border mt-4 pt-4 pb-4">
-      {/* Loading State */}
+      {/* Loading Skeleton */}
       {isLoading && (
-        <div className="flex items-center justify-center py-4">
-          <SpinnerIcon className="h-5 w-5 text-muted-foreground" />
+        <div className="space-y-4 animate-pulse" aria-hidden="true">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="py-3">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-8 h-8 bg-muted rounded-full flex-shrink-0" />
+                <div className="h-3 bg-muted rounded w-24" />
+                <div className="h-2.5 bg-muted rounded w-12" />
+              </div>
+              <div className="ml-10 space-y-1.5">
+                <div className="h-3 bg-muted rounded w-full" />
+                <div className="h-3 bg-muted rounded w-3/4" />
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -205,6 +218,7 @@ export default function CommentSection({ noteId, isExpanded }) {
                 onReply={handleReply}
                 currentUserId={user?.id}
                 isAuthenticated={isAuthenticated}
+                isAdmin={isAdmin}
               />
               {/* Replies */}
               {replies.map((reply) => (
@@ -218,6 +232,7 @@ export default function CommentSection({ noteId, isExpanded }) {
                   onReply={handleReply}
                   currentUserId={user?.id}
                   isAuthenticated={isAuthenticated}
+                  isAdmin={isAdmin}
                   isReply
                 />
               ))}

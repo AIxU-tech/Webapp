@@ -561,7 +561,7 @@ def remove_comment(note_id, comment_id):
             return jsonify({'success': False, 'error': 'Comment not found'}), 404
 
         # Check authorization
-        if comment.user_id != current_user.id:
+        if comment.user_id != current_user.id and not current_user.is_site_admin():
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
         note = Note.query.get(note_id)
