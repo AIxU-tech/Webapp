@@ -6,12 +6,14 @@
  */
 
 import { Link, Navigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { usePageTitle } from '../hooks';
 import { NavBar, Footer } from '../components/layout';
 import { FeatureCard } from '../components/home';
 import { GradientButton, StatItem } from '../components/ui';
 import { GRADIENT_PRIMARY } from '../config/styles';
+import { api } from '../api/client';
 import {
   BrainCircuitIcon,
   FileTextIcon,
@@ -21,18 +23,23 @@ import {
 } from '../components/icons';
 
 // =============================================================================
-// DATA DEFINITIONS
+// HELPERS
 // =============================================================================
 
 /**
- * Platform statistics displayed in the hero section
+ * Rounds a number down to its leading digit and appends "+".
+ * e.g. 21 → "20+", 523 → "500+", 1234 → "1,000+"
  */
-const STATS = [
-  { value: '50+', label: 'Universities' },
-  { value: '500+', label: 'Resources Shared' },
-  { value: '10K+', label: 'Students' },
-  { value: '100+', label: 'Events Monthly' },
-];
+function formatStat(n) {
+  if (n < 10) return `${n}+`;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(n)));
+  const rounded = Math.floor(n / magnitude) * magnitude;
+  return `${rounded.toLocaleString()}+`;
+}
+
+// =============================================================================
+// DATA DEFINITIONS
+// =============================================================================
 
 /**
  * Feature highlights with icons and descriptions
@@ -72,9 +79,15 @@ const FEATURES = [
 // =============================================================================
 
 export default function HomePage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isReturningUser } = useAuth();
 
   usePageTitle('AI Across Universities');
+
+  const { data: stats } = useQuery({
+    queryKey: ['platformStats'],
+    queryFn: () => api.get('/stats'),
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Redirect authenticated users to community
   if (isAuthenticated) {
@@ -115,19 +128,22 @@ export default function HomePage() {
             {/* Primary CTA */}
             <GradientButton
               as={Link}
-              to="/register"
+              to={isReturningUser ? '/login' : '/register'}
               size="lg"
               className="mb-16"
             >
-              Join AIxU Community
+              {isReturningUser ? 'Log In to AIxU' : 'Join AIxU Community'}
             </GradientButton>
 
             {/* Platform statistics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-2xl mx-auto mt-16">
-              {STATS.map((stat) => (
-                <StatItem key={stat.label} value={stat.value} label={stat.label} size="lg" />
-              ))}
-            </div>
+            {stats && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-2xl mx-auto mt-16">
+                <StatItem value={formatStat(stats.universities)} label="Universities" size="lg" />
+                <StatItem value={formatStat(stats.resources)} label="Resources Shared" size="lg" />
+                <StatItem value={formatStat(stats.students)} label="Students" size="lg" />
+                <StatItem value={formatStat(stats.events)} label="Events" size="lg" />
+              </div>
+            )}
           </div>
         </div>
       </section>

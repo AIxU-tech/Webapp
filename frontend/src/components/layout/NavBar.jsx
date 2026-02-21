@@ -209,7 +209,7 @@ export default function NavBar() {
   const currentPath = location.pathname;
 
   // Get authentication state and user from context
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isReturningUser, user } = useAuth();
   const { openAuthModal } = useAuthModal();
 
 
@@ -317,12 +317,12 @@ export default function NavBar() {
               Add Your School
             </Link>
 
-            {/* Join button */}
+            {/* Join / Login button */}
             <Link
-              to="/register"
+              to={isReturningUser ? '/login' : '/register'}
               className="bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white px-6 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-[hsl(220,85%,60%)]/30 transition-all duration-200 transform hover:-translate-y-0.5"
             >
-              Join AIxU
+              {isReturningUser ? 'Log In' : 'Join AIxU'}
             </Link>
           </div>
         )}
