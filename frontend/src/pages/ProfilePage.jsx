@@ -28,6 +28,15 @@ import {
   useUpdateProfile,
   useUploadProfilePicture,
   useUploadProfileBanner,
+  useCreateEducation,
+  useUpdateEducation,
+  useDeleteEducation,
+  useCreateExperience,
+  useUpdateExperience,
+  useDeleteExperience,
+  useCreateProject,
+  useUpdateProject,
+  useDeleteProject,
 } from '../hooks';
 
 // UI Components
@@ -45,6 +54,9 @@ import {
   AboutSection,
   ProfileSidebar,
   EditProfileModal,
+  ExperienceSection,
+  EducationSection,
+  ProjectsSection,
 } from '../components/profile';
 
 export default function ProfilePage() {
@@ -76,6 +88,16 @@ export default function ProfilePage() {
   const updateProfileMutation = useUpdateProfile();
   const uploadPictureMutation = useUploadProfilePicture();
   const uploadBannerMutation = useUploadProfileBanner();
+
+  const createEducationMutation = useCreateEducation();
+  const updateEducationMutation = useUpdateEducation();
+  const deleteEducationMutation = useDeleteEducation();
+  const createExperienceMutation = useCreateExperience();
+  const updateExperienceMutation = useUpdateExperience();
+  const deleteExperienceMutation = useDeleteExperience();
+  const createProjectMutation = useCreateProject();
+  const updateProjectMutation = useUpdateProject();
+  const deleteProjectMutation = useDeleteProject();
 
   // ---------------------------------------------------------------------------
   // Modal States
@@ -270,19 +292,32 @@ export default function ProfilePage() {
               onSave={handleSaveAbout}
             />
 
-            {/* TODO: Add projects, experience, and research sections */}
-            {/* <ProjectsSection
-              projects={[]}
-              isOwnProfile={isOwnProfile}
-            />
             <ExperienceSection
-              experiences={[]}
+              experiences={user.experience || []}
               isOwnProfile={isOwnProfile}
+              onCreate={(data) => createExperienceMutation.mutateAsync(data)}
+              onUpdate={(data) => updateExperienceMutation.mutateAsync(data)}
+              onDelete={(id) => deleteExperienceMutation.mutateAsync(id)}
+              isSaving={createExperienceMutation.isPending || updateExperienceMutation.isPending}
             />
-            <ResearchSection
-              publications={[]}
+
+            <EducationSection
+              education={user.education || []}
               isOwnProfile={isOwnProfile}
-            /> */}
+              onCreate={(data) => createEducationMutation.mutateAsync(data)}
+              onUpdate={(data) => updateEducationMutation.mutateAsync(data)}
+              onDelete={(id) => deleteEducationMutation.mutateAsync(id)}
+              isSaving={createEducationMutation.isPending || updateEducationMutation.isPending}
+            />
+
+            <ProjectsSection
+              projects={user.projects || []}
+              isOwnProfile={isOwnProfile}
+              onCreate={(data) => createProjectMutation.mutateAsync(data)}
+              onUpdate={(data) => updateProjectMutation.mutateAsync(data)}
+              onDelete={(id) => deleteProjectMutation.mutateAsync(id)}
+              isSaving={createProjectMutation.isPending || updateProjectMutation.isPending}
+            />
           </div>
 
           {/* Sidebar (fixed 340px width) */}

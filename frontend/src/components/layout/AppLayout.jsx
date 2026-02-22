@@ -70,7 +70,7 @@ function AppLayout() {
           Prevents the footer and bottom content from being hidden behind
           the fixed bottom navigation bar on mobile/tablet screens.
           ================================================================= */}
-      <div className="h-16 lg:hidden" aria-hidden="true" />
+      <div className="h-16 xl:hidden" aria-hidden="true" />
     </div>
   );
 }

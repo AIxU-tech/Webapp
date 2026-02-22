@@ -47,6 +47,7 @@ from backend.models.opportunity import Opportunity
 from backend.models.event import Event, EventAttendee
 from backend.models.speaker import Speaker
 from backend.constants import UniversityRoles, ADMIN
+from backend.utils.profile import create_initial_education
 
 
 # =============================================================================
@@ -119,6 +120,7 @@ def ensure_dev_user():
     # Add dev user as member and president of Test University
     test_university.add_member(dev_user.id)
     UniversityRole.set_role(dev_user.id, test_university.id, UniversityRoles.PRESIDENT)
+    create_initial_education(dev_user, test_university)
     db.session.commit()
 
     print(f"Created dev user: {DEV_USER_EMAIL} / {DEV_USER_PASSWORD}")
@@ -437,6 +439,14 @@ def seed_users(universities):
         users.append(user)
 
     db.session.commit()
+
+    # Auto-populate education entries for users with universities
+    for user in users:
+        domain = user.email.split("@")[1].replace(".edu", "")
+        if domain in domain_to_uni:
+            create_initial_education(user, domain_to_uni[domain])
+    db.session.commit()
+
     print(f"Created {len(users)} users.")
     return users
 

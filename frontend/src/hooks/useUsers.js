@@ -294,6 +294,57 @@ export function useUploadProfileBanner() {
 }
 
 // =============================================================================
+// Profile Section Mutation Hooks (Education, Experience, Projects)
+// =============================================================================
+
+function useProfileSectionMutation(mutationFn) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
+    },
+  });
+}
+
+export function useCreateEducation() {
+  return useProfileSectionMutation((data) => api.post('/profile/education', data));
+}
+
+export function useUpdateEducation() {
+  return useProfileSectionMutation(({ id, ...data }) => api.put(`/profile/education/${id}`, data));
+}
+
+export function useDeleteEducation() {
+  return useProfileSectionMutation((id) => api.delete(`/profile/education/${id}`));
+}
+
+export function useCreateExperience() {
+  return useProfileSectionMutation((data) => api.post('/profile/experience', data));
+}
+
+export function useUpdateExperience() {
+  return useProfileSectionMutation(({ id, ...data }) => api.put(`/profile/experience/${id}`, data));
+}
+
+export function useDeleteExperience() {
+  return useProfileSectionMutation((id) => api.delete(`/profile/experience/${id}`));
+}
+
+export function useCreateProject() {
+  return useProfileSectionMutation((data) => api.post('/profile/projects', data));
+}
+
+export function useUpdateProject() {
+  return useProfileSectionMutation(({ id, ...data }) => api.put(`/profile/projects/${id}`, data));
+}
+
+export function useDeleteProject() {
+  return useProfileSectionMutation((id) => api.delete(`/profile/projects/${id}`));
+}
+
+// =============================================================================
 // Prefetch Utilities
 // =============================================================================
 

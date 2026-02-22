@@ -36,25 +36,19 @@ def _check_executive_access():
 def _get_user_executive_universities(user):
     """Get universities where user is executive+, for the university selector."""
     if user.is_site_admin():
-        # Admins get universities where they have an executive+ role
-        roles = UniversityRole.query.filter(
-            UniversityRole.user_id == user.id,
-            UniversityRole.role >= UniversityRoles.EXECUTIVE
-        ).all()
-        if roles:
-            uni_ids = [r.university_id for r in roles]
-            universities = University.query.filter(University.id.in_(uni_ids)).all()
-            return [{'id': u.id, 'name': u.name} for u in universities]
-        # If admin has no executive roles, return all universities
         universities = University.query.order_by(University.name).all()
         return [{'id': u.id, 'name': u.name} for u in universities]
 
-    roles = UniversityRole.query.filter(
-        UniversityRole.user_id == user.id,
-        UniversityRole.role >= UniversityRoles.EXECUTIVE
-    ).all()
-    uni_ids = [r.university_id for r in roles]
-    universities = University.query.filter(University.id.in_(uni_ids)).all()
+    universities = (
+        University.query
+        .join(UniversityRole, UniversityRole.university_id == University.id)
+        .filter(
+            UniversityRole.user_id == user.id,
+            UniversityRole.role >= UniversityRoles.EXECUTIVE,
+        )
+        .order_by(University.name)
+        .all()
+    )
     return [{'id': u.id, 'name': u.name} for u in universities]
 
 

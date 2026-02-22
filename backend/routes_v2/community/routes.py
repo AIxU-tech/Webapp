@@ -229,7 +229,7 @@ def delete_note(note_id):
             return jsonify({'success': False, 'error': 'Note not found'}), 404
 
         # Check if current user is the author
-        if note.author_id != current_user.id:
+        if note.author_id != current_user.id and not current_user.is_site_admin():
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
         # Clean up GCS files for this note's attachments (parallel deletion)

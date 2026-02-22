@@ -248,7 +248,7 @@ export default function NavBar() {
             Uses absolute positioning to achieve true center alignment
             regardless of the widths of left/right sections.
             ================================================================= */}
-        <div className="absolute left-1/2 transform -translate-x-1/2 hidden lg:flex items-center gap-1">
+        <div className="absolute left-1/2 transform -translate-x-1/2 hidden xl:flex items-center gap-1">
           <NavLink to="/community" currentPath={currentPath}>
             <CommunityIcon />
             <span>Community</span>
@@ -336,7 +336,7 @@ export default function NavBar() {
           on mobile devices. Hidden on desktop where the center nav is used.
           ================================================================= */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white px-2 py-2 lg:hidden border-t border-gray-200"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-white px-2 py-2 xl:hidden border-t border-gray-200"
         role="navigation"
         aria-label="Mobile navigation"
       >
