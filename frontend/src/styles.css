@@ -151,6 +151,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overscroll-behavior: none;
+    overflow-x: hidden;
   }
 
   /* Modern grey scrollbar - subtle and unobtrusive */

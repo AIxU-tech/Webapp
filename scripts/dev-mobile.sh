@@ -70,9 +70,9 @@ kill_port() {
 
 # Kill any existing processes on our ports
 echo -e "${YELLOW}Checking for existing processes...${NC}"
-kill_port 5000
+kill_port 8000
 kill_port 5173
-echo -e "${GREEN}Ports 5000 and 5173 are now free.${NC}"
+echo -e "${GREEN}Ports 8000 and 5173 are now free.${NC}"
 echo ""
 
 # Clean and reinstall node_modules (skip if --quick)
@@ -105,14 +105,14 @@ trap cleanup SIGINT SIGTERM
 
 # Start Flask backend bound to all interfaces
 cd "$PROJECT_DIR"
-echo -e "${GREEN}Starting Flask backend on 0.0.0.0:5000...${NC}"
+echo -e "${GREEN}Starting Flask backend on 0.0.0.0:8000...${NC}"
 HOST=0.0.0.0 python -c "
 import os
 os.environ.setdefault('HOST', '0.0.0.0')
 from backend import create_app
 from backend.extensions import socketio
 app = create_app()
-socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+socketio.run(app, debug=True, host='0.0.0.0', port=8000, allow_unsafe_werkzeug=True)
 " &
 BACKEND_PID=$!
 
