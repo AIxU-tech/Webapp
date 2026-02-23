@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useMessageTarget } from '../contexts/MessageTargetContext';
@@ -6,6 +6,7 @@ import {
   useConversations,
   usePageTitle,
   markConversationRead,
+  clearUnreadConversation,
 } from '../hooks';
 import { LoadingState, ErrorState } from '../components/ui';
 import { ArrowLeftIcon } from '../components/icons';
@@ -62,19 +63,27 @@ export default function MessagesPage() {
     setShouldAutoFocus(false);
   }, []);
 
-  // Auto-select first conversation on load
+  // Tracks whether the user tapped Back to return to the conversation list.
+  // Prevents auto-select from immediately overriding their navigation.
+  const userNavigatedBack = useRef(false);
+
+  // Auto-select first conversation when available.
+  // CSS handles which panel is visible at each breakpoint.
   useEffect(() => {
-    if (!activeUserId && conversations.length > 0 && !isNewConversation) {
+    if (!activeUserId && conversations.length > 0 && !isNewConversation && !userNavigatedBack.current) {
       setActiveUserId(conversations[0].otherUser.id);
       markConversationRead(queryClient, conversations[0].otherUser.id);
+      clearUnreadConversation(queryClient, conversations[0].otherUser.id);
     }
   }, [conversations, activeUserId, isNewConversation, queryClient]);
 
   const handleSelectConversation = useCallback((userId) => {
+    userNavigatedBack.current = false;
     setActiveUserId(userId);
     setIsNewConversation(false);
     setRecipientUser(null);
     markConversationRead(queryClient, userId);
+    clearUnreadConversation(queryClient, userId);
   }, [queryClient]);
 
   const handleStartNewConversation = useCallback((user) => {
@@ -82,6 +91,7 @@ export default function MessagesPage() {
     setIsNewConversation(true);
     setRecipientUser(user);
     markConversationRead(queryClient, user.id);
+    clearUnreadConversation(queryClient, user.id);
   }, [queryClient]);
 
   const handleConversationCreated = useCallback(() => {
@@ -89,8 +99,8 @@ export default function MessagesPage() {
     setRecipientUser(null);
   }, []);
 
-  // Mobile: back to sidebar
   const handleBack = useCallback(() => {
+    userNavigatedBack.current = true;
     setActiveUserId(null);
     setIsNewConversation(false);
     setRecipientUser(null);
@@ -111,8 +121,8 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex items-start justify-center px-2 py-2">
-      <div className="w-full h-full bg-card border border-border rounded-2xl overflow-hidden shadow-card flex">
+    <div className="h-[calc(100dvh-8rem)] xl:h-[calc(100dvh-4rem)] flex items-start justify-center xl:px-2 xl:py-2">
+      <div className="w-full h-full bg-card xl:border xl:border-border xl:rounded-2xl overflow-hidden xl:shadow-card flex">
         {/* Sidebar - hidden on mobile when conversation active */}
         <div className={`${activeUserId ? 'hidden md:flex' : 'flex'} w-full md:w-auto`}>
           <ConversationSidebar

@@ -45,7 +45,7 @@ const variants = {
   },
 };
 
-export default function Toast({ message, isVisible, onDismiss, duration = 3000, variant = 'success' }) {
+export default function Toast({ message, isVisible, onDismiss, duration = 3000, variant = 'success', position = 'right' }) {
   useEffect(() => {
     if (isVisible && duration > 0) {
       const timer = setTimeout(() => {
@@ -62,7 +62,7 @@ export default function Toast({ message, isVisible, onDismiss, duration = 3000, 
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-50 flex items-center gap-3 px-4 py-3 bg-card border border-border rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-200"
+      className={`fixed bottom-4 ${position === 'left' ? 'left-4' : 'right-4'} z-50 flex items-center gap-3 px-4 py-3 bg-card border border-border rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-200`}
       role="alert"
       aria-live="polite"
     >

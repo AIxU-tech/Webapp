@@ -7,12 +7,14 @@ Endpoints:
 - GET /api/universities/<id>/events - List events for a university
 - POST /api/universities/<id>/events - Create event (executive+ of THIS university)
 - GET /api/events/<id> - Get single event with attendees
-- DELETE /api/events/<id> - Delete event (creator, president, or site admin)
+- PUT /api/events/<id> - Update event (executive+ at event's university, or site admin)
+- DELETE /api/events/<id> - Delete event (executive+ at event's university, or site admin)
 - POST /api/events/<id>/rsvp - Toggle RSVP
 
 Permission Logic:
 - Event creation: Must be executive or president at the specific university, OR site admin
-- Event deletion: Must be the event creator, OR president at the event's university, OR site admin
+- Event editing: Must be executive+ at the event's university, OR site admin
+- Event deletion: Must be executive+ at the event's university, OR site admin
 - RSVP: Any authenticated user can RSVP to events
 """
 
@@ -131,6 +133,12 @@ def create_event(university_id):
     if not data.get('startTime'):
         return jsonify({'error': 'Start time is required'}), 400
 
+    # Validate field lengths
+    if len(data['title'].strip()) > 200:
+        return jsonify({'error': 'Title must be 200 characters or fewer'}), 400
+    if data.get('location') and len(data['location'].strip()) > 300:
+        return jsonify({'error': 'Location must be 300 characters or fewer'}), 400
+
     # Parse times
     try:
         start_time = datetime.fromisoformat(data['startTime'].replace('Z', '+00:00'))
@@ -143,7 +151,7 @@ def create_event(university_id):
             end_time = datetime.fromisoformat(data['endTime'].replace('Z', '+00:00'))
         except (ValueError, AttributeError):
             return jsonify({'error': 'Invalid end time format'}), 400
-        
+
         # Validate that start time is before end time
         if start_time >= end_time:
             return jsonify({'error': 'Start time must be before end time'}), 400
@@ -209,8 +217,7 @@ def delete_event(event_id):
     Delete an event.
 
     Authorization:
-        - Event creator
-        - President of the event's university
+        - Executive+ at the event's university
         - Site admin
 
     Returns:
@@ -222,20 +229,98 @@ def delete_event(event_id):
     if not event:
         return jsonify({'error': 'Event not found'}), 404
 
-    # Check authorization
-    is_creator = event.created_by_id == current_user.id
-    is_site_admin = current_user.is_site_admin()
-    is_president = UniversityRole.get_role_level(
-        current_user.id, event.university_id
-    ) >= UniversityRoles.PRESIDENT
-
-    if not (is_creator or is_president or is_site_admin):
-        return jsonify({'error': 'Not authorized to delete this event'}), 403
+    # Check authorization: executive+ at the event's university, or site admin
+    if not current_user.is_site_admin():
+        role_level = UniversityRole.get_role_level(current_user.id, event.university_id)
+        if role_level < UniversityRoles.EXECUTIVE:
+            return jsonify({'error': 'Not authorized to delete this event'}), 403
 
     db.session.delete(event)
     db.session.commit()
 
     return jsonify({'success': True, 'message': 'Event deleted successfully'})
+
+
+# =============================================================================
+# Update Event
+# =============================================================================
+
+@events_bp.route('/api/events/<int:event_id>', methods=['PUT'])
+@login_required
+def update_event(event_id):
+    """
+    Update an existing event.
+
+    Authorization: Must be executive+ at the event's university, OR site admin.
+
+    Request Body:
+        {
+            "title": "Updated Title" (required),
+            "description": "Updated description",
+            "location": "New Room 202",
+            "startTime": "2025-01-15T15:00:00Z" (required),
+            "endTime": "2025-01-15T17:00:00Z" (optional)
+        }
+
+    Returns:
+        200: Updated event
+        400: Missing required fields or invalid data
+        403: Not authorized
+        404: Event not found
+    """
+    event = Event.query.get(event_id)
+    if not event:
+        return jsonify({'error': 'Event not found'}), 404
+
+    # Check authorization: executive+ at the event's university, or site admin
+    if not current_user.is_site_admin():
+        role_level = UniversityRole.get_role_level(current_user.id, event.university_id)
+        if role_level < UniversityRoles.EXECUTIVE:
+            return jsonify({'error': 'Not authorized to edit this event'}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body is required'}), 400
+
+    # Validate required fields
+    if not data.get('title'):
+        return jsonify({'error': 'Title is required'}), 400
+    if not data.get('startTime'):
+        return jsonify({'error': 'Start time is required'}), 400
+
+    # Validate field lengths
+    if len(data['title'].strip()) > 200:
+        return jsonify({'error': 'Title must be 200 characters or fewer'}), 400
+    if data.get('location') and len(data['location'].strip()) > 300:
+        return jsonify({'error': 'Location must be 300 characters or fewer'}), 400
+
+    # Parse times
+    try:
+        start_time = datetime.fromisoformat(data['startTime'].replace('Z', '+00:00'))
+    except (ValueError, AttributeError):
+        return jsonify({'error': 'Invalid start time format'}), 400
+
+    end_time = None
+    if data.get('endTime'):
+        try:
+            end_time = datetime.fromisoformat(data['endTime'].replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            return jsonify({'error': 'Invalid end time format'}), 400
+
+        # Validate that start time is before end time
+        if start_time >= end_time:
+            return jsonify({'error': 'Start time must be before end time'}), 400
+
+    # Update event fields
+    event.title = data['title'].strip()
+    event.description = data.get('description', '').strip() or None
+    event.location = data.get('location', '').strip() or None
+    event.start_time = start_time
+    event.end_time = end_time
+
+    db.session.commit()
+
+    return jsonify(event.to_dict()), 200
 
 
 # =============================================================================

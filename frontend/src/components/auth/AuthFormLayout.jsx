@@ -15,8 +15,9 @@
  * @component
  */
 
+import { Link } from 'react-router-dom';
 import { PlasmaBackground } from '../layout';
-import { BrainCircuitIcon } from '../icons';
+import { BrainCircuitIcon, ArrowLeftIcon } from '../icons';
 import { Alert } from '../ui';
 
 /**
@@ -58,10 +59,18 @@ export default function AuthFormLayout({
       <div className={`relative z-10 w-full ${maxWidth} px-6 ${className}`}>
         {/* Card */}
         <div className="bg-card border border-border rounded-xl shadow-card p-8">
+          {/* Back to home — top-left of card */}
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors -mt-2 mb-4"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            Home
+          </Link>
+
           {/* Logo and header section */}
           {showLogo && (
             <div className="text-center mb-8">
-              {/* Logo */}
               <div className="flex items-center justify-center mb-6">
                 <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mr-3">
                   <BrainCircuitIcon className="h-6 w-6 text-white" />

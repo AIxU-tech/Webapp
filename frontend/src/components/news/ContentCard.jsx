@@ -7,8 +7,8 @@
  *
  * Features:
  * - Emoji badge with gradient background
- * - Hero image with fallback to emoji on gradient
- * - Summary mode with type-specific content (sources for news, findings for papers)
+ * - Hero image for stories (papers are text-only)
+ * - Summary mode with type-specific content (sources for news, authors for papers)
  * - Interactive AI chat that replaces summary when active
  * - Back button to return from chat to summary
  *
@@ -64,14 +64,6 @@ function formatDateToMonthYear(dateString) {
   } catch {
     return null;
   }
-}
-
-/**
- * Get the primary category from a categories array
- */
-function getPrimaryCategory(categories) {
-  if (!categories || categories.length === 0) return null;
-  return categories[0];
 }
 
 /**
@@ -253,26 +245,6 @@ function EmojiBadge({ emoji, type }) {
   );
 }
 
-/**
- * Category tags component for papers
- */
-function CategoryTags({ categories }) {
-  if (!categories || categories.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap gap-1.5 mt-3">
-      {categories.slice(0, 3).map((category, idx) => (
-        <span
-          key={idx}
-          className="px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded-md"
-        >
-          {category}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 // =============================================================================
 // TYPE CONFIGURATION
 // =============================================================================
@@ -303,7 +275,6 @@ const TYPE_CONFIG = {
  */
 export default function ContentCard({
   item,
-  rank,
   type = 'story', // 'story' or 'paper'
 }) {
   const { isAuthenticated } = useAuth();
@@ -323,11 +294,8 @@ export default function ContentCard({
   const cleanSummary = stripCitations(item.summary);
 
   // Derive display values
-  const primaryCategory = getPrimaryCategory(item.categories);
   const primaryUrl = getPrimaryUrl(item, type);
-  const dateLabel = type === 'paper'
-    ? formatDateToMonthYear(item.publicationDate)
-    : formatDateToMonthYear(item.eventDate);
+  const dateLabel = type === 'story' ? formatDateToMonthYear(item.eventDate) : null;
 
   // Handle sending a message from chat interface
   const handleSendMessage = useCallback(
@@ -442,29 +410,23 @@ export default function ContentCard({
               </h3>
             )}
 
-            {/* Subtitle: Category • Date OR Source for papers */}
+            {/* Subtitle: Source for papers, Date for stories */}
             <p className="text-sm text-muted-foreground mt-1">
               {type === 'paper' && item.sourceName ? (
-                <>
-                  {primaryCategory && <span>{primaryCategory}</span>}
-                  {primaryCategory && item.sourceName && <span className="mx-1.5">•</span>}
-                  <span className="text-primary font-medium">{item.sourceName}</span>
-                </>
+                <span className="text-primary font-medium">{item.sourceName}</span>
               ) : (
-                <>
-                  {primaryCategory && <span>{primaryCategory}</span>}
-                  {primaryCategory && dateLabel && <span className="mx-1.5">•</span>}
-                  {dateLabel && <span>{dateLabel}</span>}
-                </>
+                dateLabel && <span>{dateLabel}</span>
               )}
             </p>
           </div>
         </div>
 
-        {/* Hero Image */}
-        <div className="mb-3">
-          <HeroImage imageUrl={item.imageUrl} emoji={item.emoji} type={type} />
-        </div>
+        {/* Hero Image — stories only */}
+        {type === 'story' && (
+          <div className="mb-3">
+            <HeroImage imageUrl={item.imageUrl} emoji={item.emoji} type={type} />
+          </div>
+        )}
 
         {/* Conditional Content: Summary or Chat */}
         {!isChatMode ? (
@@ -512,9 +474,6 @@ export default function ContentCard({
                 {stripCitations(item.authors)}
               </p>
             )}
-
-            {/* Paper-specific: Category tags */}
-            {type === 'paper' && <CategoryTags categories={item.categories} />}
 
             {/* Spacer to push chat input to bottom */}
             <div className="flex-1" />

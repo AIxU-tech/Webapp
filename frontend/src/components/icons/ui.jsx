@@ -118,6 +118,18 @@ export const ChevronDownIcon = ({ className = 'h-5 w-5', expanded = false }) => 
   </svg>
 );
 
+export const ChevronLeftIcon = ({ className = 'h-5 w-5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+  </svg>
+);
+
+export const ChevronRightIcon = ({ className = 'h-5 w-5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+  </svg>
+);
+
 export const SpinnerIcon = ({ className = 'h-5 w-5' }) => (
   <svg className={`animate-spin ${className}`} fill="none" viewBox="0 0 24 24" aria-hidden="true">
     <circle

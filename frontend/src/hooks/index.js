@@ -38,8 +38,11 @@
  * - useConversation(userId) - Get conversation with user
  * - useSendMessage() - Send message mutation
  * - useSearchUsers(query) - Search users
+ * - useUnreadCount() - Unread message count with real-time updates (NavBar badge)
+ * - clearUnreadConversation() - Remove a conversation from the unread list
  * - prefetchConversations() - Prefetch conversations list
  * - prefetchConversation() - Prefetch single conversation
+ * - seedUnreadConversations() - Seed unread IDs from conversations cache
  *
  * Users:
  * - useUser(userId) - Get user profile
@@ -97,6 +100,7 @@ export {
   useUniversityEvents,
   useEvent,
   useCreateEvent,
+  useUpdateEvent,
   useDeleteEvent,
   useToggleRsvp,
   eventKeys,
@@ -146,10 +150,13 @@ export {
   useConversation,
   useSendMessage,
   useSearchUsers,
+  useUnreadCount,
   messageKeys,
   markConversationRead,
+  clearUnreadConversation,
   prefetchConversations,
   prefetchConversation,
+  seedUnreadConversations,
 } from './useMessages';
 
 // =============================================================================
@@ -161,6 +168,15 @@ export {
   useUploadProfilePicture,
   useDeleteProfilePicture,
   useUploadProfileBanner,
+  useCreateEducation,
+  useUpdateEducation,
+  useDeleteEducation,
+  useCreateExperience,
+  useUpdateExperience,
+  useDeleteExperience,
+  useCreateProject,
+  useUpdateProject,
+  useDeleteProject,
   userKeys,
   prefetchUser,
 } from './useUsers';
@@ -190,6 +206,17 @@ export {
   useRejectRequest,
   universityRequestKeys,
 } from './useUniversityRequests';
+
+// =============================================================================
+// Speakers Hooks
+// =============================================================================
+export {
+  useSpeakers,
+  useCreateSpeaker,
+  useUpdateSpeaker,
+  useDeleteSpeaker,
+  speakerKeys,
+} from './useSpeakers';
 
 // =============================================================================
 // UI Utility Hooks

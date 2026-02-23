@@ -209,3 +209,43 @@ export function getProfileBannerUrl(userId, version) {
   const baseUrl = `/user/${userId}/banner`;
   return version ? `${baseUrl}?v=${version}` : baseUrl;
 }
+
+// =============================================================================
+// Profile Sections (Education, Experience, Projects)
+// =============================================================================
+
+export async function createEducation(data) {
+  return api.post('/profile/education', data);
+}
+
+export async function updateEducation(id, data) {
+  return api.put(`/profile/education/${id}`, data);
+}
+
+export async function deleteEducation(id) {
+  return api.delete(`/profile/education/${id}`);
+}
+
+export async function createExperience(data) {
+  return api.post('/profile/experience', data);
+}
+
+export async function updateExperience(id, data) {
+  return api.put(`/profile/experience/${id}`, data);
+}
+
+export async function deleteExperience(id) {
+  return api.delete(`/profile/experience/${id}`);
+}
+
+export async function createProject(data) {
+  return api.post('/profile/projects', data);
+}
+
+export async function updateProject(id, data) {
+  return api.put(`/profile/projects/${id}`, data);
+}
+
+export async function deleteProject(id) {
+  return api.delete(`/profile/projects/${id}`);
+}

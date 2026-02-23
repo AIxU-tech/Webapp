@@ -33,6 +33,7 @@ import UniversityRequestSubmittedPage from './pages/UniversityRequestSubmittedPa
 import ProfilePage from './pages/ProfilePage';
 import MessagesPage from './pages/MessagesPage';
 import NewsPage from './pages/NewsPage';
+import SpeakersPage from './pages/SpeakersPage';
 import AdminUniversityRequestsPage from './pages/AdminUniversityRequestsPage';
 
 function App() {
@@ -112,6 +113,7 @@ function App() {
           }
         />
         <Route path="/news" element={<NewsPage />} />
+        <Route path="/speakers" element={<SpeakersPage />} />
 
         {/* Admin Routes */}
         <Route path="/admin/university-requests" element={<AdminUniversityRequestsPage />} />

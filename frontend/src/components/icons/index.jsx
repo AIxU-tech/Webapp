@@ -39,6 +39,8 @@ export {
   MapPinIcon,
   CalendarIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   SpinnerIcon,
   CodeIcon,
   BriefcaseIcon,
@@ -96,6 +98,7 @@ export {
   MessagesIcon,
   NewsIcon,
   OpportunitiesIcon,
+  SpeakersIcon,
   AdminIcon,
 } from './navigation';
 

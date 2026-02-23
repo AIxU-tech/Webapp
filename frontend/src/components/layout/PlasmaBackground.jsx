@@ -357,7 +357,7 @@ export default function PlasmaBackground({
    * - 'split-right': Fixed to right half of screen (for split layouts)
    */
   const canvasClasses = variant === 'fullscreen'
-    ? 'fixed top-0 left-0 w-screen h-screen z-[-2] pointer-events-none'
+    ? 'fixed top-0 left-0 w-full h-screen z-[-2] pointer-events-none'
     : 'fixed top-0 right-0 w-1/2 h-screen pointer-events-none';
 
   return (
@@ -371,7 +371,7 @@ export default function PlasmaBackground({
       {/* White overlay for fullscreen variant */}
       {/* Adds a subtle white tint and blur to soften the plasma effect */}
       {variant === 'fullscreen' && (
-        <div className="fixed top-0 left-0 w-screen h-screen z-[-1] bg-white/20 backdrop-blur-3xl pointer-events-none" />
+        <div className="fixed top-0 left-0 w-full h-screen z-[-1] bg-white/20 backdrop-blur-3xl pointer-events-none" />
       )}
     </>
   );

@@ -15,8 +15,22 @@
  * 2. Access auth state with useAuth() hook in any component
  */
 
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { getCurrentUser, devLogin } from '../api/auth';
+
+// Cookie helpers for tracking returning users across sessions
+const RETURNING_USER_COOKIE = 'aixu_returning_user';
+
+function getReturningUserCookie() {
+  return document.cookie.split('; ').some(c => c === `${RETURNING_USER_COOKIE}=true`);
+}
+
+function setReturningUserCookie() {
+  if (!getReturningUserCookie()) {
+    // 10-year expiry, accessible from all paths
+    document.cookie = `${RETURNING_USER_COOKIE}=true; max-age=315360000; path=/; SameSite=Lax`;
+  }
+}
 
 /**
  * Authentication context
@@ -63,8 +77,9 @@ export function AuthProvider({ children }) {
       // Try to get current user from Flask backend
       const userData = await getCurrentUser();
 
-      // User is logged in - save their data
+      // User is logged in - save their data and mark as returning
       setUser(userData);
+      setReturningUserCookie();
     } catch (error) {
       // Not logged in or session expired - try dev auto-login
       // This only succeeds when backend DEV_MODE=true
@@ -110,6 +125,7 @@ export function AuthProvider({ children }) {
    */
   function loginUser(userData) {
     setUser(userData);
+    setReturningUserCookie();
   }
 
   /**
@@ -121,6 +137,9 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  // Check returning user cookie (true if user has ever logged in on this browser)
+  const isReturningUser = useMemo(() => getReturningUserCookie(), [user]);
+
   // Context value provided to all children
   const value = {
     // Current user object (null if not logged in)
@@ -128,6 +147,9 @@ export function AuthProvider({ children }) {
 
     // Is user currently logged in?
     isAuthenticated: user !== null,
+
+    // Has this browser ever had a successful login?
+    isReturningUser,
 
     // Is initial auth check still in progress?
     loading,

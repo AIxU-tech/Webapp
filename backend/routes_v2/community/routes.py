@@ -229,7 +229,7 @@ def delete_note(note_id):
             return jsonify({'success': False, 'error': 'Note not found'}), 404
 
         # Check if current user is the author
-        if note.author_id != current_user.id:
+        if note.author_id != current_user.id and not current_user.is_site_admin():
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
         # Clean up GCS files for this note's attachments (parallel deletion)
@@ -237,18 +237,22 @@ def delete_note(note_id):
         gcs_paths = [a.gcs_path for a in attachments]
         delete_gcs_files_parallel(gcs_paths)
 
+        # Save author reference before deletion
+        author_id = note.author_id
+
         # Delete the note (cascades to attachments table)
         db.session.delete(note)
         db.session.commit()
 
-        # Decrement user's post count
-        if current_user.post_count > 0:
-            current_user.post_count -= 1
+        # Decrement the author's post count (not current_user, who may be an admin)
+        author = db.session.get(User, author_id)
+        if author and author.post_count > 0:
+            author.post_count -= 1
             db.session.commit()
 
-        # Update university post count if user belongs to a university
-        if current_user.university:
-            university = current_user.get_university()
+        # Update university post count for the author's university
+        if author and author.university:
+            university = author.get_university()
             if university:
                 university.update_post_count()
 
@@ -561,7 +565,7 @@ def remove_comment(note_id, comment_id):
             return jsonify({'success': False, 'error': 'Comment not found'}), 404
 
         # Check authorization
-        if comment.user_id != current_user.id:
+        if comment.user_id != current_user.id and not current_user.is_site_admin():
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
         note = Note.query.get(note_id)

@@ -34,16 +34,17 @@ AIxU_website/
 ├── backend/
 │   ├── __init__.py            # Application factory (create_app)
 │   ├── config.py              # Config + TestConfig classes
-│   ├── constants.py           # Permission constants, UniversityRoles
+│   ├── constants.py           # Permission constants, UniversityRoles, attachment limits
 │   ├── extensions.py          # Flask extensions (db, login_manager, socketio)
 │   ├── models/                # Database models
-│   │   ├── user.py            # User model (profile, banner, stats)
+│   │   ├── user.py            # User model (profile, banner, stats, social_links)
 │   │   ├── university.py      # University (logo, banner, social_links)
 │   │   ├── university_role.py # Per-university role assignments
 │   │   ├── university_request.py # University addition requests
 │   │   ├── password_reset_token.py # Password reset tokens
 │   │   ├── note.py            # Notes/posts
 │   │   ├── note_comment.py    # Threaded comments on notes
+│   │   ├── note_attachment.py # GCS-based file attachments for notes
 │   │   ├── opportunity.py     # Job/project opportunity postings
 │   │   ├── opportunity_tag.py # Normalized tags for opportunities
 │   │   ├── event.py           # University club events + attendees
@@ -56,17 +57,25 @@ AIxU_website/
 │   │   ├── profile/           # User profile + banner
 │   │   ├── universities/      # University + role + logo/banner management
 │   │   ├── university_requests/ # University request flow
-│   │   ├── community/         # Notes + comments
+│   │   ├── community/         # Notes + comments + attachments
 │   │   ├── opportunities/     # Job/opportunity board
 │   │   ├── events/            # University club events
 │   │   ├── messages/          # Messaging
 │   │   ├── notifications/     # Notifications
 │   │   ├── news/              # AI news and research papers
+│   │   ├── uploads/           # GCS file upload signed URLs
 │   │   └── public/            # Public pages + city search
 │   ├── services/              # Business logic services
 │   │   ├── ai_news.py         # Claude-powered news fetching + chat
 │   │   ├── scheduler.py       # APScheduler for 24h news refresh
-│   │   └── content_moderator.py # Profanity detection
+│   │   ├── content_moderator.py # Profanity detection
+│   │   ├── storage.py         # Google Cloud Storage signed URLs
+│   │   ├── image_extraction.py # Web page image extraction (og:image, etc.)
+│   │   └── agents/            # 4-agent AI news pipeline
+│   │       ├── base.py        # Claude API helpers + JSON extraction
+│   │       ├── story_scout.py # Haiku + web search → news candidates
+│   │       ├── paper_scout.py # Haiku + web search → paper candidates
+│   │       └── curator.py     # Sonnet → rank and summarize top results
 │   ├── sockets/               # WebSocket handlers
 │   └── utils/                 # Utility functions
 │       ├── email.py           # Email sending, verification, password reset
@@ -88,44 +97,41 @@ AIxU_website/
 │   │   ├── events.js          # Events API
 │   │   ├── users.js           # Users + banner API
 │   │   ├── messages.js        # Messages API
-│   │   └── news.js            # AI news/papers + chat API
+│   │   ├── news.js            # AI news/papers + chat API
+│   │   └── uploads.js         # GCS file upload + attachment API
 │   ├── components/
-│   │   ├── icons/index.jsx    # Centralized icon library (35+ icons)
-│   │   ├── ui/                # Generic UI components (31 components)
-│   │   │   ├── BaseModal.jsx  # Modal wrapper (ESC, scroll lock, backdrop)
-│   │   │   ├── CreateNoteModal.jsx # Note creation with tags
-│   │   │   ├── BannerImage.jsx # Banner display
-│   │   │   ├── BannerUploadModal.jsx # Banner upload (5:1 crop)
-│   │   │   ├── Avatar.jsx     # User avatar with gradient fallback
-│   │   │   ├── UniversityLogo.jsx # University logo with gradient fallback
-│   │   │   ├── GradientButton.jsx # Primary action button
-│   │   │   ├── FeedCard.jsx   # Base card for feed items
-│   │   │   ├── Tag.jsx        # Tag, ToggleTag, TagGroup
-│   │   │   └── ...            # EmptyState, LoadingState, ErrorState, etc.
-│   │   ├── university/        # University detail page (13 components)
-│   │   │   ├── UniversityHeroBanner.jsx
-│   │   │   ├── UniversityIdentityBar.jsx
-│   │   │   ├── UniversityNavTabs.jsx
-│   │   │   ├── University*Tab.jsx # Posts, Events, Opportunities, Members, About
-│   │   │   ├── EditUniversityIdentityModal.jsx
-│   │   │   └── ...            # LeadershipCard, UpcomingEventsCard
-│   │   ├── profile/           # Profile page (9 components)
+│   │   ├── admin/             # RequestCard
+│   │   ├── auth/              # AuthFormLayout, ProtectedRoute, LoginModal, RegisterModal, etc.
+│   │   ├── community/         # NoteCard, CommentSection, CreateNoteModal, EditNoteModal, NoteAttachments, NoteLikersModal
+│   │   ├── events/            # CreateEventModal, EventCard
+│   │   ├── home/              # FeatureCard
+│   │   ├── icons/             # Centralized icon library (100+ icons across 11 files)
+│   │   ├── layout/            # AppLayout, NavBar, Footer, FeedPageLayout, AppPrefetcher, PlasmaBackground
+│   │   ├── messages/          # ConversationPanel, ConversationSidebar, MessageBubble, MessageInput, UserSearchBar
+│   │   ├── news/              # ContentCard
+│   │   ├── opportunities/     # CreateOpportunityModal, OpportunityCard
+│   │   ├── profile/           # EditProfileModal, ProfileCard, ProfilePictureSection
 │   │   │   ├── header/        # ProfileHeader
-│   │   │   ├── sections/      # ProfileSection, AboutSection, etc.
-│   │   │   └── sidebar/       # SkillsCard, ActivityCard, etc.
-│   │   ├── messages/          # Messaging UI
-│   │   │   ├── ConversationListItem.jsx
-│   │   │   ├── ConversationModal.jsx
-│   │   │   └── NewMessageModal.jsx
-│   │   ├── opportunities/     # CreateOpportunityModal
-│   │   ├── layout/            # FeedPageLayout
-│   │   └── [root]             # NoteCard, CommentSection, EventCard, etc.
+│   │   │   ├── sections/      # ProfileSection, AboutSection, ExperienceSection, etc.
+│   │   │   └── sidebar/       # SkillsCard, ActivityCard, AIClubsCard, RecentPostsCard, etc.
+│   │   ├── university/        # UniversityCard, University*Tab, EditUniversityIdentityModal, etc.
+│   │   └── ui/                # Generic UI components (organized into subdirectories)
+│   │       ├── buttons/       # GradientButton, CloseButton, IconButton, LikeButton, SecondaryButton
+│   │       ├── cards/         # Card, FeedCard, StatCard, CardSkeleton
+│   │       ├── display/       # Avatar, Badge, Tag, LinkifyText, Tooltip, etc.
+│   │       ├── feedback/      # Alert, EmptyState, ErrorState, LoadingState, Toast
+│   │       ├── forms/         # FormInput, FormTextarea, TagSelector, SocialLinksInput, CitySearchInput, FileUpload, etc.
+│   │       ├── images/        # BannerImage, BannerUploadModal, UniversityLogo
+│   │       ├── lists/         # FeedItemList, UserListItem
+│   │       ├── modals/        # BaseModal, ConfirmationModal, UnsavedChangesModal
+│   │       └── popovers/      # MemberActionsPopover, SharePopover
 │   ├── contexts/
 │   │   ├── AuthContext.jsx    # User auth state
 │   │   ├── SocketContext.jsx  # WebSocket connection
 │   │   ├── QueryProvider.jsx  # React Query config
 │   │   ├── AuthModalContext.jsx # Login/register modal state
-│   │   └── TermsContext.jsx   # TOS modal management
+│   │   ├── TermsContext.jsx   # TOS modal management
+│   │   └── MessageTargetContext.jsx # Message target user tracking
 │   ├── hooks/
 │   │   ├── index.js           # Barrel export
 │   │   ├── useUI.js           # UI utilities (escape, scroll lock, debounce, etc.)
@@ -138,6 +144,7 @@ AIxU_website/
 │   │   ├── useUsers.js        # Profile + banner
 │   │   ├── useNews.js         # AI content + chat
 │   │   ├── useUniversityRequests.js # Admin request management
+│   │   ├── useClipboard.js    # Clipboard operations
 │   │   └── factories/         # Hook factory utilities
 │   ├── pages/                 # Route-level components (20 pages)
 │   └── config/
@@ -146,7 +153,9 @@ AIxU_website/
 │
 ├── static/app/                # React build output (Vite)
 │
-├── tests/                     # pytest test suite
+├── migrations/                # Flask-Migrate (Alembic) migrations
+│
+├── tests/                     # pytest test suite (14 test files)
 │   ├── conftest.py           # Fixtures (users, universities, roles)
 │   └── test_*.py             # Test files
 │
@@ -162,11 +171,11 @@ All models in `backend/models/` inherit from `db.Model`.
 
 ### User (`backend/models/user.py`)
 **Core:** `id`, `email`, `password_hash`, `permission_level` (0=USER, 1=ADMIN)
-**Profile:** `first_name`, `last_name`, `university`, `about_section`, `location`, `skills` (JSON)
+**Profile:** `first_name`, `last_name`, `university`, `about_section`, `location`, `skills` (JSON), `social_links` (JSON: `[{"type": "linkedin", "url": "..."}]`)
 **Media:** `profile_picture`, `profile_picture_filename`, `profile_picture_mimetype`, `banner_image`, `banner_image_filename`, `banner_image_mimetype`
 **Stats:** `post_count`, `follower_count`, `following_count`
 
-**Key methods:** `set_password()`, `check_password()`, `is_site_admin()`, `get_university_role()`, `is_executive_at()`, `is_president_at()`, `has_liked_note()`, `has_bookmarked_note()`, `to_dict()`
+**Key methods:** `set_password()`, `check_password()`, `is_site_admin()`, `get_university_role()`, `is_executive_at()`, `is_president_at()`, `has_liked_note()`, `has_bookmarked_note()`, `get_social_links_list()`, `set_social_links_list()`, `to_dict()`
 
 ### University (`backend/models/university.py`)
 **Core:** `id`, `name`, `clubName`, `location`, `email_domain`, `admin_id`
@@ -201,8 +210,16 @@ One-time tokens with expiration for password reset flow.
 
 ### Note (`backend/models/note.py`)
 **Fields:** `id`, `title`, `content`, `author_id`, `tags` (JSON), `likes`, `comments`, `university_only`, `created_at`
+**Relationships:** `attachments` (one-to-many NoteAttachment, cascade delete)
 
 **Key methods:** `is_liked_by()`, `is_bookmarked_by()`, `toggle_like()`, `toggle_bookmark()`, `to_dict()`
+
+### NoteAttachment (`backend/models/note_attachment.py`)
+**Fields:** `id`, `note_id`, `user_id`, `gcs_path` (unique GCS storage path), `filename`, `content_type`, `size_bytes`, `created_at`
+
+Max 5 attachments per note, max 10MB per file. Stored in GCS via signed URLs.
+
+**Key methods:** `count_for_note()`, `get_for_note()`, `create_for_note()`, `to_dict()`
 
 ### NoteComment (`backend/models/note_comment.py`)
 **Fields:** `id`, `note_id`, `user_id`, `parent_id`, `text`, `likes`, `created_at`, `updated_at`
@@ -227,9 +244,9 @@ Normalized tag storage for efficient filtering.
 **Fields:** `id`, `sender_id`, `recipient_id`, `content`, `is_read`, `created_at`
 
 ### AI News Models (`backend/models/ai_news.py`)
-**AINewsStory:** `id`, `title`, `summary`, `significance`, `rank`, `categories` (JSON), `batch_id`, `fetched_at`
-**AINewsSource:** `id`, `story_id`, `url`, `source_name`, `article_title`, `excerpt`
-**AIResearchPaper:** `id`, `title`, `authors`, `summary`, `key_findings`, `significance`, `paper_url`, `source_name`, `rank`, `categories` (JSON), `batch_id`
+**AINewsStory:** `id`, `title`, `summary`, `batch_id`, `fetched_at`, `event_date`, `image_url`, `emoji`
+**AINewsSource:** `id`, `story_id`, `url`, `source_name`
+**AIResearchPaper:** `id`, `title`, `authors`, `summary`, `paper_url`, `source_name`, `batch_id`, `fetched_at`, `emoji`
 **AINewsChatMessage:** `id`, `session_id`, `story_id` OR `paper_id`, `role`, `content`, `created_at`
 
 ### Relationship Tables (`backend/models/relationships.py`)
@@ -337,20 +354,23 @@ POST /admin/<id>/reject       - Reject request (admin)
 
 ### Events (`/api/universities/<id>/events`, `/api/events/*`)
 ```
-GET  /api/universities/<id>/events - List events (?upcoming, ?limit)
-POST /api/universities/<id>/events - Create event (executive+)
-GET  /api/events/<id>              - Get event with attendees
-DELETE /api/events/<id>            - Delete event
-POST /api/events/<id>/rsvp         - Toggle RSVP (status: attending|maybe|declined)
+GET    /api/universities/<id>/events - List events (?upcoming, ?limit)
+POST   /api/universities/<id>/events - Create event (executive+)
+GET    /api/events/<id>              - Get event with attendees
+PUT    /api/events/<id>              - Update event (executive+)
+DELETE /api/events/<id>              - Delete event (executive+)
+POST   /api/events/<id>/rsvp         - Toggle RSVP (status: attending|maybe|declined)
 ```
 
 ### Notes (`/api/notes/*`)
 ```
 GET    /                      - List (?search, ?user, ?university_id, ?tag, ?bookmarked, ?page, ?page_size)
-POST   /                      - Create note
+POST   /                      - Create note (with optional attachments)
 GET    /<id>                  - Get single note
-DELETE /<id>                  - Delete note
+PUT    /<id>                  - Update note (author only)
+DELETE /<id>                  - Delete note (author only)
 POST   /<id>/like             - Toggle like
+GET    /<id>/likes            - Get users who liked note
 POST   /<id>/bookmark         - Toggle bookmark
 
 # Comments
@@ -397,6 +417,20 @@ GET  /api/chat/<session>/history - Get chat history
 DELETE /api/chat/<session>    - Clear chat
 ```
 
+### Uploads (`/api/uploads/*`)
+```
+POST   /api/uploads/request-url   - Request signed URL for single GCS upload
+POST   /api/uploads/request-urls  - Request signed URLs for batch GCS uploads
+DELETE /api/uploads/attachments/<id> - Delete attachment
+GET    /api/notes/<id>/attachments - Get attachments for a note
+```
+
+### Notifications (`/api/notifications/*`)
+```
+GET /api/notifications/university-posts - Recent posts from university members
+GET /api/notifications/check-new        - Check for new notifications since timestamp
+```
+
 ### Public (`/api/*`)
 ```
 GET /api/cities/search        - City search (Nominatim proxy)
@@ -430,13 +464,13 @@ GET /api/cities/search        - City search (Nominatim proxy)
 
 **Universities:** `useUniversities()`, `useUniversity(id)`, `useCreateUniversity()`, `useUpdateUniversity()`, `useRemoveMember()`, `useUpdateMemberRole()`, `useUploadUniversityLogo()`, `useUploadUniversityBanner()`
 
-**Events:** `useUniversityEvents(id, opts)`, `useEvent(id)`, `useCreateEvent()`, `useDeleteEvent()`, `useToggleRsvp()`
+**Events:** `useUniversityEvents(id, opts)`, `useEvent(id)`, `useCreateEvent()`, `useUpdateEvent()`, `useDeleteEvent()`, `useToggleRsvp()`
 
-**Notes:** `useInfiniteNotes(params)`, `useNote(id)`, `useCreateNote()`, `useLikeNote()`, `useBookmarkNote()`, `useDeleteNote()`, `useComments(noteId)`, `useCreateComment()`, `useUpdateComment()`, `useDeleteComment()`, `useLikeComment()`
+**Notes:** `useInfiniteNotes(params)`, `useNote(id)`, `useCreateNote()`, `useUpdateNote()`, `useLikeNote()`, `useBookmarkNote()`, `useDeleteNote()`, `useNoteLikers(noteId)`, `useComments(noteId)`, `useCreateComment()`, `useUpdateComment()`, `useDeleteComment()`, `useLikeComment()`
 
 **Opportunities:** `useInfiniteOpportunities(params)`, `useCreateOpportunity()`, `useBookmarkOpportunity()`, `useDeleteOpportunity()`
 
-**Messages:** `useConversations()`, `useConversation(userId)`, `useSendMessage()`, `useSearchUsers(query)`
+**Messages:** `useConversations()`, `useConversation(userId)`, `useSendMessage()`, `useSearchUsers(query)`, `useUnreadCount()`
 
 **Users:** `useUser(userId)`, `useUpdateProfile()`, `useUploadProfilePicture()`, `useDeleteProfilePicture()`, `useUploadProfileBanner()`
 
@@ -466,11 +500,28 @@ GET /api/cities/search        - City search (Nominatim proxy)
 ## Services
 
 ### AI News Service (`backend/services/ai_news.py`)
-Claude-powered content fetching with web search API.
+Claude-powered content fetching via a 4-agent pipeline.
 
-**Constants:** `SEARCH_MODEL` (claude-haiku), `CHAT_MODEL` (claude-sonnet), `NUM_STORIES=3`, `NUM_PAPERS=3`
+**Models:** `claude-haiku-4-5-20251001` (scouts), `claude-sonnet-4-5-20250929` (curators + chat)
+**Constants:** `NUM_STORIES=3`, `NUM_PAPERS=3`, `MAX_CONVERSATION_HISTORY=20`
+
+**Pipeline:** Story Scout (Haiku + web search) → Story Curator (Sonnet) | Paper Scout (Haiku + web search) → Paper Curator (Sonnet). Scouts run in parallel, then curators rank and summarize.
+
+**Agent files:** `backend/services/agents/` — `base.py` (Claude API helpers), `story_scout.py`, `paper_scout.py`, `curator.py`
 
 **Key functions:** `fetch_top_ai_content()`, `get_latest_content()`, `chat_with_story()`, `chat_with_paper()`, `get_chat_history()`, `cleanup_old_batches()`
+
+### Storage Service (`backend/services/storage.py`)
+Google Cloud Storage integration for note attachments via signed URLs.
+
+**Key functions:** `generate_upload_url()`, `generate_download_url()`, `delete_file()`, `delete_files()`, `delete_user_uploads()`, `validate_content_type()`, `validate_file_extension()`
+**File organization:** `uploads/{user_id}/{uuid}_{filename}`
+**Credential priority:** GCS_CREDENTIALS_JSON (base64 env) → service account file → GOOGLE_APPLICATION_CREDENTIALS → ADC
+
+### Image Extraction (`backend/services/image_extraction.py`)
+Extracts representative images from web pages for AI news stories.
+
+**Function:** `extract_image_from_url()` — Priority: og:image → twitter:image → twitter:image:src → article:image
 
 ### Scheduler (`backend/services/scheduler.py`)
 APScheduler for 24-hour automated news refresh.
@@ -488,14 +539,15 @@ Profanity detection using better-profanity.
 
 Provider hierarchy in `main.jsx`:
 ```
-QueryProvider > AuthModalProvider > TermsProvider > AuthProvider > SocketProvider > App
+QueryProvider > BrowserRouter > TermsProvider > AuthProvider > AuthModalProvider > MessageTargetProvider > SocketProvider > App
 ```
 
 - **QueryProvider** - React Query with 5min stale, 30min gc defaults
 - **AuthContext** - User auth state (`useAuth()`)
-- **SocketContext** - WebSocket connection (`useSocket()`, `useSocketEvent()`)
+- **SocketContext** - WebSocket connection (`useSocket()`)
 - **AuthModalContext** - Login/register modal state (`useAuthModal()`)
 - **TermsContext** - TOS modal with parent tracking (`useTerms()`)
+- **MessageTargetContext** - Target user for direct messages
 
 ---
 
@@ -547,6 +599,9 @@ SMTP_PASS=...
 ADMIN_EMAIL=admin@aixu.tech
 ANTHROPIC_API_KEY=...
 DEV_MODE=true                    # Accept any 6-digit code
+GCS_BUCKET_NAME=...              # Google Cloud Storage bucket
+GCS_PROJECT_ID=...               # GCP project ID
+GCS_CREDENTIALS_JSON=...         # Base64-encoded service account JSON
 ```
 
 ### Config Class
@@ -573,15 +628,16 @@ Uses SQLite `:memory:`, disables CSRF, faster bcrypt rounds.
 ### Backend
 - **Models:** Pure data, no HTTP logic
 - **Routes:** HTTP handlers with helpers for complex logic
-- **Services:** Business logic (AI, scheduling)
+- **Services:** Business logic (AI pipeline, scheduling, GCS storage)
+- **Agents:** Modular AI pipeline in `services/agents/` (scout → curator pattern)
 - **Utils:** Reusable functions
 - One blueprint per feature
 
 ### Frontend
 - **Pages:** Route-level components
-- **Components:** Organized by feature (ui/, university/, profile/, messages/)
-- **Hooks:** React Query for data, useUI.js for DOM utilities
-- **Contexts:** Auth, Socket, Query, Modals
+- **Components:** Organized by feature (community/, events/, messages/, university/, profile/, etc.) with shared primitives in ui/ subdirectories (buttons/, cards/, display/, feedback/, forms/, images/, lists/, modals/, popovers/)
+- **Hooks:** React Query for data, useUI.js for DOM utilities, factories/ for hook generation
+- **Contexts:** Auth, Socket, Query, Modals, MessageTarget
 - **API:** One module per backend feature
 
 ### Caching Strategy
@@ -594,3 +650,9 @@ Uses SQLite `:memory:`, disables CSRF, faster bcrypt rounds.
 ### Image Handling
 - Profile pictures: max 800x800px, quality 85
 - Banners: 5:1 aspect ratio, center-crop to 1500x300px
+
+### File Attachments
+- Uploaded via GCS signed URLs (browser → GCS directly, no server relay)
+- Max 5 attachments per note, max 10MB per file
+- 26 allowed MIME types (images, documents, spreadsheets, presentations, text/code, archives)
+- Defined in `backend/constants.py` (`ALLOWED_ATTACHMENT_TYPES`)

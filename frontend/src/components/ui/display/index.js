@@ -11,3 +11,5 @@ export { default as Tooltip } from './Tooltip';
 export { default as Divider } from './Divider';
 export { default as StatItem } from './StatItem';
 export { default as SectionHeader } from './SectionHeader';
+export { default as LinkifyText } from './LinkifyText';
+export { default as ExpandableText } from './ExpandableText';

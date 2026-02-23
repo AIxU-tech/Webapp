@@ -69,7 +69,7 @@ export default function ConversationPanel({ userId, recipientUser, isNewConversa
 
   if (!userId) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-card border-l border-border">
+      <div className="flex-1 flex items-center justify-center bg-card md:border-l md:border-border">
         <EmptyState
           icon={<MessageCircleIcon className="h-12 w-12" />}
           title="No conversations yet"
@@ -80,7 +80,7 @@ export default function ConversationPanel({ userId, recipientUser, isNewConversa
   }
 
   return (
-    <div className="flex-1 flex flex-col border-l border-border min-w-0 overflow-hidden">
+    <div className="flex-1 flex flex-col md:border-l md:border-border min-w-0 overflow-hidden">
       <ConversationHeader user={user} />
 
       <div

@@ -244,6 +244,22 @@ class UniversityRole(db.Model):
         return cls.get_role_level(user_id, university_id) >= UniversityRoles.EXECUTIVE
 
     @classmethod
+    def is_executive_anywhere(cls, user_id: int) -> bool:
+        """
+        Check if user is an executive or president at any university.
+
+        Args:
+            user_id: The user's ID
+
+        Returns:
+            True if user is executive+ at any university, False otherwise
+        """
+        return cls.query.filter(
+            cls.user_id == user_id,
+            cls.role >= UniversityRoles.EXECUTIVE
+        ).first() is not None
+
+    @classmethod
     def is_president(cls, user_id: int, university_id: int) -> bool:
         """
         Check if user is the president at a university.

@@ -28,7 +28,6 @@ from backend.models.ai_news import (
     AIResearchPaper,
     AINewsChatMessage
 )
-from backend.services.image_extraction import extract_image_for_paper
 from backend.services.agents.story_scout import fetch_story_candidates
 from backend.services.agents.paper_scout import fetch_paper_candidates
 from backend.services.agents.curator import curate_stories, curate_papers
@@ -73,7 +72,7 @@ def _build_chat_system_prompt(context_type: str, context_data: dict) -> str:
         sources_text = ""
         if context_data.get('sources'):
             sources_text = "\n\nSources:\n" + "\n".join([
-                f"- {s.get('sourceName', 'Unknown')}: {s.get('articleTitle', 'No title')} ({s.get('url', '')})"
+                f"- {s.get('sourceName', 'Unknown')}: {s.get('url', '')}"
                 for s in context_data['sources']
             ])
 
@@ -85,10 +84,6 @@ Title: {context_data.get('title', 'Unknown')}
 Summary:
 {context_data.get('summary', 'No summary available')}
 
-Why This Matters:
-{context_data.get('significance', 'No significance information available')}
-
-Categories: {', '.join(context_data.get('categories', []))}
 Event Date: {context_data.get('eventDate', 'Unknown')}
 {sources_text}
 
@@ -102,24 +97,17 @@ INSTRUCTIONS:
 - Do not make up facts - be honest about limitations"""
 
     else:  # paper
-        return f"""You are an AI assistant helping users understand AI research papers. You are knowledgeable, helpful, and provide accurate information based on the context given.
+        return f"""You are an AI assistant helping users understand AI research papers.
+        You are knowledgeable, helpful, and provide accurate information based on the context given.
 
 CONTEXT - AI RESEARCH PAPER:
 Title: {context_data.get('title', 'Unknown')}
 Authors: {context_data.get('authors', 'Unknown')}
 Source: {context_data.get('sourceName', 'Unknown')}
-Publication Date: {context_data.get('publicationDate', 'Unknown')}
 
 Summary:
 {context_data.get('summary', 'No summary available')}
 
-Key Findings:
-{context_data.get('keyFindings', 'No key findings available')}
-
-Why This Matters:
-{context_data.get('significance', 'No significance information available')}
-
-Categories: {', '.join(context_data.get('categories', []))}
 Paper URL: {context_data.get('paperUrl', 'Not available')}
 
 INSTRUCTIONS:
@@ -154,15 +142,10 @@ def _store_stories(stories_data: list, batch_id: str) -> list[dict]:
         story = AINewsStory(
             title=data.get('title', 'Untitled'),
             summary=data.get('summary', ''),
-            significance=data.get('significance', ''),
-            rank=data.get('rank', 99),
             batch_id=batch_id,
             image_url=data.get('imageUrl'),
             emoji=data.get('emoji')
         )
-
-        if categories := data.get('categories'):
-            story.set_categories_list(categories)
 
         if event_date := data.get('eventDate'):
             try:
@@ -178,8 +161,6 @@ def _store_stories(stories_data: list, batch_id: str) -> list[dict]:
                 story_id=story.id,
                 url=source_data.get('url', ''),
                 source_name=source_data.get('sourceName', 'Unknown'),
-                article_title=source_data.get('articleTitle'),
-                excerpt=source_data.get('excerpt')
             )
             db.session.add(source)
 
@@ -193,13 +174,8 @@ def _store_papers(papers_data: list, batch_id: str) -> list[dict]:
     """
     Store research papers in the database.
 
-    If no imageUrl is provided by Claude, attempts to extract one from
-    the paper URL using Open Graph meta tags. Note that many paper
-    repositories (like arXiv) don't have og:image tags, so papers will
-    often not have images.
-
     Args:
-        papers_data: List of paper dictionaries from Claude's response
+        papers_data: List of paper dictionaries from the curator
         batch_id: Unique identifier for this fetch batch
 
     Returns:
@@ -208,35 +184,15 @@ def _store_papers(papers_data: list, batch_id: str) -> list[dict]:
     stored = []
 
     for data in papers_data:
-        # Get image URL from Claude's response, or try to extract from paper URL
-        image_url = data.get('imageUrl')
-        if not image_url:
-            paper_url = data.get('paperUrl')
-            if paper_url:
-                image_url = extract_image_for_paper(paper_url)
-
         paper = AIResearchPaper(
             title=data.get('title', 'Untitled'),
             authors=data.get('authors'),
             summary=data.get('summary', ''),
-            key_findings=data.get('keyFindings'),
-            significance=data.get('significance'),
             paper_url=data.get('paperUrl'),
             source_name=data.get('sourceName'),
-            rank=data.get('rank', 99),
             batch_id=batch_id,
-            image_url=image_url,
             emoji=data.get('emoji')
         )
-
-        if categories := data.get('categories'):
-            paper.set_categories_list(categories)
-
-        if pub_date := data.get('publicationDate'):
-            try:
-                paper.publication_date = datetime.strptime(pub_date, "%Y-%m-%d").date()
-            except ValueError:
-                pass
 
         db.session.add(paper)
         stored.append(paper.to_dict())
@@ -410,7 +366,7 @@ def fetch_top_ai_stories() -> dict:
 
 def get_latest_stories(limit: int = NUM_STORIES) -> list[dict]:
     """
-    Get the most recent batch of news stories, ordered by rank.
+    Get the most recent batch of news stories, ordered by insertion order.
 
     Args:
         limit: Maximum number of stories to return
@@ -423,13 +379,13 @@ def get_latest_stories(limit: int = NUM_STORIES) -> list[dict]:
         return []
 
     stories = AINewsStory.query.filter_by(batch_id=latest.batch_id)\
-        .order_by(AINewsStory.rank.asc()).limit(limit).all()
+        .order_by(AINewsStory.id.asc()).limit(limit).all()
     return [s.to_dict() for s in stories]
 
 
 def get_latest_papers(limit: int = NUM_PAPERS) -> list[dict]:
     """
-    Get the most recent batch of research papers, ordered by rank.
+    Get the most recent batch of research papers, ordered by insertion order.
 
     Args:
         limit: Maximum number of papers to return
@@ -442,7 +398,7 @@ def get_latest_papers(limit: int = NUM_PAPERS) -> list[dict]:
         return []
 
     papers = AIResearchPaper.query.filter_by(batch_id=latest.batch_id)\
-        .order_by(AIResearchPaper.rank.asc()).limit(limit).all()
+        .order_by(AIResearchPaper.id.asc()).limit(limit).all()
     return [p.to_dict() for p in papers]
 
 
@@ -505,7 +461,7 @@ def get_stories_by_batch(batch_id: str) -> list[dict]:
         List of story dictionaries from that batch
     """
     stories = AINewsStory.query.filter_by(batch_id=batch_id)\
-        .order_by(AINewsStory.rank.asc()).all()
+        .order_by(AINewsStory.id.asc()).all()
     return [s.to_dict() for s in stories]
 
 
@@ -520,7 +476,7 @@ def get_papers_by_batch(batch_id: str) -> list[dict]:
         List of paper dictionaries from that batch
     """
     papers = AIResearchPaper.query.filter_by(batch_id=batch_id)\
-        .order_by(AIResearchPaper.rank.asc()).all()
+        .order_by(AIResearchPaper.id.asc()).all()
     return [p.to_dict() for p in papers]
 
 

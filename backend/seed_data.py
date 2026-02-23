@@ -45,7 +45,9 @@ from backend.models.university_role import UniversityRole
 from backend.models.ai_news import AINewsStory, AINewsSource, AIResearchPaper, AINewsChatMessage
 from backend.models.opportunity import Opportunity
 from backend.models.event import Event, EventAttendee
+from backend.models.speaker import Speaker
 from backend.constants import UniversityRoles, ADMIN
+from backend.utils.profile import create_initial_education
 
 
 # =============================================================================
@@ -118,6 +120,7 @@ def ensure_dev_user():
     # Add dev user as member and president of Test University
     test_university.add_member(dev_user.id)
     UniversityRole.set_role(dev_user.id, test_university.id, UniversityRoles.PRESIDENT)
+    create_initial_education(dev_user, test_university)
     db.session.commit()
 
     print(f"Created dev user: {DEV_USER_EMAIL} / {DEV_USER_PASSWORD}")
@@ -129,6 +132,7 @@ def clear_existing_data():
     print("Clearing existing data...")
     # Delete in order to respect foreign key constraints
     # Delete child records first (those with foreign keys)
+    Speaker.query.delete()  # References User + University
     EventAttendee.query.delete()  # References Event
     Event.query.delete()  # References User
     UserFollows.query.delete()
@@ -435,6 +439,14 @@ def seed_users(universities):
         users.append(user)
 
     db.session.commit()
+
+    # Auto-populate education entries for users with universities
+    for user in users:
+        domain = user.email.split("@")[1].replace(".edu", "")
+        if domain in domain_to_uni:
+            create_initial_education(user, domain_to_uni[domain])
+    db.session.commit()
+
     print(f"Created {len(users)} users.")
     return users
 
@@ -693,40 +705,31 @@ def seed_ai_news():
         {
             "title": "OpenAI Releases GPT-5 with Enhanced Reasoning Capabilities",
             "summary": "OpenAI has unveiled GPT-5, their latest large language model featuring significant improvements in logical reasoning and multi-step problem solving. The model demonstrates near-human performance on complex mathematical proofs and shows remarkable ability to maintain context across extended conversations. Early benchmarks suggest a 40% improvement over GPT-4 on reasoning-heavy tasks.",
-            "significance": "This release marks a major milestone in AI capabilities, with implications for education, research, and software development. Students and researchers should pay attention to how these enhanced reasoning abilities might impact their work.",
-            "rank": 1,
-            "categories": ["LLMs", "Industry", "Research"],
             "image_url": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800",
             "emoji": "🤖",
             "sources": [
-                {"url": "https://example.com/gpt5-release", "source_name": "TechCrunch", "article_title": "OpenAI's GPT-5 Sets New Benchmarks"},
-                {"url": "https://example.com/gpt5-analysis", "source_name": "MIT Technology Review", "article_title": "Inside GPT-5's Reasoning Engine"}
+                {"url": "https://example.com/gpt5-release", "source_name": "TechCrunch"},
+                {"url": "https://example.com/gpt5-analysis", "source_name": "MIT Technology Review"}
             ]
         },
         {
             "title": "Google DeepMind Achieves Breakthrough in Protein Folding Prediction",
             "summary": "DeepMind's AlphaFold 3 has achieved unprecedented accuracy in predicting protein structures, including complex protein-protein interactions. The system can now model how proteins interact with DNA, RNA, and small molecules, opening new avenues for drug discovery and understanding disease mechanisms.",
-            "significance": "This advancement could accelerate pharmaceutical research and deepen our understanding of biological processes. AI students interested in computational biology should explore how deep learning is transforming this field.",
-            "rank": 2,
-            "categories": ["Research", "Healthcare", "Deep Learning"],
             "image_url": "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=800",
             "emoji": "🧬",
             "sources": [
-                {"url": "https://example.com/alphafold3", "source_name": "Nature", "article_title": "AlphaFold 3 Revolutionizes Structural Biology"},
-                {"url": "https://example.com/protein-ai", "source_name": "Science Daily", "article_title": "AI Predicts Complex Protein Interactions"}
+                {"url": "https://example.com/alphafold3", "source_name": "Nature"},
+                {"url": "https://example.com/protein-ai", "source_name": "Science Daily"}
             ]
         },
         {
             "title": "EU Passes Comprehensive AI Regulation Framework",
             "summary": "The European Union has finalized its AI Act, establishing the world's first comprehensive regulatory framework for artificial intelligence. The legislation categorizes AI systems by risk level and imposes strict requirements on high-risk applications in healthcare, education, and law enforcement. Companies have 24 months to comply.",
-            "significance": "This regulation will shape how AI is developed and deployed globally, as companies serving EU markets must comply. Understanding AI governance is becoming essential for anyone working in the field.",
-            "rank": 3,
-            "categories": ["Policy", "Ethics", "Industry"],
             "image_url": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800",
             "emoji": "⚖️",
             "sources": [
-                {"url": "https://example.com/eu-ai-act", "source_name": "Reuters", "article_title": "EU AI Act Becomes Law"},
-                {"url": "https://example.com/ai-regulation", "source_name": "The Verge", "article_title": "What the EU AI Act Means for Developers"}
+                {"url": "https://example.com/eu-ai-act", "source_name": "Reuters"},
+                {"url": "https://example.com/ai-regulation", "source_name": "The Verge"}
             ]
         }
     ]
@@ -736,40 +739,25 @@ def seed_ai_news():
         {
             "title": "Scaling Laws for Neural Language Models: A Comprehensive Analysis",
             "authors": "Chen, Williams, et al.",
-            "summary": "This paper provides a detailed analysis of how language model performance scales with compute, data, and parameters. The researchers find predictable relationships that can guide efficient allocation of training resources.",
-            "key_findings": "Model performance follows power-law scaling with compute budget. Data quality matters more than quantity beyond certain thresholds. Optimal model size depends on available compute.",
-            "significance": "Understanding scaling laws helps researchers and practitioners make informed decisions about model training, potentially saving significant computational resources.",
+            "summary": "This paper provides a detailed analysis of how language model performance scales with compute, data, and parameters. The researchers find predictable relationships that can guide efficient allocation of training resources.\n\nModel performance follows power-law scaling with compute budget. Data quality matters more than quantity beyond certain thresholds. Optimal model size depends on available compute.",
             "paper_url": "https://arxiv.org/abs/example1",
             "source_name": "arXiv",
-            "rank": 1,
-            "categories": ["LLMs", "Training", "Efficiency"],
-            "image_url": "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=800",
             "emoji": "📈"
         },
         {
             "title": "Attention Is All You Need: Revisited for Multimodal Learning",
             "authors": "Park, Johnson, Garcia",
-            "summary": "Researchers extend the transformer architecture to efficiently process multiple modalities simultaneously, achieving state-of-the-art results on vision-language tasks with 30% fewer parameters than previous approaches.",
-            "key_findings": "Cross-modal attention mechanisms can share representations efficiently. Pre-training on aligned multimodal data improves downstream performance. The architecture generalizes to audio and video modalities.",
-            "significance": "This work advances our understanding of how to build more capable AI systems that can reason across different types of input, moving closer to more general intelligence.",
+            "summary": "Researchers extend the transformer architecture to efficiently process multiple modalities simultaneously, achieving state-of-the-art results on vision-language tasks with 30% fewer parameters than previous approaches.\n\nCross-modal attention mechanisms can share representations efficiently. Pre-training on aligned multimodal data improves downstream performance. The architecture generalizes to audio and video modalities.",
             "paper_url": "https://arxiv.org/abs/example2",
             "source_name": "NeurIPS 2024",
-            "rank": 2,
-            "categories": ["Multimodal", "Transformers", "Vision"],
-            "image_url": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800",
             "emoji": "👁️"
         },
         {
             "title": "Reinforcement Learning from Human Feedback: Best Practices and Pitfalls",
             "authors": "Smith, Lee, Patel, et al.",
-            "summary": "A comprehensive study examining RLHF implementations across major language models, identifying common failure modes and proposing improved training procedures that reduce reward hacking.",
-            "key_findings": "Reward model overoptimization is a persistent challenge. Diverse human feedback pools improve robustness. Iterative RLHF with fresh data outperforms single-stage training.",
-            "significance": "As RLHF becomes the standard for aligning AI systems with human preferences, understanding its limitations is crucial for building safer and more helpful AI.",
+            "summary": "A comprehensive study examining RLHF implementations across major language models, identifying common failure modes and proposing improved training procedures that reduce reward hacking.\n\nReward model overoptimization is a persistent challenge. Diverse human feedback pools improve robustness. Iterative RLHF with fresh data outperforms single-stage training.",
             "paper_url": "https://arxiv.org/abs/example3",
             "source_name": "ICML 2024",
-            "rank": 3,
-            "categories": ["RLHF", "Alignment", "Safety"],
-            "image_url": "https://images.unsplash.com/photo-1507146153580-69a1fe6d8aa1?w=800",
             "emoji": "🎯"
         }
     ]
@@ -779,13 +767,10 @@ def seed_ai_news():
         story = AINewsStory(
             title=data["title"],
             summary=data["summary"],
-            significance=data["significance"],
-            rank=data["rank"],
             batch_id=batch_id,
             image_url=data.get("image_url"),
             emoji=data.get("emoji")
         )
-        story.set_categories_list(data["categories"])
         db.session.add(story)
         db.session.flush()  # Get the story ID for sources
 
@@ -794,7 +779,6 @@ def seed_ai_news():
                 story_id=story.id,
                 url=source_data["url"],
                 source_name=source_data["source_name"],
-                article_title=source_data["article_title"]
             )
             db.session.add(source)
 
@@ -806,22 +790,124 @@ def seed_ai_news():
             title=data["title"],
             authors=data["authors"],
             summary=data["summary"],
-            key_findings=data["key_findings"],
-            significance=data["significance"],
             paper_url=data["paper_url"],
             source_name=data["source_name"],
-            rank=data["rank"],
             batch_id=batch_id,
-            image_url=data.get("image_url"),
             emoji=data.get("emoji")
         )
-        paper.set_categories_list(data["categories"])
         db.session.add(paper)
         papers.append(paper)
 
     db.session.commit()
     print(f"Created {len(stories)} news stories and {len(papers)} research papers.")
     return stories, papers
+
+
+def seed_speakers(users, universities):
+    """Create sample guest speaker contacts."""
+    print("Seeding speakers...")
+
+    domain_to_uni = {uni.email_domain: uni for uni in universities}
+
+    # Find executives/presidents to be the ones who added speakers
+    executive_users = []
+    for user in users:
+        domain = user.email.split("@")[1].replace(".edu", "")
+        if domain in domain_to_uni:
+            uni = domain_to_uni[domain]
+            role = UniversityRole.get_role(user.id, uni.id)
+            if role and role.role >= UniversityRoles.EXECUTIVE:
+                executive_users.append((user, uni))
+
+    speakers_data = [
+        {
+            "name": "Dr. Fei-Fei Li",
+            "position": "Professor of Computer Science",
+            "organization": "Stanford University",
+            "email": "feifeili@stanford.edu",
+            "linkedin_url": "https://linkedin.com/in/faboretum",
+            "notes": "Co-director of Stanford HAI. Great for talks on computer vision and AI ethics. Prefers 45-min format.",
+        },
+        {
+            "name": "Dr. Andrew Ng",
+            "position": "Founder & CEO",
+            "organization": "DeepLearning.AI",
+            "email": "andrew@deeplearning.ai",
+            "phone": "(650) 555-0142",
+            "linkedin_url": "https://linkedin.com/in/andrewyng",
+            "notes": "Excellent speaker for introductory AI topics. Very student-friendly. Books 2-3 months in advance.",
+        },
+        {
+            "name": "Dr. Timnit Gebru",
+            "position": "Founder & Executive Director",
+            "organization": "DAIR Institute",
+            "email": "timnit@dairinstitute.org",
+            "linkedin_url": "https://linkedin.com/in/timnit-gebru",
+            "notes": "Expert on AI ethics and fairness. Passionate about diversity in tech. Prefers panel or Q&A format.",
+        },
+        {
+            "name": "Dr. Yann LeCun",
+            "position": "VP & Chief AI Scientist",
+            "organization": "Meta",
+            "email": "ylecun@meta.com",
+            "linkedin_url": "https://linkedin.com/in/yann-lecun",
+            "notes": "Turing Award winner. Great for deep learning fundamentals talks. Limited availability.",
+        },
+        {
+            "name": "Rachel Thomas",
+            "position": "Co-founder",
+            "organization": "fast.ai",
+            "email": "rachel@fast.ai",
+            "linkedin_url": "https://linkedin.com/in/rachel-thomas-ai",
+            "notes": "Focuses on practical deep learning and AI accessibility. Great for workshop-style sessions.",
+        },
+        {
+            "name": "Dr. Percy Liang",
+            "position": "Associate Professor of Computer Science",
+            "organization": "Stanford University",
+            "email": "pliang@cs.stanford.edu",
+            "phone": "(650) 555-0198",
+            "notes": "Expert on foundation models and NLP. Runs the HELM benchmark. Good for research-oriented talks.",
+        },
+        {
+            "name": "Sarah Guo",
+            "position": "Founding Partner",
+            "organization": "Conviction Capital",
+            "email": "sarah@conviction.com",
+            "linkedin_url": "https://linkedin.com/in/sarahguo",
+            "notes": "AI venture capitalist. Great for talks on AI startups and entrepreneurship. Very engaging speaker.",
+        },
+        {
+            "name": "Dr. Dario Amodei",
+            "position": "CEO",
+            "organization": "Anthropic",
+            "linkedin_url": "https://linkedin.com/in/dario-amodei",
+            "notes": "Expert on AI safety. Prefers moderated discussion format. Requires 3+ months advance booking.",
+        },
+    ]
+
+    speakers = []
+    for i, data in enumerate(speakers_data):
+        # Distribute speakers among executive users
+        adder, uni = executive_users[i % len(executive_users)]
+        speaker = Speaker(
+            name=data["name"],
+            position=data["position"],
+            organization=data.get("organization"),
+            email=data.get("email"),
+            phone=data.get("phone"),
+            linkedin_url=data.get("linkedin_url"),
+            notes=data.get("notes"),
+            university_id=uni.id,
+            added_by_id=adder.id,
+            created_at=datetime.utcnow() - timedelta(days=random.randint(1, 90)),
+        )
+        db.session.add(speaker)
+        speakers.append(speaker)
+
+    db.session.commit()
+    print(f"Created {len(speakers)} speakers.")
+    return speakers
 
 
 def seed_all():
@@ -840,6 +926,7 @@ def seed_all():
     seed_messages(users)
     seed_follows(users)
     seed_ai_news()
+    seed_speakers(users, universities)
 
     print("\n" + "="*50)
     print("Seeding complete!")

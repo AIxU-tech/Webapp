@@ -181,7 +181,18 @@ class User(UserMixin, db.Model):
             'skills': self.get_skills_list(),
             'socialLinks': self.get_social_links_list(),
             'permissionLevel': self.permission_level,
+            'isExecutiveAnywhere': self._is_executive_anywhere(),
+            'education': [e.to_dict() for e in self.education_entries],
+            'experience': [e.to_dict() for e in self.experience_entries],
+            'projects': [p.to_dict() for p in self.project_entries],
         }
+
+    def _is_executive_anywhere(self) -> bool:
+        """Check if user is executive+ at any university, or is a site admin."""
+        if self.is_site_admin():
+            return True
+        from backend.models.university_role import UniversityRole
+        return UniversityRole.is_executive_anywhere(self.id)
 
     def get_profile_picture_url(self):
         """Return profile picture URL or None (frontend handles fallback)"""

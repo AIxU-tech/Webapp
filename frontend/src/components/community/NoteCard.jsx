@@ -4,8 +4,9 @@
  * Includes expandable comment section and file attachments.
  */
 
-import { useState } from 'react';
-import { FeedCard, LikeButton, SharePopover, Toast } from '../ui';
+import { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { FeedCard, LikeButton, SharePopover, Toast, LinkifyText } from '../ui';
 import {
   MessageCircleIcon,
   ShareIcon,
@@ -15,6 +16,9 @@ import CommentSection from './CommentSection';
 import NoteAttachments from './NoteAttachments';
 import NoteLikersModal from './NoteLikersModal';
 import { useAuthModal } from '../../contexts/AuthModalContext';
+import { noteKeys } from '../../hooks';
+import { fetchComments } from '../../api/notes';
+import { STALE_TIMES } from '../../config/cache';
 
 export default function NoteCard({
   note,
@@ -24,9 +28,11 @@ export default function NoteCard({
   onEdit,
   currentUserId,
   isAuthenticated = false,
+  isAdmin = false,
   initialCommentsExpanded = false,
 }) {
   const { openAuthModal } = useAuthModal();
+  const queryClient = useQueryClient();
   // Local state for comment section expansion
   const [isCommentsExpanded, setIsCommentsExpanded] = useState(initialCommentsExpanded);
   // Share popover state
@@ -37,6 +43,16 @@ export default function NoteCard({
 
   // Determine if current user owns this note
   const isOwner = isAuthenticated && currentUserId && note.author.id === currentUserId;
+
+  const handlePrefetchComments = useCallback(() => {
+    if (!isCommentsExpanded) {
+      queryClient.prefetchQuery({
+        queryKey: noteKeys.comments(note.id),
+        queryFn: () => fetchComments(note.id),
+        staleTime: STALE_TIMES.NOTES,
+      });
+    }
+  }, [queryClient, note.id, isCommentsExpanded]);
 
   // Toggle comment section
   const handleToggleComments = () => {
@@ -67,9 +83,10 @@ export default function NoteCard({
       {/* Comment Button */}
       <button
         onClick={handleToggleComments}
+        onMouseEnter={handlePrefetchComments}
         className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer ${isCommentsExpanded
-            ? 'text-primary bg-primary/10'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          ? 'text-primary bg-primary/10'
+          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           }`}
         aria-label={isCommentsExpanded ? 'Hide comments' : 'View comments'}
         aria-expanded={isCommentsExpanded}
@@ -104,7 +121,7 @@ export default function NoteCard({
       <FeedCard
         item={note}
         canEdit={isOwner}
-        canDelete={isOwner}
+        canDelete={isOwner || isAdmin}
         isBookmarked={note.isBookmarked}
         onBookmark={onBookmark}
         onEdit={onEdit}
@@ -115,7 +132,9 @@ export default function NoteCard({
         expandableContent={<CommentSection noteId={note.id} isExpanded={isCommentsExpanded} />}
       >
         <h3 className="text-xl font-bold text-foreground mb-2">{note.title}</h3>
-        <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{note.content}</p>
+        <LinkifyText>
+          <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{note.content}</p>
+        </LinkifyText>
 
         {/* File Attachments */}
         {note.attachments && note.attachments.length > 0 && (

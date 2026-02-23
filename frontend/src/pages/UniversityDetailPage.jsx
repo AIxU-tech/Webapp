@@ -414,6 +414,7 @@ export default function UniversityDetailPage() {
             universityId={id}
             currentUserId={currentUserId}
             isAuthenticated={isAuthenticated}
+            isAdmin={isAdmin}
           />
         );
       case 'events':
@@ -421,6 +422,7 @@ export default function UniversityDetailPage() {
           <UniversityEventsTab
             universityId={id}
             canCreateEvent={canCreateEvent}
+            canManageEvents={canCreateEvent}
             currentUserId={currentUserId}
             isAuthenticated={isAuthenticated}
           />

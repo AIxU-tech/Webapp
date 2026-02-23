@@ -72,9 +72,35 @@ export async function getEvent(eventId) {
 }
 
 /**
+ * Update an existing event
+ *
+ * Requires authentication. Must be executive+ at the event's university or site admin.
+ *
+ * @param {number} eventId - Event ID
+ * @param {object} eventData - Updated event data
+ * @param {string} eventData.title - Event title (required)
+ * @param {string} [eventData.description] - Event description
+ * @param {string} [eventData.location] - Event location
+ * @param {string} eventData.startTime - Event start time in ISO format (required)
+ * @param {string} [eventData.endTime] - Event end time in ISO format
+ * @returns {Promise<object>} Updated event object
+ * @throws {ApiError} If not authorized or validation fails
+ *
+ * @example
+ * const updated = await updateEvent(123, {
+ *   title: 'Updated Workshop',
+ *   description: 'New description',
+ *   startTime: '2025-01-15T15:00:00Z',
+ * });
+ */
+export async function updateEvent(eventId, eventData) {
+  return api.put(`/events/${eventId}`, eventData);
+}
+
+/**
  * Delete an event
  *
- * Requires authentication. Must be event creator, university president, or site admin.
+ * Requires authentication. Must be executive+ at the event's university or site admin.
  *
  * @param {number} eventId - Event ID
  * @returns {Promise<object>} Response with success status

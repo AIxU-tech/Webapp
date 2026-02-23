@@ -17,7 +17,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ProfileSection from './ProfileSection';
-import { EmptyState, IconButton, Alert, UnsavedChangesModal } from '../../ui';
+import { EmptyState, IconButton, Alert, UnsavedChangesModal, ExpandableText } from '../../ui';
 import { EditIcon } from '../../icons';
 import { useBeforeUnload, useClickOutside, useEscapeKey } from '../../../hooks';
 
@@ -216,10 +216,11 @@ export default function AboutSection({
             </p>
           </div>
         ) : hasContent ? (
-          // Display mode - show the about text
-          <p className="text-sm text-foreground/70 whitespace-pre-wrap leading-relaxed">
-            {aboutText}
-          </p>
+          <ExpandableText
+            text={aboutText}
+            lines={4}
+            className="text-sm text-foreground/70 leading-relaxed"
+          />
         ) : (
           // Empty state
           <EmptyState

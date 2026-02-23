@@ -14,8 +14,20 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../api/client';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
+import {
+  getUser,
+  updateProfile,
+  createEducation,
+  updateEducation,
+  deleteEducation,
+  createExperience,
+  updateExperience,
+  deleteExperience,
+  createProject,
+  updateProject,
+  deleteProject,
+} from '../api/users';
 
 // =============================================================================
 // Query Keys
@@ -31,40 +43,6 @@ export const userKeys = {
   // Key for current user (from AuthContext)
   current: () => [...userKeys.all, 'current'],
 };
-
-// =============================================================================
-// API Functions
-// =============================================================================
-// These are defined here to keep user-related API calls co-located with hooks
-
-/**
- * Fetch user profile by ID
- */
-async function fetchUser(userId) {
-  return api.get(`/users/${userId}`);
-}
-
-/**
- * Update current user's profile
- */
-async function updateProfile(updates) {
-  // Use FormData for profile updates that might include files
-  const response = await fetch('/api/profile', {
-    method: 'PATCH',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(updates),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to update profile');
-  }
-
-  return response.json();
-}
 
 // =============================================================================
 // Query Hooks
@@ -95,7 +73,7 @@ export function useUser(userId) {
 
   return useQuery({
     queryKey: userKeys.detail(userId),
-    queryFn: () => fetchUser(userId),
+    queryFn: () => getUser(userId),
 
     // Only fetch if we have a valid userId
     enabled: !!userId,
@@ -153,7 +131,7 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: updateProfile,
 
-    onSuccess: (data, variables) => {
+    onSuccess: (data) => {
       // Invalidate user queries to refetch updated data
       queryClient.invalidateQueries({ queryKey: userKeys.all });
 
@@ -294,6 +272,127 @@ export function useUploadProfileBanner() {
 }
 
 // =============================================================================
+// Profile Section Mutation Hooks (Education, Experience, Projects)
+// =============================================================================
+
+/**
+ * Snapshot all user queries for optimistic rollback.
+ * Follows the pattern from useEvents.js (onMutate/onError/onSettled).
+ */
+async function _snapshotUserQueries(queryClient) {
+  await queryClient.cancelQueries({ queryKey: userKeys.all });
+  return queryClient.getQueriesData({ queryKey: userKeys.all });
+}
+
+function _rollback(queryClient, previousQueries) {
+  if (previousQueries) {
+    previousQueries.forEach(([key, data]) => queryClient.setQueryData(key, data));
+  }
+}
+
+function useCreateSectionMutation(createFn, sectionKey) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createFn,
+    onMutate: async (newEntry) => {
+      const previousQueries = await _snapshotUserQueries(queryClient);
+      const tempEntry = { ...newEntry, id: Date.now(), display_order: 0 };
+      queryClient.setQueriesData({ queryKey: userKeys.all }, (old) => {
+        if (old && Array.isArray(old[sectionKey])) {
+          return { ...old, [sectionKey]: [...old[sectionKey], tempEntry] };
+        }
+        return old;
+      });
+      return { previousQueries };
+    },
+    onError: (_err, _vars, ctx) => _rollback(queryClient, ctx?.previousQueries),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: userKeys.all }),
+  });
+}
+
+function useUpdateSectionMutation(updateFn, sectionKey) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateFn,
+    onMutate: async (updatedEntry) => {
+      const previousQueries = await _snapshotUserQueries(queryClient);
+      queryClient.setQueriesData({ queryKey: userKeys.all }, (old) => {
+        if (old && Array.isArray(old[sectionKey])) {
+          return {
+            ...old,
+            [sectionKey]: old[sectionKey].map((item) =>
+              item.id === updatedEntry.id ? { ...item, ...updatedEntry } : item
+            ),
+          };
+        }
+        return old;
+      });
+      return { previousQueries };
+    },
+    onError: (_err, _vars, ctx) => _rollback(queryClient, ctx?.previousQueries),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: userKeys.all }),
+  });
+}
+
+function useDeleteSectionMutation(deleteFn, sectionKey) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteFn,
+    onMutate: async (id) => {
+      const previousQueries = await _snapshotUserQueries(queryClient);
+      queryClient.setQueriesData({ queryKey: userKeys.all }, (old) => {
+        if (old && Array.isArray(old[sectionKey])) {
+          return { ...old, [sectionKey]: old[sectionKey].filter((item) => item.id !== id) };
+        }
+        return old;
+      });
+      return { previousQueries };
+    },
+    onError: (_err, _vars, ctx) => _rollback(queryClient, ctx?.previousQueries),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: userKeys.all }),
+  });
+}
+
+export function useCreateEducation() {
+  return useCreateSectionMutation(createEducation, 'education');
+}
+
+export function useUpdateEducation() {
+  return useUpdateSectionMutation(({ id, ...data }) => updateEducation(id, data), 'education');
+}
+
+export function useDeleteEducation() {
+  return useDeleteSectionMutation(deleteEducation, 'education');
+}
+
+export function useCreateExperience() {
+  return useCreateSectionMutation(createExperience, 'experience');
+}
+
+export function useUpdateExperience() {
+  return useUpdateSectionMutation(({ id, ...data }) => updateExperience(id, data), 'experience');
+}
+
+export function useDeleteExperience() {
+  return useDeleteSectionMutation(deleteExperience, 'experience');
+}
+
+export function useCreateProject() {
+  return useCreateSectionMutation(createProject, 'projects');
+}
+
+export function useUpdateProject() {
+  return useUpdateSectionMutation(({ id, ...data }) => updateProject(id, data), 'projects');
+}
+
+export function useDeleteProject() {
+  return useDeleteSectionMutation(deleteProject, 'projects');
+}
+
+// =============================================================================
 // Prefetch Utilities
 // =============================================================================
 
@@ -315,7 +414,7 @@ export function prefetchUser(queryClient, userId) {
 
   return queryClient.prefetchQuery({
     queryKey: userKeys.detail(userId),
-    queryFn: () => fetchUser(userId),
+    queryFn: () => getUser(userId),
     staleTime: STALE_TIMES.USERS,
   });
 }
