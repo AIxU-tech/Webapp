@@ -3,6 +3,7 @@ import time
 import hashlib
 from backend.extensions import db
 from backend.models import User, University
+from backend.utils.profile import create_initial_education
 
 
 def validate_registration_data(data):
@@ -81,9 +82,10 @@ def create_db_user(reg_data):
     db.session.add(user)
     db.session.commit()
 
-    # Add user to university members list (automatic enrollment)
+    # Add user to university members list and auto-populate education
     if university:
         university.add_member(user.id)
+        create_initial_education(user, university)
         db.session.commit()
 
     return user

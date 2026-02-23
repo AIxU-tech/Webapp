@@ -94,7 +94,7 @@ export default function EventCard({
 
             {/* Edit / Delete Buttons (executives+ or site admin) */}
             {canManageEvent && (
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => onEdit?.(event)}
                   className="text-muted-foreground hover:text-primary transition-colors p-1 cursor-pointer"

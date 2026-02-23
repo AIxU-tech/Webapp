@@ -34,6 +34,7 @@ export default function NoteDetailPage() {
   const { noteId } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const isAdmin = user?.permissionLevel >= 1;
   const { openAuthModal } = useAuthModal();
 
   // Data fetching
@@ -122,6 +123,7 @@ export default function NoteDetailPage() {
         onDelete={handleDelete}
         currentUserId={user?.id}
         isAuthenticated={isAuthenticated}
+        isAdmin={isAdmin}
         initialCommentsExpanded={false}
       />
     </div>

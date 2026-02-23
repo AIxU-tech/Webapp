@@ -28,6 +28,15 @@ import {
   useUpdateProfile,
   useUploadProfilePicture,
   useUploadProfileBanner,
+  useCreateEducation,
+  useUpdateEducation,
+  useDeleteEducation,
+  useCreateExperience,
+  useUpdateExperience,
+  useDeleteExperience,
+  useCreateProject,
+  useUpdateProject,
+  useDeleteProject,
 } from '../hooks';
 
 // UI Components
@@ -45,6 +54,9 @@ import {
   AboutSection,
   ProfileSidebar,
   EditProfileModal,
+  ExperienceSection,
+  EducationSection,
+  ProjectsSection,
 } from '../components/profile';
 
 export default function ProfilePage() {
@@ -76,6 +88,16 @@ export default function ProfilePage() {
   const updateProfileMutation = useUpdateProfile();
   const uploadPictureMutation = useUploadProfilePicture();
   const uploadBannerMutation = useUploadProfileBanner();
+
+  const createEducationMutation = useCreateEducation();
+  const updateEducationMutation = useUpdateEducation();
+  const deleteEducationMutation = useDeleteEducation();
+  const createExperienceMutation = useCreateExperience();
+  const updateExperienceMutation = useUpdateExperience();
+  const deleteExperienceMutation = useDeleteExperience();
+  const createProjectMutation = useCreateProject();
+  const updateProjectMutation = useUpdateProject();
+  const deleteProjectMutation = useDeleteProject();
 
   // ---------------------------------------------------------------------------
   // Modal States
@@ -204,6 +226,13 @@ export default function ProfilePage() {
   };
 
   /**
+   * Shared error handler for profile section mutations
+   */
+  const handleMutationError = (err) => {
+    setFeedback({ type: 'error', message: err.message || 'Something went wrong' });
+  };
+
+  /**
    * Dismiss feedback notification
    */
   const dismissFeedback = () => {
@@ -270,19 +299,29 @@ export default function ProfilePage() {
               onSave={handleSaveAbout}
             />
 
-            {/* TODO: Add projects, experience, and research sections */}
-            {/* <ProjectsSection
-              projects={[]}
-              isOwnProfile={isOwnProfile}
-            />
             <ExperienceSection
-              experiences={[]}
+              experiences={user.experience || []}
               isOwnProfile={isOwnProfile}
+              onCreate={(data) => createExperienceMutation.mutate(data, { onError: handleMutationError })}
+              onUpdate={(data) => updateExperienceMutation.mutate(data, { onError: handleMutationError })}
+              onDelete={(id) => deleteExperienceMutation.mutate(id, { onError: handleMutationError })}
             />
-            <ResearchSection
-              publications={[]}
+
+            <EducationSection
+              education={user.education || []}
               isOwnProfile={isOwnProfile}
-            /> */}
+              onCreate={(data) => createEducationMutation.mutate(data, { onError: handleMutationError })}
+              onUpdate={(data) => updateEducationMutation.mutate(data, { onError: handleMutationError })}
+              onDelete={(id) => deleteEducationMutation.mutate(id, { onError: handleMutationError })}
+            />
+
+            <ProjectsSection
+              projects={user.projects || []}
+              isOwnProfile={isOwnProfile}
+              onCreate={(data) => createProjectMutation.mutate(data, { onError: handleMutationError })}
+              onUpdate={(data) => updateProjectMutation.mutate(data, { onError: handleMutationError })}
+              onDelete={(id) => deleteProjectMutation.mutate(id, { onError: handleMutationError })}
+            />
           </div>
 
           {/* Sidebar (fixed 340px width) */}

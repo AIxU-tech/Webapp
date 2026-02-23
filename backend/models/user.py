@@ -182,6 +182,9 @@ class User(UserMixin, db.Model):
             'socialLinks': self.get_social_links_list(),
             'permissionLevel': self.permission_level,
             'isExecutiveAnywhere': self._is_executive_anywhere(),
+            'education': [e.to_dict() for e in self.education_entries],
+            'experience': [e.to_dict() for e in self.experience_entries],
+            'projects': [p.to_dict() for p in self.project_entries],
         }
 
     def _is_executive_anywhere(self) -> bool:

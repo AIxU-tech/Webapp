@@ -31,7 +31,7 @@ export default defineConfig({
   server: {
     port: 5173,
     // Open browser at /app/ path
-    open: '/app',
+    open: '/app/',
     // Proxy API calls and WebSocket connections to Flask backend during development
     proxy: {
       // REST API proxy

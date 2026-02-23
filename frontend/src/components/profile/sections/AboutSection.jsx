@@ -15,9 +15,9 @@
  * Uses optimistic updates - exits immediately on save, reverts if save fails.
  */
 
-import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import ProfileSection from './ProfileSection';
-import { EmptyState, IconButton, Alert, UnsavedChangesModal } from '../../ui';
+import { EmptyState, IconButton, Alert, UnsavedChangesModal, ExpandableText } from '../../ui';
 import { EditIcon } from '../../icons';
 import { useBeforeUnload, useClickOutside, useEscapeKey } from '../../../hooks';
 
@@ -32,11 +32,6 @@ export default function AboutSection({
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [error, setError] = useState(null);
 
-  // Show more/less state for long bios
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isClamped, setIsClamped] = useState(false);
-  const textRef = useRef(null);
-
   // Refs for DOM elements
   const textareaRef = useRef(null);
   const containerRef = useRef(null);
@@ -46,13 +41,6 @@ export default function AboutSection({
 
   // Show browser warning on close/refresh with unsaved changes
   useBeforeUnload(hasUnsavedChanges);
-
-  // Detect if text overflows the clamped height (only check when collapsed)
-  useLayoutEffect(() => {
-    const el = textRef.current;
-    if (!el || isEditing || isExpanded) return;
-    setIsClamped(el.scrollHeight > el.clientHeight);
-  }, [aboutText, isEditing, isExpanded]);
 
   // Auto-focus textarea and place cursor at end when entering edit mode
   useEffect(() => {
@@ -171,7 +159,6 @@ export default function AboutSection({
   const handleStartEdit = useCallback(() => {
     setEditValue(aboutText || '');
     setIsEditing(true);
-    setIsExpanded(false);
   }, [aboutText]);
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -229,25 +216,11 @@ export default function AboutSection({
             </p>
           </div>
         ) : hasContent ? (
-          // Display mode - show the about text with optional clamping
-          <div>
-            <p
-              ref={textRef}
-              className={`text-sm text-foreground/70 whitespace-pre-wrap leading-relaxed${
-                !isExpanded ? ' line-clamp-4' : ''
-              }`}
-            >
-              {aboutText}
-            </p>
-            {isClamped && (
-              <button
-                onClick={() => setIsExpanded((prev) => !prev)}
-                className="mt-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-              >
-                {isExpanded ? 'Show less' : 'Show more'}
-              </button>
-            )}
-          </div>
+          <ExpandableText
+            text={aboutText}
+            lines={4}
+            className="text-sm text-foreground/70 leading-relaxed"
+          />
         ) : (
           // Empty state
           <EmptyState

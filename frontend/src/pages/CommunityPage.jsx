@@ -69,6 +69,7 @@ export default function CommunityPage() {
    * Authentication and URL State
    */
   const { user, isAuthenticated } = useAuth();
+  const isAdmin = user?.permissionLevel >= 1;
   const { openAuthModal } = useAuthModal();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -553,6 +554,7 @@ export default function CommunityPage() {
             onDelete={handleDeleteClick}
             currentUserId={user?.id}
             isAuthenticated={isAuthenticated}
+            isAdmin={isAdmin}
           />
         )}
       />

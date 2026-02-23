@@ -21,6 +21,7 @@ from backend.extensions import db
 from backend.models import User, University, UniversityRequest, PasswordResetToken
 from backend.utils.email import generate_verification_code, send_verification_email, send_reset_password_email, send_password_reset_confirmation
 from backend.utils.validation import is_whitelisted_domain
+from backend.utils.profile import create_initial_education
 from backend.routes_v2.api_auth.helpers import (
     setup_registration_session,
     validate_registration_data,
@@ -456,8 +457,9 @@ def complete_account():
         db.session.add(user)
         db.session.flush()  # Get user.id before commit
 
-        # Add user to university members list
+        # Add user to university members list and auto-populate education
         university.add_member(user.id)
+        create_initial_education(user, university)
 
         # Mark the request as used (links to user, clears token)
         uni_request.mark_account_created(user.id)

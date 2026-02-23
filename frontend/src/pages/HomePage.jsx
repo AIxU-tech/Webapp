@@ -102,11 +102,11 @@ export default function HomePage() {
       <div className="h-16" aria-hidden="true" />
 
       {/* Hero Section */}
-      <section className="min-h-screen flex items-center justify-center bg-background">
+      <section className="py-16 md:min-h-screen flex items-center justify-center bg-background">
         <div className="container mx-auto px-4 text-center">
           <div className="max-w-4xl mx-auto">
             {/* Hero icon with gradient background */}
-            <div className="mb-8 flex justify-center">
+            <div className="mb-6 md:mb-8 flex justify-center">
               <div
                 className={`w-24 h-24 ${GRADIENT_PRIMARY} rounded-2xl flex items-center justify-center shadow-card`}
               >
@@ -115,12 +115,12 @@ export default function HomePage() {
             </div>
 
             {/* Main headline */}
-            <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 leading-tight">
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 md:mb-6 leading-tight">
               AI <span className="text-academic-blue">Across</span> Universities
             </h1>
 
             {/* Subheadline */}
-            <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-base md:text-xl text-muted-foreground mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
               Connect with AI clubs worldwide. Share knowledge, collaborate on
               projects, and build the future of artificial intelligence together
             </p>
@@ -130,14 +130,14 @@ export default function HomePage() {
               as={Link}
               to={isReturningUser ? '/login' : '/register'}
               size="lg"
-              className="mb-16"
+              className="mb-10 md:mb-16"
             >
               {isReturningUser ? 'Log In to AIxU' : 'Join AIxU Community'}
             </GradientButton>
 
             {/* Platform statistics */}
             {stats && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-2xl mx-auto mt-16">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 max-w-2xl mx-auto mt-8 md:mt-16">
                 <StatItem value={formatStat(stats.universities)} label="Universities" size="lg" />
                 <StatItem value={formatStat(stats.resources)} label="Resources Shared" size="lg" />
                 <StatItem value={formatStat(stats.students)} label="Students" size="lg" />
@@ -179,6 +179,9 @@ export default function HomePage() {
 
       {/* Footer */}
       <Footer />
+
+      {/* Bottom nav spacer - matches the fixed bottom navbar height on mobile/tablet */}
+      <div className="h-16 xl:hidden" aria-hidden="true" />
     </div>
   );
 }
