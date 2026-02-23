@@ -8,7 +8,7 @@
 import ProfileSection from './ProfileSection';
 import ProfileSectionModal from './ProfileSectionModal';
 import useProfileSectionState from './useProfileSectionState';
-import { EmptyState, SecondaryButton, ConfirmationModal } from '../../ui';
+import { EmptyState, SecondaryButton, ConfirmationModal, ExpandableText } from '../../ui';
 import { PlusIcon, EditIcon, TrashIcon, CodeIcon, ExternalLinkIcon, CalendarIcon } from '../../icons';
 import { formatDateRange } from '../../../utils';
 
@@ -40,7 +40,7 @@ function ProjectItem({ entry, isOwnProfile, onEdit, onDelete }) {
             </div>
           </div>
           {isOwnProfile && (
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex gap-1">
               <button
                 onClick={() => onEdit(entry)}
                 className="p-1.5 rounded-md hover:bg-muted transition-colors cursor-pointer"
@@ -65,7 +65,11 @@ function ProjectItem({ entry, isOwnProfile, onEdit, onDelete }) {
           </div>
         )}
         {entry.description && (
-          <p className="text-sm text-foreground/60 mt-2 whitespace-pre-wrap">{entry.description}</p>
+          <ExpandableText
+            text={entry.description}
+            lines={3}
+            className="text-sm text-foreground/60 mt-2"
+          />
         )}
         {hasTech && (
           <div className="flex flex-wrap gap-1.5 mt-2">

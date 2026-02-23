@@ -52,7 +52,7 @@ function CopyButton({ text, onCopied }) {
   return (
     <button
       onClick={handleCopy}
-      className="ml-2 text-muted-foreground hover:text-primary transition-colors p-1.5 -m-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+      className="ml-2 text-muted-foreground hover:text-primary transition-colors p-1.5 -m-1 cursor-pointer"
       title={copied ? 'Copied!' : 'Copy'}
       aria-label={copied ? 'Copied' : `Copy ${text}`}
     >
@@ -90,7 +90,7 @@ export default function SpeakerCard({ speaker, currentUserId, isSiteAdmin, onEdi
 
         <div className="flex items-center gap-1">
           {canManage && (
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => onEdit?.(speaker)}
                 className="text-muted-foreground hover:text-primary transition-colors p-1 cursor-pointer"
