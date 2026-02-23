@@ -5,22 +5,12 @@
  * modal-based add/edit and inline delete via confirmation.
  */
 
-import { useState } from 'react';
 import ProfileSection from './ProfileSection';
 import ProfileSectionModal from './ProfileSectionModal';
+import useProfileSectionState from './useProfileSectionState';
 import { EmptyState, SecondaryButton, ConfirmationModal } from '../../ui';
 import { PlusIcon, EditIcon, TrashIcon, BriefcaseIcon, MapPinIcon, CalendarIcon } from '../../icons';
-
-function formatDateRange(startDate, endDate) {
-  const fmt = (d) => {
-    if (!d) return null;
-    const date = new Date(d + 'T00:00:00');
-    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-  };
-  const start = fmt(startDate);
-  const end = endDate ? fmt(endDate) : 'Present';
-  return start ? `${start} — ${end}` : '';
-}
+import { formatDateRange } from '../../../utils';
 
 function ExperienceItem({ entry, isOwnProfile, onEdit, onDelete }) {
   return (
@@ -79,38 +69,15 @@ export default function ExperienceSection({
   onCreate,
   onUpdate,
   onDelete,
-  isSaving = false,
 }) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingEntry, setEditingEntry] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
+  const {
+    modalOpen, editingEntry, deleteId,
+    handleAdd, handleEdit, handleSave,
+    handleCloseModal, handleDeleteFromModal,
+    handleDeleteConfirm, handleDeleteCancel, setDeleteId,
+  } = useProfileSectionState({ onCreate, onUpdate, onDelete });
 
   const hasExperiences = experiences && experiences.length > 0;
-
-  const handleAdd = () => {
-    setEditingEntry(null);
-    setModalOpen(true);
-  };
-
-  const handleEdit = (entry) => {
-    setEditingEntry(entry);
-    setModalOpen(true);
-  };
-
-  const handleSave = async (data) => {
-    if (editingEntry) {
-      await onUpdate(data);
-    } else {
-      await onCreate(data);
-    }
-    setModalOpen(false);
-    setEditingEntry(null);
-  };
-
-  const handleDeleteConfirm = async () => {
-    await onDelete(deleteId);
-    setDeleteId(null);
-  };
 
   const addAction = isOwnProfile && (
     <SecondaryButton
@@ -159,17 +126,16 @@ export default function ExperienceSection({
 
       <ProfileSectionModal
         isOpen={modalOpen}
-        onClose={() => { setModalOpen(false); setEditingEntry(null); }}
+        onClose={handleCloseModal}
         sectionType="experience"
         entry={editingEntry}
         onSave={handleSave}
-        onDelete={(id) => { setModalOpen(false); setDeleteId(id); }}
-        isSaving={isSaving}
+        onDelete={handleDeleteFromModal}
       />
 
       <ConfirmationModal
         isOpen={!!deleteId}
-        onClose={() => setDeleteId(null)}
+        onClose={handleDeleteCancel}
         onConfirm={handleDeleteConfirm}
         title="Delete Experience"
         message="Are you sure you want to delete this experience entry? This cannot be undone."

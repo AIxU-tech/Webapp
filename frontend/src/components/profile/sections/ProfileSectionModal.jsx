@@ -64,7 +64,6 @@ export default function ProfileSectionModal({
   entry = null,
   onSave,
   onDelete,
-  isSaving = false,
 }) {
   const config = SECTION_CONFIG[sectionType];
   const isEditing = !!entry;
@@ -267,7 +266,6 @@ export default function ProfileSectionModal({
                              focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
                              text-foreground placeholder-muted-foreground"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Scale: 0.0 — 5.0</p>
               </div>
             );
           }
@@ -313,17 +311,16 @@ export default function ProfileSectionModal({
                 size="sm"
                 icon={<TrashIcon className="h-4 w-4" />}
                 onClick={() => onDelete(entry.id)}
-                disabled={isSaving}
               >
                 Delete
               </SecondaryButton>
             )}
           </div>
           <div className="flex gap-3">
-            <SecondaryButton variant="outline" onClick={onClose} disabled={isSaving}>
+            <SecondaryButton variant="outline" onClick={onClose}>
               Cancel
             </SecondaryButton>
-            <GradientButton type="submit" size="sm" loading={isSaving} loadingText="Saving...">
+            <GradientButton type="submit" size="sm">
               {isEditing ? 'Save Changes' : 'Add'}
             </GradientButton>
           </div>

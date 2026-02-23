@@ -226,6 +226,13 @@ export default function ProfilePage() {
   };
 
   /**
+   * Shared error handler for profile section mutations
+   */
+  const handleMutationError = (err) => {
+    setFeedback({ type: 'error', message: err.message || 'Something went wrong' });
+  };
+
+  /**
    * Dismiss feedback notification
    */
   const dismissFeedback = () => {
@@ -295,28 +302,25 @@ export default function ProfilePage() {
             <ExperienceSection
               experiences={user.experience || []}
               isOwnProfile={isOwnProfile}
-              onCreate={(data) => createExperienceMutation.mutateAsync(data)}
-              onUpdate={(data) => updateExperienceMutation.mutateAsync(data)}
-              onDelete={(id) => deleteExperienceMutation.mutateAsync(id)}
-              isSaving={createExperienceMutation.isPending || updateExperienceMutation.isPending}
+              onCreate={(data) => createExperienceMutation.mutate(data, { onError: handleMutationError })}
+              onUpdate={(data) => updateExperienceMutation.mutate(data, { onError: handleMutationError })}
+              onDelete={(id) => deleteExperienceMutation.mutate(id, { onError: handleMutationError })}
             />
 
             <EducationSection
               education={user.education || []}
               isOwnProfile={isOwnProfile}
-              onCreate={(data) => createEducationMutation.mutateAsync(data)}
-              onUpdate={(data) => updateEducationMutation.mutateAsync(data)}
-              onDelete={(id) => deleteEducationMutation.mutateAsync(id)}
-              isSaving={createEducationMutation.isPending || updateEducationMutation.isPending}
+              onCreate={(data) => createEducationMutation.mutate(data, { onError: handleMutationError })}
+              onUpdate={(data) => updateEducationMutation.mutate(data, { onError: handleMutationError })}
+              onDelete={(id) => deleteEducationMutation.mutate(id, { onError: handleMutationError })}
             />
 
             <ProjectsSection
               projects={user.projects || []}
               isOwnProfile={isOwnProfile}
-              onCreate={(data) => createProjectMutation.mutateAsync(data)}
-              onUpdate={(data) => updateProjectMutation.mutateAsync(data)}
-              onDelete={(id) => deleteProjectMutation.mutateAsync(id)}
-              isSaving={createProjectMutation.isPending || updateProjectMutation.isPending}
+              onCreate={(data) => createProjectMutation.mutate(data, { onError: handleMutationError })}
+              onUpdate={(data) => updateProjectMutation.mutate(data, { onError: handleMutationError })}
+              onDelete={(id) => deleteProjectMutation.mutate(id, { onError: handleMutationError })}
             />
           </div>
 

@@ -5,23 +5,12 @@
  * modal-based add/edit and inline delete via confirmation.
  */
 
-import { useState } from 'react';
 import ProfileSection from './ProfileSection';
 import ProfileSectionModal from './ProfileSectionModal';
+import useProfileSectionState from './useProfileSectionState';
 import { EmptyState, SecondaryButton, ConfirmationModal } from '../../ui';
 import { PlusIcon, EditIcon, TrashIcon, CodeIcon, ExternalLinkIcon, CalendarIcon } from '../../icons';
-
-function formatDateRange(startDate, endDate) {
-  if (!startDate) return null;
-  const fmt = (d) => {
-    if (!d) return null;
-    const date = new Date(d + 'T00:00:00');
-    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-  };
-  const start = fmt(startDate);
-  const end = endDate ? fmt(endDate) : 'Present';
-  return start ? `${start} — ${end}` : '';
-}
+import { formatDateRange } from '../../../utils';
 
 function ProjectItem({ entry, isOwnProfile, onEdit, onDelete }) {
   const dateRange = formatDateRange(entry.start_date, entry.end_date);
@@ -101,38 +90,15 @@ export default function ProjectsSection({
   onCreate,
   onUpdate,
   onDelete,
-  isSaving = false,
 }) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingEntry, setEditingEntry] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
+  const {
+    modalOpen, editingEntry, deleteId,
+    handleAdd, handleEdit, handleSave,
+    handleCloseModal, handleDeleteFromModal,
+    handleDeleteConfirm, handleDeleteCancel, setDeleteId,
+  } = useProfileSectionState({ onCreate, onUpdate, onDelete });
 
   const hasProjects = projects && projects.length > 0;
-
-  const handleAdd = () => {
-    setEditingEntry(null);
-    setModalOpen(true);
-  };
-
-  const handleEdit = (entry) => {
-    setEditingEntry(entry);
-    setModalOpen(true);
-  };
-
-  const handleSave = async (data) => {
-    if (editingEntry) {
-      await onUpdate(data);
-    } else {
-      await onCreate(data);
-    }
-    setModalOpen(false);
-    setEditingEntry(null);
-  };
-
-  const handleDeleteConfirm = async () => {
-    await onDelete(deleteId);
-    setDeleteId(null);
-  };
 
   const addAction = isOwnProfile && (
     <SecondaryButton
@@ -187,17 +153,16 @@ export default function ProjectsSection({
 
       <ProfileSectionModal
         isOpen={modalOpen}
-        onClose={() => { setModalOpen(false); setEditingEntry(null); }}
+        onClose={handleCloseModal}
         sectionType="project"
         entry={editingEntry}
         onSave={handleSave}
-        onDelete={(id) => { setModalOpen(false); setDeleteId(id); }}
-        isSaving={isSaving}
+        onDelete={handleDeleteFromModal}
       />
 
       <ConfirmationModal
         isOpen={!!deleteId}
-        onClose={() => setDeleteId(null)}
+        onClose={handleDeleteCancel}
         onConfirm={handleDeleteConfirm}
         title="Delete Project"
         message="Are you sure you want to delete this project? This cannot be undone."
