@@ -28,7 +28,7 @@ def create_initial_education(user, university):
     entry = Education(
         user_id=user.id,
         institution=university.name,
-        degree='',
+        degree='Student',
         start_date=today.replace(day=1),
     )
     db.session.add(entry)

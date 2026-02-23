@@ -237,18 +237,22 @@ def delete_note(note_id):
         gcs_paths = [a.gcs_path for a in attachments]
         delete_gcs_files_parallel(gcs_paths)
 
+        # Save author reference before deletion
+        author_id = note.author_id
+
         # Delete the note (cascades to attachments table)
         db.session.delete(note)
         db.session.commit()
 
-        # Decrement user's post count
-        if current_user.post_count > 0:
-            current_user.post_count -= 1
+        # Decrement the author's post count (not current_user, who may be an admin)
+        author = db.session.get(User, author_id)
+        if author and author.post_count > 0:
+            author.post_count -= 1
             db.session.commit()
 
-        # Update university post count if user belongs to a university
-        if current_user.university:
-            university = current_user.get_university()
+        # Update university post count for the author's university
+        if author and author.university:
+            university = author.get_university()
             if university:
                 university.update_post_count()
 

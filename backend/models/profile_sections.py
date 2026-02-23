@@ -31,7 +31,8 @@ class Education(db.Model):
 
     user = db.relationship('User', backref=db.backref(
         'education_entries', cascade='all, delete-orphan', passive_deletes=True,
-        order_by='Education.display_order, Education.start_date.desc()'
+        order_by='Education.display_order, Education.start_date.desc()',
+        lazy='selectin'
     ))
 
     def to_dict(self):
@@ -68,7 +69,8 @@ class Experience(db.Model):
 
     user = db.relationship('User', backref=db.backref(
         'experience_entries', cascade='all, delete-orphan', passive_deletes=True,
-        order_by='Experience.display_order, Experience.start_date.desc()'
+        order_by='Experience.display_order, Experience.start_date.desc()',
+        lazy='selectin'
     ))
 
     def to_dict(self):
@@ -104,7 +106,8 @@ class Project(db.Model):
 
     user = db.relationship('User', backref=db.backref(
         'project_entries', cascade='all, delete-orphan', passive_deletes=True,
-        order_by='Project.display_order, Project.start_date.desc()'
+        order_by='Project.display_order, Project.start_date.desc()',
+        lazy='selectin'
     ))
 
     def to_dict(self):
