@@ -21,17 +21,16 @@ export default function UniversityNavTabs({ activeTab, onTabChange, className = 
   const containerRef = useRef(null);
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
 
-  // Update indicator position when active tab changes
+  // Update indicator position and scroll active tab into view
   useEffect(() => {
     const activeEl = tabRefs.current[activeTab];
-    if (activeEl && containerRef.current) {
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const tabRect = activeEl.getBoundingClientRect();
-
+    if (activeEl) {
       setIndicatorStyle({
-        left: tabRect.left - containerRect.left,
-        width: tabRect.width,
+        left: activeEl.offsetLeft,
+        width: activeEl.offsetWidth,
       });
+
+      activeEl.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
     }
   }, [activeTab]);
 
@@ -41,7 +40,7 @@ export default function UniversityNavTabs({ activeTab, onTabChange, className = 
         {/* Dark rounded container for tabs */}
         <nav
           ref={containerRef}
-          className="relative flex bg-muted rounded-lg p-1"
+          className="relative flex bg-muted rounded-lg p-1 overflow-x-auto no-scrollbar md:overflow-visible"
           role="tablist"
         >
           {/* White sliding pill indicator */}
@@ -66,7 +65,7 @@ export default function UniversityNavTabs({ activeTab, onTabChange, className = 
                 onClick={() => onTabChange(id)}
                 className={`
                   relative z-10 px-4 py-2 text-sm font-medium transition-colors rounded-md
-                  flex items-center gap-2 cursor-pointer
+                  flex items-center gap-2 cursor-pointer whitespace-nowrap flex-shrink-0
                   ${isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}
                 `}
               >

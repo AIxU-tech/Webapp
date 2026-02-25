@@ -35,39 +35,42 @@ import MessagesPage from './pages/MessagesPage';
 import NewsPage from './pages/NewsPage';
 import SpeakersPage from './pages/SpeakersPage';
 import AdminUniversityRequestsPage from './pages/AdminUniversityRequestsPage';
+import ScrollToTop from './components/layout/ScrollToTop';
 
 function App() {
   return (
-    <Routes>
-      {/*
+    <>
+      <ScrollToTop />
+      <Routes>
+        {/*
         Authentication Routes
 
         Login, Register, Verify Email, Complete Account, and Password Reset pages don't use
         AppLayout because they have full-screen plasma backgrounds and custom layouts.
         AuthRoute wrapper redirects authenticated users to /community.
       */}
-      <Route
-        path="/login"
-        element={
-          <AuthRoute>
-            <LoginPage />
-          </AuthRoute>
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          <AuthRoute>
-            <RegisterPage />
-          </AuthRoute>
-        }
-      />
-      <Route path="/verify-email" element={<VerifyEmailPage />} />
-      <Route path="/complete-account" element={<CompleteAccountPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route
+          path="/login"
+          element={
+            <AuthRoute>
+              <LoginPage />
+            </AuthRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <AuthRoute>
+              <RegisterPage />
+            </AuthRoute>
+          }
+        />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/complete-account" element={<CompleteAccountPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-      {/*
+        {/*
         University Request Routes
 
         Multi-step flow for requesting to add a new university:
@@ -76,49 +79,50 @@ function App() {
         3. /request-university/details - Enter university and club details
         4. /request-university/submitted - Confirmation page
       */}
-      <Route path="/add-university" element={<AddUniversityEntryPage />} />
-      <Route path="/request-university" element={<RequestUniversityVerifyPage />} />
-      <Route path="/request-university/details" element={<UniversityRequestDetailsPage />} />
-      <Route path="/request-university/submitted" element={<UniversityRequestSubmittedPage />} />
+        <Route path="/add-university" element={<AddUniversityEntryPage />} />
+        <Route path="/request-university" element={<RequestUniversityVerifyPage />} />
+        <Route path="/request-university/details" element={<UniversityRequestDetailsPage />} />
+        <Route path="/request-university/submitted" element={<UniversityRequestSubmittedPage />} />
 
-      {/*
+        {/*
         Landing Page Route
 
         HomePage acts as the landing page for non-authenticated users.
         It doesn't use AppLayout because it needs a custom design without nav bar.
         Authenticated users are automatically redirected to /community.
       */}
-      <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<HomePage />} />
 
-      {/*
+        {/*
         Main Application Routes
 
         These routes use AppLayout which includes navigation bar.
         Only accessible to authenticated users (protected in individual pages).
       */}
-      <Route element={<AppLayout />}>
-        <Route path="/community" element={<CommunityPage />} />
-        <Route path="/notes/:noteId" element={<NoteDetailPage />} />
-        <Route path="/universities" element={<UniversitiesPage />} />
-        <Route path="/universities/:id" element={<UniversityDetailPage />} />
-        <Route path="/opportunities" element={<OpportunitiesPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/users/:userId" element={<ProfilePage />} />
-        <Route
-          path="/messages"
-          element={
-            <ProtectedRoute redirectTo="/login">
-              <MessagesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/news" element={<NewsPage />} />
-        <Route path="/speakers" element={<SpeakersPage />} />
+        <Route element={<AppLayout />}>
+          <Route path="/community" element={<CommunityPage />} />
+          <Route path="/notes/:noteId" element={<NoteDetailPage />} />
+          <Route path="/universities" element={<UniversitiesPage />} />
+          <Route path="/universities/:id" element={<UniversityDetailPage />} />
+          <Route path="/opportunities" element={<OpportunitiesPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/users/:userId" element={<ProfilePage />} />
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute redirectTo="/login">
+                <MessagesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/news" element={<NewsPage />} />
+          <Route path="/speakers" element={<SpeakersPage />} />
 
-        {/* Admin Routes */}
-        <Route path="/admin/university-requests" element={<AdminUniversityRequestsPage />} />
-      </Route>
-    </Routes>
+          {/* Admin Routes */}
+          <Route path="/admin/university-requests" element={<AdminUniversityRequestsPage />} />
+        </Route>
+      </Routes>
+    </>
   );
 }
 

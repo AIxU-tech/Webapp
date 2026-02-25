@@ -143,8 +143,8 @@ function BottomNavLink({ to, icon, label, currentPath }) {
         }
       `}
     >
-      <span className="mb-1 [&>svg]:h-6 [&>svg]:w-6">{icon}</span>
-      <span className="truncate max-w-full">{label}</span>
+      <span className="mb-0.5 sm:mb-1 [&>svg]:h-6 [&>svg]:w-6">{icon}</span>
+      <span className="truncate max-w-full hidden sm:block">{label}</span>
     </Link>
   );
 }

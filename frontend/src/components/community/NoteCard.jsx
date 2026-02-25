@@ -6,7 +6,7 @@
 
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { FeedCard, LikeButton, SharePopover, Toast, LinkifyText } from '../ui';
+import { FeedCard, LikeButton, SharePopover, Toast, LinkifyText, ExpandableText } from '../ui';
 import {
   MessageCircleIcon,
   ShareIcon,
@@ -132,9 +132,15 @@ export default function NoteCard({
         expandableContent={<CommentSection noteId={note.id} isExpanded={isCommentsExpanded} />}
       >
         <h3 className="text-xl font-bold text-foreground mb-2">{note.title}</h3>
-        <LinkifyText>
-          <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{note.content}</p>
-        </LinkifyText>
+        <div className="mb-4">
+          <LinkifyText>
+            <ExpandableText
+              text={note.content}
+              lines={5}
+              className="text-muted-foreground"
+            />
+          </LinkifyText>
+        </div>
 
         {/* File Attachments */}
         {note.attachments && note.attachments.length > 0 && (
