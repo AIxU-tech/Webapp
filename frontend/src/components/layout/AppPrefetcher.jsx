@@ -54,27 +54,18 @@ function AppPrefetcher() {
   // Get React Query client for prefetching
   const queryClient = useQueryClient();
 
-  // Track if we've already prefetched this session
-  // Prevents re-prefetching on re-renders
-  const hasPrefetchedRef = useRef(false);
+  // Track which user identity we last prefetched for.
+  // undefined = never run, null = prefetched as unauthenticated, number = user ID.
+  // Re-triggers prefetch whenever the identity changes (login, logout, account switch).
+  const prefetchedForRef = useRef(undefined);
 
   useEffect(() => {
-    // ---------------------------------------------------------------------------
-    // Guard Conditions
-    // ---------------------------------------------------------------------------
-    // Don't prefetch if:
-    // - Still checking authentication status
-    // - User is not authenticated
-    // - Already prefetched this session
-    if (loading || hasPrefetchedRef.current) {
-      return;
-    }
+    if (loading) return;
 
-    // ---------------------------------------------------------------------------
-    // Trigger Background Prefetch
-    // ---------------------------------------------------------------------------
-    // Mark as prefetched immediately to prevent duplicate calls
-    hasPrefetchedRef.current = true;
+    const currentIdentity = user?.id ?? null;
+    if (prefetchedForRef.current === currentIdentity) return;
+
+    prefetchedForRef.current = currentIdentity;
 
     // Start prefetching in the background
     // Pass the current user so we can prefetch their profile data
