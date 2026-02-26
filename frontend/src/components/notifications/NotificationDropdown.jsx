@@ -41,7 +41,7 @@ function NotificationItem({ notification }) {
       className={`
         block px-4 py-3 transition-colors duration-100
         hover:bg-gray-50
-        ${notification.isRead ? 'opacity-60' : ''}
+        ${notification.isRead ? 'bg-transparent' : 'bg-primary/5'}
       `}
     >
       <div className="flex items-start gap-3">

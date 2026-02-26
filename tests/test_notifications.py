@@ -12,6 +12,7 @@ import pytest
 from datetime import datetime, timedelta
 from backend.models import User, University, Note, NoteLike, NoteComment
 from backend.models.notification import Notification
+from backend.constants import ADMIN
 from backend.extensions import db
 
 
@@ -667,7 +668,132 @@ class TestNotificationEndpoints:
             response = client.get('/api/notifications/count')
             assert response.get_json()['count'] == 0
 
+    def test_mark_single_read(self, app):
+        """PATCH /api/notifications/<id>/read marks a single notification as read."""
+        with app.app_context():
+            author, notif = self._create_notification(app)
+
+            client = app.test_client()
+            client.post('/api/auth/login', json={
+                'email': 'author@test.edu', 'password': 'pass123'
+            })
+
+            response = client.patch(f'/api/notifications/{notif.id}/read')
+            assert response.status_code == 200
+            assert response.get_json()['success'] is True
+
+            # Verify it's now read
+            response = client.get('/api/notifications/count')
+            assert response.get_json()['count'] == 0
+
     def test_endpoints_require_auth(self, client):
         assert client.get('/api/notifications').status_code == 401
         assert client.get('/api/notifications/count').status_code == 401
         assert client.patch('/api/notifications/read-all').status_code == 401
+
+
+# =========================================================================
+# Bug-fix regression tests
+# =========================================================================
+
+class TestNotificationCleanupOnNoteDelete:
+    """Bug 3: Deleting a note should remove its notifications."""
+
+    def test_delete_note_cleans_up_notifications(self, app):
+        with app.app_context():
+            author, liker, note = _setup_users_and_post(app)
+
+            # Like the note → creates a notification for the author
+            Notification.upsert_for_event(
+                recipient_id=author.id, actor_id=liker.id,
+                verb='like', target_id=note.id, target_type='post',
+                extra={'actor_name': 'Liker User', 'post_title': 'Test Post'},
+            )
+            db.session.commit()
+            assert Notification.query.count() == 1
+
+            # Log in as the author and delete the note via API
+            client = app.test_client()
+            client.post('/api/auth/login', json={
+                'email': 'author@test.edu', 'password': 'pass123'
+            })
+
+            response = client.delete(f'/api/notes/{note.id}')
+            assert response.status_code == 200
+
+            # Notifications for this note should be gone
+            assert Notification.query.filter_by(
+                target_id=note.id, target_type='post'
+            ).count() == 0
+
+
+class TestAdminAuthorCommentDeleteDecrement:
+    """Bug 2: Site admin who is also the post author deletes another user's comment."""
+
+    def test_admin_author_deletes_comment_decrements_notification(self, app):
+        with app.app_context():
+            # Create an admin user who is also the post author
+            admin_author = User(
+                email='adminauthor@test.edu', first_name='Admin', last_name='Author',
+                permission_level=ADMIN,
+            )
+            admin_author.set_password('pass123')
+            commenter = User(email='commenter@test.edu', first_name='Commenter', last_name='User')
+            commenter.set_password('pass123')
+            db.session.add_all([admin_author, commenter])
+            db.session.commit()
+
+            note = Note(title='Admin Post', content='Content', author_id=admin_author.id)
+            db.session.add(note)
+            db.session.commit()
+
+            # Commenter comments → notification created
+            comment = NoteComment(note_id=note.id, user_id=commenter.id, text='Nice!')
+            db.session.add(comment)
+            note.comments = 1
+            db.session.commit()
+
+            Notification.upsert_for_event(
+                recipient_id=admin_author.id, actor_id=commenter.id,
+                verb='comment', target_id=note.id, target_type='post',
+                extra={'actor_name': 'Commenter User', 'snippet': 'Nice!'},
+            )
+            db.session.commit()
+            assert Notification.query.count() == 1
+
+            # Admin-author deletes the comment via API
+            client = app.test_client()
+            client.post('/api/auth/login', json={
+                'email': 'adminauthor@test.edu', 'password': 'pass123'
+            })
+
+            response = client.delete(f'/api/notes/{note.id}/comments/{comment.id}')
+            assert response.status_code == 200
+
+            # Notification should be cleaned up (count was 1 → deleted)
+            assert Notification.query.count() == 0
+
+
+class TestSelfLikeNoNotification:
+    """Liking your own post should not create a notification."""
+
+    def test_self_like_via_api_creates_no_notification(self, app):
+        with app.app_context():
+            author = User(email='selflike@test.edu', first_name='Self', last_name='Liker')
+            author.set_password('pass123')
+            db.session.add(author)
+            db.session.commit()
+
+            note = Note(title='My Post', content='Content', author_id=author.id)
+            db.session.add(note)
+            db.session.commit()
+
+            client = app.test_client()
+            client.post('/api/auth/login', json={
+                'email': 'selflike@test.edu', 'password': 'pass123'
+            })
+
+            response = client.post(f'/api/notes/{note.id}/like')
+            assert response.status_code == 200
+
+            assert Notification.query.count() == 0

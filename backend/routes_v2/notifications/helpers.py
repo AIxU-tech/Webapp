@@ -82,10 +82,7 @@ def notify_post_commented(note, commenter, comment_text):
 
 
 def notify_comment_deleted(note, deleter):
-    """Call after a user deletes their comment. Decrements or removes the notification."""
-    if note.author_id == deleter.id:
-        return
-
+    """Call after a comment is deleted. Decrements or removes the notification."""
     def get_latest_commenter():
         latest = (
             NoteComment.query

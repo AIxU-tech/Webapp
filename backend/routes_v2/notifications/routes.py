@@ -1,9 +1,13 @@
-from flask import Blueprint, request, jsonify
+import logging
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
+from sqlalchemy.orm import joinedload
 from backend.extensions import db
 from backend.models import Note, University
 from backend.models.notification import Notification
+
+logger = logging.getLogger(__name__)
 
 notifications_bp = Blueprint('notifications', __name__)
 
@@ -100,7 +104,7 @@ def get_university_notifications():
                 'posts': []
             })
 
-        recent_posts = Note.query.filter(
+        recent_posts = Note.query.options(joinedload(Note.author)).filter(
             Note.author_id.in_(member_ids),
             Note.author_id != current_user.id
         ).order_by(Note.created_at.desc()).limit(10).all()
@@ -116,10 +120,11 @@ def get_university_notifications():
             'posts': posts_data
         })
 
-    except Exception as e:
+    except Exception:
+        logger.exception('Error fetching university posts')
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'An unexpected error occurred'
         }), 500
 
 
@@ -144,7 +149,7 @@ def check_new_notifications():
             try:
                 last_checked_time = datetime.fromisoformat(
                     last_checked.replace('Z', '+00:00'))
-            except:
+            except (ValueError, TypeError):
                 last_checked_time = datetime.utcnow() - timedelta(hours=24)
         else:
             last_checked_time = datetime.utcnow() - timedelta(hours=24)
@@ -160,5 +165,6 @@ def check_new_notifications():
             'count': new_posts_count
         })
 
-    except Exception as e:
+    except Exception:
+        logger.exception('Error checking new notifications')
         return jsonify({'hasNew': False}), 500

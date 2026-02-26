@@ -49,10 +49,7 @@ export function useUnreadNotificationCount() {
   const queryClient = useQueryClient();
 
   useSocketEvent('notification_update', useCallback(() => {
-    queryClient.setQueryData(notificationKeys.unreadCount(), (old) => {
-      if (old == null) return 1;
-      return old + 1;
-    });
+    queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount() });
   }, [queryClient]));
 
   const { data: count = 0 } = useQuery({

@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from backend.extensions import db
 from backend.models import Note, NoteComment, User, University, NoteAttachment
+from backend.models.notification import Notification
 from backend.routes_v2.community.helpers import (
     create_db_note,
     get_paginated_notes,
@@ -245,6 +246,9 @@ def delete_note(note_id):
 
         # Save author reference before deletion
         author_id = note.author_id
+
+        # Clean up any notifications referencing this note
+        Notification.query.filter_by(target_id=note_id, target_type='post').delete()
 
         # Delete the note (cascades to attachments table)
         db.session.delete(note)
