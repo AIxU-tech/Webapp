@@ -23,6 +23,7 @@ from backend.models.ai_news import (
 )
 from backend.models.password_reset_token import PasswordResetToken
 from backend.models.note_attachment import NoteAttachment
+from backend.models.notification import Notification
 from backend.models.speaker import Speaker
 from backend.models.profile_sections import Education, Experience, Project
 
@@ -50,6 +51,7 @@ __all__ = [
     'AINewsChatMessage',
     'PasswordResetToken',
     'NoteAttachment',
+    'Notification',
     'Speaker',
     'Education',
     'Experience',

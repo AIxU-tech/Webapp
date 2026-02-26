@@ -101,11 +101,10 @@ export default function FeedCard({
         {/* Bookmark Button (right side) */}
         <button
           onClick={() => onBookmark(item.id)}
-          className={`p-2 rounded-lg transition-all duration-200 cursor-pointer ${
-            isBookmarked
-              ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-          }`}
+          className={`p-2 rounded-lg transition-all duration-200 cursor-pointer ${isBookmarked
+            ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
+            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            }`}
           aria-label={isBookmarked ? 'Remove bookmark' : 'Bookmark'}
         >
           <BookmarkIcon filled={isBookmarked} />

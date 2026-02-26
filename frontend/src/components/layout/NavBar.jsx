@@ -22,6 +22,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useUnreadCount } from '../../hooks';
+import NotificationDropdown from '../notifications/NotificationDropdown';
 import {
   BrainCircuitIcon,
   CommunityIcon,
@@ -143,8 +144,8 @@ function BottomNavLink({ to, icon, label, currentPath }) {
         }
       `}
     >
-      <span className="mb-1 [&>svg]:h-6 [&>svg]:w-6">{icon}</span>
-      <span className="truncate max-w-full">{label}</span>
+      <span className="mb-0.5 sm:mb-1 [&>svg]:h-6 [&>svg]:w-6">{icon}</span>
+      <span className="truncate max-w-full hidden sm:block">{label}</span>
     </Link>
   );
 }
@@ -301,6 +302,8 @@ export default function NavBar() {
                 <span>Admin</span>
               </NavLink>
             )}
+
+            <NotificationDropdown />
 
             {/* Profile link for all authenticated users */}
             <NavLink to="/profile" currentPath={currentPath}>

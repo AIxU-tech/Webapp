@@ -150,7 +150,7 @@ export default function UniversitiesPage() {
  */
 function PageHeader({ isAdmin, onCreateClick }) {
   return (
-    <div className="mb-8 flex items-start justify-between">
+    <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">
           University AI Clubs
@@ -160,7 +160,7 @@ function PageHeader({ isAdmin, onCreateClick }) {
         </p>
       </div>
       {isAdmin && (
-        <GradientButton onClick={onCreateClick} icon={<PlusIcon />}>
+        <GradientButton onClick={onCreateClick} icon={<PlusIcon />} className="self-start flex-shrink-0">
           Create University
         </GradientButton>
       )}
