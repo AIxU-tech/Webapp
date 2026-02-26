@@ -55,9 +55,11 @@ export default function SharePopover({
   };
 
   return (
+    <>
+    <div className="fixed inset-0 bg-black/20 z-40 sm:hidden" aria-hidden="true" />
     <div
       ref={popoverRef}
-      className="absolute left-0 top-full mt-1 z-50 min-w-[320px] bg-card border border-border rounded-lg shadow-lg p-4 animate-in fade-in zoom-in-95 duration-100"
+      className="fixed left-3 right-3 top-1/2 -translate-y-1/2 sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-1 sm:translate-y-0 z-50 sm:min-w-[320px] bg-card border border-border rounded-lg shadow-lg p-4 animate-in fade-in zoom-in-95 duration-100"
       role="dialog"
       aria-labelledby="share-popover-title"
     >
@@ -107,6 +109,7 @@ export default function SharePopover({
         </div>
       </div> */}
     </div>
+    </>
   );
 }
 

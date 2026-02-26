@@ -211,6 +211,29 @@ def emit_new_follower(followed_user_id, follower_data):
     print(f'[Socket] Emitted new_follower to user_{followed_user_id}')
 
 
+def emit_notification_update(recipient_id, notification_data):
+    """
+    Emit a notification event to a specific user.
+
+    Called after a notification row is upserted so the recipient's
+    UI can update in real time (badge count, dropdown list).
+
+    Args:
+        recipient_id (int): The user ID receiving the notification
+        notification_data (dict): The serialised notification (from to_dict())
+    """
+    room = f'user_{recipient_id}'
+
+    payload = {
+        'type': 'notification_update',
+        'notification': notification_data,
+    }
+
+    socketio.emit('notification_update', payload, room=room)
+
+    print(f'[Socket] Emitted notification_update to user_{recipient_id}')
+
+
 def emit_university_update(university_id, members, update_type, user_data=None):
     """
     Emit an update when university membership changes.

@@ -22,6 +22,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useUnreadCount } from '../../hooks';
+import NotificationDropdown from '../notifications/NotificationDropdown';
 import {
   BrainCircuitIcon,
   CommunityIcon,
@@ -301,6 +302,8 @@ export default function NavBar() {
                 <span>Admin</span>
               </NavLink>
             )}
+
+            <NotificationDropdown />
 
             {/* Profile link for all authenticated users */}
             <NavLink to="/profile" currentPath={currentPath}>

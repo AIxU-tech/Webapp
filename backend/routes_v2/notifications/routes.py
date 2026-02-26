@@ -1,16 +1,82 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
+from backend.extensions import db
 from backend.models import Note, University
+from backend.models.notification import Notification
 
 notifications_bp = Blueprint('notifications', __name__)
 
+
+# =========================================================================
+# Notification REST Endpoints
+# =========================================================================
+
+@notifications_bp.route('/api/notifications')
+@login_required
+def get_notifications():
+    """
+    Get the most recent notifications for the current user.
+    Returns the last 20 ordered by updated_at DESC.
+    """
+    notifications = (
+        Notification.query
+        .filter_by(recipient_id=current_user.id)
+        .order_by(Notification.updated_at.desc())
+        .limit(20)
+        .all()
+    )
+    return jsonify([n.to_dict() for n in notifications])
+
+
+@notifications_bp.route('/api/notifications/count')
+@login_required
+def get_unread_count():
+    """Get the count of unread notifications for the current user."""
+    count = Notification.query.filter_by(
+        recipient_id=current_user.id,
+        is_read=False,
+    ).count()
+    return jsonify({'count': count})
+
+
+@notifications_bp.route('/api/notifications/<int:notification_id>/read', methods=['PATCH'])
+@login_required
+def mark_read(notification_id):
+    """Mark a single notification as read."""
+    notif = Notification.query.filter_by(
+        id=notification_id,
+        recipient_id=current_user.id,
+    ).first()
+
+    if not notif:
+        return jsonify({'success': False, 'error': 'Notification not found'}), 404
+
+    notif.is_read = True
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@notifications_bp.route('/api/notifications/read-all', methods=['PATCH'])
+@login_required
+def mark_all_read():
+    """Mark all of the current user's notifications as read."""
+    Notification.query.filter_by(
+        recipient_id=current_user.id,
+        is_read=False,
+    ).update({'is_read': True})
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+# =========================================================================
+# Legacy / University-Post Notification Endpoints
+# =========================================================================
 
 @notifications_bp.route('/api/notifications/university-posts')
 @login_required
 def get_university_notifications():
     try:
-        # Check if user belongs to a university
         if not current_user.university:
             return jsonify({
                 'success': True,
@@ -18,7 +84,6 @@ def get_university_notifications():
                 'message': 'You are not part of a university yet'
             })
 
-        # Get university
         university = University.query.filter_by(
             name=current_user.university).first()
         if not university:
@@ -28,7 +93,6 @@ def get_university_notifications():
                 'message': 'University not found'
             })
 
-        # Get all member IDs from the university
         member_ids = university.get_members_list()
         if not member_ids:
             return jsonify({
@@ -36,17 +100,14 @@ def get_university_notifications():
                 'posts': []
             })
 
-        # Get recent posts from university members (last 10, excluding own posts)
         recent_posts = Note.query.filter(
             Note.author_id.in_(member_ids),
-            Note.author_id != current_user.id  # Exclude own posts
+            Note.author_id != current_user.id
         ).order_by(Note.created_at.desc()).limit(10).all()
 
-        # Convert posts to dict format
         posts_data = []
         for post in recent_posts:
             post_dict = post.to_dict()
-            # Add ISO format for JS
             post_dict['created_at'] = post.created_at.isoformat()
             posts_data.append(post_dict)
 
@@ -62,27 +123,22 @@ def get_university_notifications():
         }), 500
 
 
-# API endpoint to check if there are new notifications
 @notifications_bp.route('/api/notifications/check-new')
 @login_required
 def check_new_notifications():
     try:
-        # Check if user belongs to a university
         if not current_user.university:
             return jsonify({'hasNew': False})
 
-        # Get university
         university = University.query.filter_by(
             name=current_user.university).first()
         if not university:
             return jsonify({'hasNew': False})
 
-        # Get member IDs
         member_ids = university.get_members_list()
         if not member_ids:
             return jsonify({'hasNew': False})
 
-        # Get timestamp from request (last time user checked)
         last_checked = request.args.get('lastChecked', None)
         if last_checked:
             try:
@@ -93,7 +149,6 @@ def check_new_notifications():
         else:
             last_checked_time = datetime.utcnow() - timedelta(hours=24)
 
-        # Check if there are any new posts since last check
         new_posts_count = Note.query.filter(
             Note.author_id.in_(member_ids),
             Note.author_id != current_user.id,

@@ -96,6 +96,7 @@ export {
 export {
   UniversitiesIcon,
   MessagesIcon,
+  NotificationsIcon,
   NewsIcon,
   OpportunitiesIcon,
   SpeakersIcon,

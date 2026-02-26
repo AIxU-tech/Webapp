@@ -219,6 +219,16 @@ export {
 } from './useSpeakers';
 
 // =============================================================================
+// Notifications Hooks
+// =============================================================================
+export {
+  useNotifications,
+  useUnreadNotificationCount,
+  useMarkAllNotificationsRead,
+  notificationKeys,
+} from './useNotifications';
+
+// =============================================================================
 // UI Utility Hooks
 // =============================================================================
 export {
