@@ -26,6 +26,7 @@ from backend.models.note_attachment import NoteAttachment
 from backend.models.notification import Notification
 from backend.models.speaker import Speaker
 from backend.models.profile_sections import Education, Experience, Project
+from backend.models.resume import Resume
 
 __all__ = [
     'User',
@@ -56,4 +57,5 @@ __all__ = [
     'Education',
     'Experience',
     'Project',
+    'Resume',
 ]

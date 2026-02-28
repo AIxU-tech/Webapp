@@ -37,6 +37,9 @@ import {
   useCreateProject,
   useUpdateProject,
   useDeleteProject,
+  useResume,
+  useUploadResume,
+  useDeleteResume,
 } from '../hooks';
 
 // UI Components
@@ -57,12 +60,13 @@ import {
   ExperienceSection,
   EducationSection,
   ProjectsSection,
+  ResumeSection,
 } from '../components/profile';
 
 export default function ProfilePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser, setUser: setCurrentUser, logoutUser } = useAuth();
+  const { user: currentUser, setUser: setCurrentUser, logoutUser, isAuthenticated } = useAuth();
   const { setTargetUserId } = useMessageTarget();
 
   // Determine if viewing own profile
@@ -98,6 +102,11 @@ export default function ProfilePage() {
   const createProjectMutation = useCreateProject();
   const updateProjectMutation = useUpdateProject();
   const deleteProjectMutation = useDeleteProject();
+
+  const { data: resume, isLoading: isResumeLoading } = useResume(isAuthenticated ? targetUserId : null);
+  const uploadResumeMutation = useUploadResume();
+  const deleteResumeMutation = useDeleteResume();
+  const [resumeUploadProgress, setResumeUploadProgress] = useState(null);
 
   // ---------------------------------------------------------------------------
   // Modal States
@@ -225,6 +234,30 @@ export default function ProfilePage() {
     navigate('/messages');
   };
 
+  const handleResumeUpload = (file) => {
+    setResumeUploadProgress(0);
+    uploadResumeMutation.mutate(
+      { file, onProgress: (pct) => setResumeUploadProgress(pct) },
+      {
+        onSuccess: () => {
+          setResumeUploadProgress(null);
+          setFeedback({ type: 'success', message: 'Resume uploaded successfully' });
+        },
+        onError: (err) => {
+          setResumeUploadProgress(null);
+          setFeedback({ type: 'error', message: err.message || 'Failed to upload resume' });
+        },
+      }
+    );
+  };
+
+  const handleResumeDelete = () => {
+    deleteResumeMutation.mutate(undefined, {
+      onSuccess: () => setFeedback({ type: 'success', message: 'Resume deleted' }),
+      onError: (err) => setFeedback({ type: 'error', message: err.message || 'Failed to delete resume' }),
+    });
+  };
+
   /**
    * Shared error handler for profile section mutations
    */
@@ -321,6 +354,18 @@ export default function ProfilePage() {
               onCreate={(data) => createProjectMutation.mutate(data, { onError: handleMutationError })}
               onUpdate={(data) => updateProjectMutation.mutate(data, { onError: handleMutationError })}
               onDelete={(id) => deleteProjectMutation.mutate(id, { onError: handleMutationError })}
+            />
+
+            <ResumeSection
+              resume={resume}
+              isOwnProfile={isOwnProfile}
+              isAuthenticated={isAuthenticated}
+              isLoading={isResumeLoading}
+              onUpload={handleResumeUpload}
+              onDelete={handleResumeDelete}
+              uploadProgress={resumeUploadProgress}
+              isUploading={uploadResumeMutation.isPending}
+              isDeleting={deleteResumeMutation.isPending}
             />
           </div>
 

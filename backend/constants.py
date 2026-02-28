@@ -105,6 +105,25 @@ EXTENSION_TO_MIME = {
 
 
 # =============================================================================
+# Resume Constants
+# =============================================================================
+
+MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+ALLOWED_RESUME_TYPES = {
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+}
+
+RESUME_EXTENSION_TO_MIME = {
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+}
+
+
+# =============================================================================
 # Permission System Constants
 # =============================================================================
 #
