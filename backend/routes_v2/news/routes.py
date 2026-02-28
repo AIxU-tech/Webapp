@@ -5,17 +5,22 @@ Provides REST API endpoints for:
 - Fetching AI news stories and research papers
 - Interactive chat about news content with Claude
 - Admin operations for content refresh and cleanup
+- Cron-triggered news refresh (authenticated via shared secret)
 
 Endpoints:
 - GET /api/news - Get latest news stories
 - GET /api/papers - Get latest research papers
 - GET /api/ai-content - Get both stories and papers
 - POST /api/news/refresh - Trigger content refresh (admin)
+- POST /api/news/cron-refresh - Trigger content refresh (cron service)
 - POST /api/news/<id>/chat - Chat about a news story
 - POST /api/papers/<id>/chat - Chat about a research paper
 - GET /api/chat/<session_id>/history - Get chat history
 - DELETE /api/chat/<session_id> - Clear chat history
 """
+
+import hmac
+import os
 
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
@@ -248,6 +253,43 @@ def refresh_news():
         }), 500
 
 
+@news_bp.route('/api/news/cron-refresh', methods=['POST'])
+def cron_refresh_news():
+    """
+    Trigger a news refresh from an external cron service.
+
+    Authenticated via a shared secret in the X-Cron-Secret header,
+    compared against the CRON_SECRET environment variable using
+    constant-time comparison to prevent timing attacks.
+
+    Returns:
+        JSON response with refresh result or auth error
+    """
+    expected = os.environ.get('CRON_SECRET', '')
+    provided = request.headers.get('X-Cron-Secret', '')
+
+    if not expected or not hmac.compare_digest(expected, provided):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    from backend.services.scheduler import refresh_news as run_refresh
+    result = run_refresh()
+
+    if result.get('success'):
+        return jsonify({
+            'success': True,
+            'message': result.get('message'),
+            'batchId': result.get('batch_id'),
+            'storiesCount': result.get('stories_count', 0),
+            'papersCount': result.get('papers_count', 0),
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': result.get('error', 'Unknown error'),
+            'batchId': result.get('batch_id'),
+        }), 500
+
+
 @news_bp.route('/api/news/batches', methods=['GET'])
 @login_required
 def get_batches():
@@ -297,27 +339,6 @@ def cleanup_batches():
         'message': f'Cleaned up {deleted_count} old batches'
     })
 
-
-@news_bp.route('/api/news/scheduler', methods=['GET'])
-@login_required
-def get_scheduler_info():
-    """
-    Get the status of the background news refresh scheduler. Admin only.
-
-    Returns:
-        JSON response with scheduler status and job information
-    """
-    is_admin, error_response = require_admin()
-    if not is_admin:
-        return error_response
-
-    from backend.services.scheduler import get_scheduler_status
-    status = get_scheduler_status()
-
-    return jsonify({
-        'success': True,
-        'scheduler': status
-    })
 
 
 # =============================================================================
