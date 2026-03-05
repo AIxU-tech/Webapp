@@ -18,10 +18,11 @@
  * @component
  */
 
+import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
-import { useUnreadCount } from '../../hooks';
+import { useUnreadCount, useUniversities } from '../../hooks';
 import NotificationDropdown from '../notifications/NotificationDropdown';
 import {
   BrainCircuitIcon,
@@ -214,9 +215,25 @@ export default function NavBar() {
   const { isAuthenticated, isReturningUser, user } = useAuth();
   const { openAuthModal } = useAuthModal();
 
-
   // Check if user is an admin (permission level >= 1)
   const isAdmin = user && user.permissionLevel >= ADMIN_PERMISSION_LEVEL;
+
+  // Determine the current user's primary university (by matching name).
+  // Falls back to universities list route if no exact match is found.
+  const { data: universities = [] } = useUniversities();
+  const primaryUniversityId = useMemo(() => {
+    if (!isAuthenticated || !user?.university || !universities?.length) return null;
+    const match = universities.find((u) => u.name === user.university);
+    return match ? match.id : null;
+  }, [isAuthenticated, user, universities]);
+
+  // Logo behavior:
+  // - Authenticated + known university: go directly to that university page
+  // - Authenticated + unknown university: go to universities list
+  // - Not authenticated: go to landing page (/)
+  const logoHref = isAuthenticated
+    ? (primaryUniversityId ? `/universities/${primaryUniversityId}` : '/universities')
+    : '/';
 
   return (
     <>
@@ -233,7 +250,7 @@ export default function NavBar() {
             Links to home page (/) for all users.
             ================================================================= */}
         <Link
-          to="/"
+          to={logoHref}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
           {/* Logo icon with gradient background */}
