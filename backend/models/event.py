@@ -67,6 +67,9 @@ class Event(db.Model):
     )
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # QR attendance token (generated on demand by executives)
+    attendance_token = db.Column(db.String(64), nullable=True, unique=True, index=True)
+
     # Relationships
     university = db.relationship('University', backref='university_events')
     created_by = db.relationship('User', backref='created_events', passive_deletes=True)

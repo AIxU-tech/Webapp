@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../ui';
-import { ClockIcon, MapPinIcon, UsersIcon, TrashIcon, PencilIcon, CheckIcon } from '../icons';
+import { ClockIcon, MapPinIcon, UsersIcon, TrashIcon, PencilIcon, CheckIcon, QRCodeIcon } from '../icons';
 import { parseUtcDate, getTimeAgo } from '../../utils/time';
 
 /**
@@ -48,6 +48,7 @@ export default function EventCard({
   onRsvp,
   onDelete,
   onEdit,
+  onShowQR,
   currentUserId,
   isAuthenticated = false,
   canManageEvent = false,
@@ -95,6 +96,14 @@ export default function EventCard({
             {/* Edit / Delete Buttons (executives+ or site admin) */}
             {canManageEvent && (
               <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onShowQR?.(event)}
+                  className="text-muted-foreground hover:text-primary transition-colors p-1 cursor-pointer"
+                  title="Attendance QR code"
+                  aria-label="Attendance QR code"
+                >
+                  <QRCodeIcon className="h-4 w-4" />
+                </button>
                 <button
                   onClick={() => onEdit?.(event)}
                   className="text-muted-foreground hover:text-primary transition-colors p-1 cursor-pointer"
@@ -156,6 +165,14 @@ export default function EventCard({
               <UsersIcon className="h-4 w-4" />
               {event.attendeeCount || 0} attending
             </span>
+
+            {/* Attendance check-in count -- only present in the payload for executives */}
+            {event.attendanceCount != null && event.attendanceCount > 0 && (
+              <span className="flex items-center gap-1.5 text-primary">
+                <CheckIcon className="h-4 w-4" />
+                {event.attendanceCount} checked in
+              </span>
+            )}
           </div>
 
           {/* Actions */}

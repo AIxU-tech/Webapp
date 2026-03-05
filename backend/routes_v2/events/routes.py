@@ -23,11 +23,12 @@ from datetime import datetime
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
+from sqlalchemy import func
 from backend.extensions import db
-from backend.models import Event, EventAttendee, University, UniversityRole
+from backend.models import Event, EventAttendee, University, UniversityRole, EventAttendance
 from backend.constants import UniversityRoles
 from backend.utils.permissions import can_manage_university_members
-from backend.utils.email import send_event_created_email, send_event_cancelled_email
+from backend.utils.email import send_event_created_email, send_event_cancelled_email, generate_secure_token
 from backend.routes_v2.events.helpers import send_bulk_email
 
 _DEV_MODE = os.environ.get('DEV_MODE')
@@ -103,6 +104,22 @@ def get_university_events(university_id):
         event_dict = event.to_dict()
         event_dict['isAttending'] = event.id in user_rsvps
         events_data.append(event_dict)
+
+    # Include attendance counts for executives+
+    if current_user.is_authenticated:
+        is_exec = current_user.is_site_admin() or \
+            UniversityRole.get_role_level(current_user.id, university_id) >= UniversityRoles.EXECUTIVE
+        if is_exec:
+            event_ids = [e.id for e in events]
+            if event_ids:
+                counts = dict(
+                    db.session.query(EventAttendance.event_id, func.count(EventAttendance.id))
+                    .filter(EventAttendance.event_id.in_(event_ids))
+                    .group_by(EventAttendance.event_id)
+                    .all()
+                )
+                for event_dict in events_data:
+                    event_dict['attendanceCount'] = counts.get(event_dict['id'], 0)
 
     return jsonify({
         'events': events_data
@@ -180,7 +197,7 @@ def create_event(university_id):
         if start_time >= end_time:
             return jsonify({'error': 'Start time must be before end time'}), 400
 
-    # Create event
+    # Create event with pre-generated attendance token
     event = Event(
         university_id=university_id,
         title=data['title'].strip(),
@@ -188,7 +205,8 @@ def create_event(university_id):
         location=data.get('location', '').strip() or None,
         start_time=start_time,
         end_time=end_time,
-        created_by_id=current_user.id
+        created_by_id=current_user.id,
+        attendance_token=generate_secure_token(32),
     )
 
     db.session.add(event)
@@ -239,6 +257,13 @@ def get_event(event_id):
         ).first()
         event_dict['isAttending'] = attendee is not None
         event_dict['attendeeStatus'] = attendee.status if attendee else None
+
+        # Include attendance data for executives+
+        is_exec = current_user.is_site_admin() or \
+            UniversityRole.get_role_level(current_user.id, event.university_id) >= UniversityRoles.EXECUTIVE
+        if is_exec:
+            event_dict['attendanceToken'] = event.attendance_token
+            event_dict['attendanceCount'] = EventAttendance.query.filter_by(event_id=event.id).count()
     else:
         event_dict['isAttending'] = False
         event_dict['attendeeStatus'] = None
