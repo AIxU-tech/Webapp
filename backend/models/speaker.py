@@ -9,6 +9,7 @@ include contact information (email, phone, LinkedIn) plus free-text notes.
 """
 
 from datetime import datetime
+import json
 from backend.extensions import db
 
 
@@ -25,6 +26,7 @@ class Speaker(db.Model):
         phone: Contact phone (optional)
         linkedin_url: LinkedIn profile URL (optional)
         notes: Free-text additional info (optional)
+        tags: JSON-encoded list of speaker background tags (optional)
         university_id: Which club added this speaker
         added_by_id: Which user added this speaker
         created_at: When the speaker was added
@@ -46,6 +48,9 @@ class Speaker(db.Model):
 
     # Additional info
     notes = db.Column(db.Text, nullable=True)
+    # JSON-encoded list of tag identifiers describing the speaker's background.
+    # Example: ["academic_research", "industry_ml_engineer"]
+    tags = db.Column(db.Text, nullable=True)
 
     # Associations
     university_id = db.Column(
@@ -69,6 +74,16 @@ class Speaker(db.Model):
 
     def to_dict(self):
         """Serialize speaker to dictionary for API responses."""
+        # Safely decode tags JSON into a list of strings
+        tags: list[str] = []
+        if self.tags:
+            try:
+                decoded = json.loads(self.tags)
+                if isinstance(decoded, list):
+                    tags = [str(t) for t in decoded if isinstance(t, str)]
+            except Exception:
+                tags = []
+
         return {
             'id': self.id,
             'name': self.name,
@@ -78,6 +93,7 @@ class Speaker(db.Model):
             'phone': self.phone,
             'linkedinUrl': self.linkedin_url,
             'notes': self.notes,
+            'tags': tags,
             'universityId': self.university_id,
             'universityName': self.university.name if self.university else None,
             'addedById': self.added_by_id,
