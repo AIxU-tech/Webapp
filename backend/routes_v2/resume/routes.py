@@ -66,9 +66,8 @@ def confirm_resume_upload():
 
     try:
         existing = Resume.query.filter_by(user_id=current_user.id).first()
+        old_gcs_path = existing.gcs_path if existing else None
         if existing:
-            if is_gcs_configured():
-                delete_file(existing.gcs_path)
             db.session.delete(existing)
             db.session.flush()
 
@@ -81,6 +80,13 @@ def confirm_resume_upload():
         )
         db.session.add(resume)
         db.session.commit()
+
+        # Delete old GCS file only after successful commit
+        if old_gcs_path and is_gcs_configured():
+            try:
+                delete_file(old_gcs_path)
+            except Exception:
+                pass  # Orphaned file is better than data loss
 
         download_url = None
         if is_gcs_configured():
@@ -133,11 +139,16 @@ def delete_resume():
         return jsonify({'success': False, 'error': 'No resume found'}), 404
 
     try:
-        if is_gcs_configured():
-            delete_file(resume.gcs_path)
-
+        gcs_path = resume.gcs_path
         db.session.delete(resume)
         db.session.commit()
+
+        # Delete GCS file only after successful commit
+        if is_gcs_configured():
+            try:
+                delete_file(gcs_path)
+            except Exception:
+                pass  # Orphaned file is better than data loss
 
         return jsonify({'success': True, 'message': 'Resume deleted'})
 

@@ -45,6 +45,7 @@ import {
 // UI Components
 import {
   Alert,
+  Toast,
   LoadingState,
   ErrorState,
   BannerUploadModal,
@@ -104,9 +105,8 @@ export default function ProfilePage() {
   const deleteProjectMutation = useDeleteProject();
 
   const { data: resume, isLoading: isResumeLoading } = useResume(isAuthenticated ? targetUserId : null);
-  const uploadResumeMutation = useUploadResume();
+  const uploadResumeMutation = useUploadResume(targetUserId);
   const deleteResumeMutation = useDeleteResume();
-  const [resumeUploadProgress, setResumeUploadProgress] = useState(null);
 
   // ---------------------------------------------------------------------------
   // Modal States
@@ -235,16 +235,13 @@ export default function ProfilePage() {
   };
 
   const handleResumeUpload = (file) => {
-    setResumeUploadProgress(0);
     uploadResumeMutation.mutate(
-      { file, onProgress: (pct) => setResumeUploadProgress(pct) },
+      { file },
       {
         onSuccess: () => {
-          setResumeUploadProgress(null);
           setFeedback({ type: 'success', message: 'Resume uploaded successfully' });
         },
         onError: (err) => {
-          setResumeUploadProgress(null);
           setFeedback({ type: 'error', message: err.message || 'Failed to upload resume' });
         },
       }
@@ -296,18 +293,15 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen gradient-mesh">
-      {/* Feedback notification */}
-      {feedback.message && (
-        <div className="fixed top-4 right-4 z-50 max-w-md">
-          <Alert
-            variant={feedback.type}
-            dismissible
-            onDismiss={dismissFeedback}
-          >
-            {feedback.message}
-          </Alert>
-        </div>
-      )}
+      {/* Feedback toast — bottom-left, auto-dismiss */}
+      <Toast
+        message={feedback.message}
+        isVisible={!!feedback.message}
+        onDismiss={dismissFeedback}
+        variant={feedback.type || 'success'}
+        position="left"
+        duration={3000}
+      />
 
       {/* Two-column layout from the start: Main content + Sidebar */}
       <main className="container mx-auto px-4 py-8">
@@ -363,8 +357,6 @@ export default function ProfilePage() {
               isLoading={isResumeLoading}
               onUpload={handleResumeUpload}
               onDelete={handleResumeDelete}
-              uploadProgress={resumeUploadProgress}
-              isUploading={uploadResumeMutation.isPending}
               isDeleting={deleteResumeMutation.isPending}
             />
           </div>

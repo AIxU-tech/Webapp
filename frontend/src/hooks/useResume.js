@@ -5,21 +5,26 @@
  *
  * Available Hooks:
  * - useResume(userId) - Fetch a user's resume metadata + download URL
- * - useUploadResume() - Upload and confirm a new resume (replaces existing)
+ * - useUploadResume(userId) - Upload and confirm a new resume (optimistic)
  * - useDeleteResume() - Delete the current user's resume
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
 import { getUserResume, confirmResumeUpload, deleteResume } from '../api/resume';
-import { requestUploadUrl } from '../api/uploads';
-import { uploadToGCS } from '../api/uploads';
+import { requestUploadUrl, uploadToGCS } from '../api/uploads';
 import { userKeys } from './useUsers';
 
 export const resumeKeys = {
   all: ['resumes'],
   detail: (userId) => [...resumeKeys.all, 'detail', userId],
 };
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 /**
  * Fetch a user's resume metadata and signed download URL.
@@ -38,18 +43,16 @@ export function useResume(userId) {
 
 /**
  * Upload a resume file to GCS via signed URL, then confirm the upload
- * with the backend. Handles the full flow:
- *   1. Request signed upload URL
- *   2. Upload file directly to GCS
- *   3. Confirm upload with backend (creates/replaces DB record)
+ * with the backend. Uses optimistic updates to show the file immediately.
  *
- * @returns {object} React Query mutation with mutate({ file, onProgress? })
+ * @param {number} userId - Current user's ID (for optimistic cache key)
+ * @returns {object} React Query mutation with mutate({ file })
  */
-export function useUploadResume() {
+export function useUploadResume(userId) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ file, onProgress }) => {
+    mutationFn: async ({ file }) => {
       const urlResponse = await requestUploadUrl({
         filename: file.name,
         contentType: file.type || 'application/pdf',
@@ -62,7 +65,7 @@ export function useUploadResume() {
 
       const { uploadUrl, gcsPath } = urlResponse;
 
-      await uploadToGCS(uploadUrl, file, onProgress);
+      await uploadToGCS(uploadUrl, file);
 
       const confirmResponse = await confirmResumeUpload({
         gcsPath,
@@ -78,7 +81,32 @@ export function useUploadResume() {
       return confirmResponse.resume;
     },
 
-    onSuccess: (_data, variables) => {
+    onMutate: async ({ file }) => {
+      await queryClient.cancelQueries({ queryKey: resumeKeys.detail(userId) });
+
+      const previousData = queryClient.getQueryData(resumeKeys.detail(userId));
+
+      queryClient.setQueryData(resumeKeys.detail(userId), {
+        resume: {
+          filename: file.name,
+          sizeFormatted: formatBytes(file.size),
+          contentType: file.type || 'application/pdf',
+          sizeBytes: file.size,
+          createdAt: new Date().toISOString(),
+          isOptimistic: true,
+        },
+      });
+
+      return { previousData };
+    },
+
+    onError: (_err, _variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(resumeKeys.detail(userId), context.previousData);
+      }
+    },
+
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: resumeKeys.all });
       queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
