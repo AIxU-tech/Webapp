@@ -16,7 +16,10 @@ When a message is sent, the recipient receives a WebSocket event
 so their UI updates instantly without needing to refresh or poll.
 """
 
-from flask import Blueprint, request, jsonify
+import os
+import threading
+
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from backend.extensions import db
 from backend.models import Message, User
@@ -26,8 +29,27 @@ from backend.routes_v2.messages.helpers import (
     get_messages_between_users,
     send_to_recipient
 )
+from backend.utils.email import send_new_conversation_email
+
+_DEV_MODE = os.environ.get('DEV_MODE')
+_APP_URL = "http://localhost:8000" if _DEV_MODE else "https://aixu.tech"
 
 messages_bp = Blueprint('messages', __name__)
+
+
+def _send_first_conversation_email(app, recipient_email, recipient_first_name, sender_name):
+    """Send a new-conversation email inside an app context (for background threads)."""
+    with app.app_context():
+        try:
+            messages_url = f"{_APP_URL}/app/messages"
+            send_new_conversation_email(
+                recipient_email=recipient_email,
+                recipient_first_name=recipient_first_name,
+                sender_name=sender_name,
+                messages_url=messages_url,
+            )
+        except Exception as e:
+            app.logger.warning('Failed to send new-conversation email: %s', e)
 
 
 # Route for searching users
@@ -136,6 +158,16 @@ def send_message():
         if not recipient:
             return jsonify({'success': False, 'error': 'Recipient not found'}), 404
 
+        # Detect if this is the first-ever message between these two users
+        is_first_conversation = not db.session.query(
+            Message.query.filter(
+                db.or_(
+                    db.and_(Message.sender_id == current_user.id, Message.recipient_id == recipient_id),
+                    db.and_(Message.sender_id == recipient_id, Message.recipient_id == current_user.id),
+                )
+            ).exists()
+        ).scalar()
+
         # Create message
         message = Message(
             sender_id=current_user.id,
@@ -148,6 +180,16 @@ def send_message():
 
         # Emit WebSocket notification to recipient for real-time delivery
         send_to_recipient(message, current_user, recipient_id)
+
+        # Send email notification for brand-new conversations (async to avoid blocking)
+        if is_first_conversation:
+            app = current_app._get_current_object()
+            thread = threading.Thread(
+                target=_send_first_conversation_email,
+                args=(app, recipient.email, recipient.first_name,
+                      current_user.get_full_name()),
+            )
+            thread.start()
 
         return jsonify({
             'success': True,

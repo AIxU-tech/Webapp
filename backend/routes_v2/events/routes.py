@@ -18,15 +18,39 @@ Permission Logic:
 - RSVP: Any authenticated user can RSVP to events
 """
 
+import os
 from datetime import datetime
-from flask import Blueprint, request, jsonify
+
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from backend.extensions import db
 from backend.models import Event, EventAttendee, University, UniversityRole
 from backend.constants import UniversityRoles
 from backend.utils.permissions import can_manage_university_members
+from backend.utils.email import send_event_created_email, send_event_cancelled_email
+from backend.routes_v2.events.helpers import send_bulk_email
+
+_DEV_MODE = os.environ.get('DEV_MODE')
+_APP_URL = "http://localhost:8000" if _DEV_MODE else "https://aixu.tech"
 
 events_bp = Blueprint('events', __name__)
+
+
+def _get_member_recipients(university):
+    """Return a list of (email, first_name) for all members."""
+    return [
+        (m['user'].email, m['user'].first_name)
+        for m in university.get_members()
+    ]
+
+
+def _format_event_date(start_time, end_time=None):
+    """Format event start/end into a readable string."""
+    fmt = "%B %d, %Y at %I:%M %p UTC"
+    text = start_time.strftime(fmt)
+    if end_time:
+        text += f" — {end_time.strftime('%I:%M %p UTC')}"
+    return text
 
 
 # =============================================================================
@@ -170,6 +194,22 @@ def create_event(university_id):
     db.session.add(event)
     db.session.commit()
 
+    # Notify all club members about the new event (non-blocking)
+    recipients = _get_member_recipients(uni)
+    if recipients:
+        rsvp_url = f"{_APP_URL}/app/universities/{university_id}"
+        send_bulk_email(
+            current_app._get_current_object(),
+            recipients,
+            send_event_created_email,
+            club_name=uni.clubName,
+            event_title=event.title,
+            event_date=_format_event_date(event.start_time, event.end_time),
+            event_location=event.location,
+            event_description=event.description,
+            rsvp_url=rsvp_url,
+        )
+
     return jsonify(event.to_dict()), 201
 
 
@@ -235,8 +275,26 @@ def delete_event(event_id):
         if role_level < UniversityRoles.EXECUTIVE:
             return jsonify({'error': 'Not authorized to delete this event'}), 403
 
+    # Capture details before deletion for the cancellation email
+    uni = event.university
+    event_title = event.title
+    event_date = _format_event_date(event.start_time, event.end_time)
+    club_name = uni.clubName
+    recipients = _get_member_recipients(uni)
+
     db.session.delete(event)
     db.session.commit()
+
+    # Notify all club members about the cancellation (non-blocking)
+    if recipients:
+        send_bulk_email(
+            current_app._get_current_object(),
+            recipients,
+            send_event_cancelled_email,
+            club_name=club_name,
+            event_title=event_title,
+            event_date=event_date,
+        )
 
     return jsonify({'success': True, 'message': 'Event deleted successfully'})
 

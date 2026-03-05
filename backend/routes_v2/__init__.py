@@ -13,6 +13,7 @@ from backend.routes_v2.events.routes import events_bp
 from backend.routes_v2.uploads.routes import uploads_bp
 from backend.routes_v2.speakers.routes import speakers_bp
 from backend.routes_v2.profile.sections import profile_sections_bp
+from backend.routes_v2.resume.routes import resume_bp
 
 __all__ = [
     'public_bp',
@@ -30,5 +31,6 @@ __all__ = [
     'uploads_bp',
     'speakers_bp',
     'profile_sections_bp',
+    'resume_bp',
 ]
 

@@ -185,6 +185,7 @@ class User(UserMixin, db.Model):
             'education': [e.to_dict() for e in self.education_entries],
             'experience': [e.to_dict() for e in self.experience_entries],
             'projects': [p.to_dict() for p in self.project_entries],
+            'hasResume': self.resume is not None,
         }
 
     def _is_executive_anywhere(self) -> bool:

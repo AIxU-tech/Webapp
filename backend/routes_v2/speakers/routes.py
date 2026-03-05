@@ -16,12 +16,64 @@ Permission Logic:
 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
+import json
 from backend.extensions import db
 from backend.models import Speaker, UniversityRole, University
 from backend.constants import UniversityRoles
 from backend.services.content_moderator import moderate_content
+from backend.utils.validation import validate_email_format, validate_phone_format
 
 speakers_bp = Blueprint('speakers', __name__)
+
+
+# Speaker background tag choices.
+# NOTE: Keep in sync with frontend SPEAKER_TAGS (frontend/src/constants/speakerTags.js)
+SPEAKER_TAG_CHOICES = [
+    'academic_research',
+    'industry_ml_engineer',
+    'startup_founder',
+    'product_manager',
+    'policy_ethics',
+    'vc_investor',
+    'student',
+    'alumni',
+]
+ALLOWED_SPEAKER_TAGS = set(SPEAKER_TAG_CHOICES)
+
+
+def _validate_speaker_tags(raw_tags):
+    """
+    Validate speaker tags from request body.
+
+    Args:
+        raw_tags: Value from request JSON under 'tags'
+
+    Returns:
+        (is_valid: bool, cleaned_tags: list[str], error_message: str | None)
+    """
+    if raw_tags is None:
+        return True, [], None
+
+    if not isinstance(raw_tags, list):
+        return False, [], 'tags must be an array of strings'
+
+    cleaned = []
+    seen = set()
+    for idx, tag in enumerate(raw_tags):
+        if not isinstance(tag, str):
+            return False, [], f'tag at index {idx} must be a string'
+        key = tag.strip()
+        if not key:
+            # silently skip empty strings
+            continue
+        if key not in ALLOWED_SPEAKER_TAGS:
+            return False, [], f'Invalid tag: {key}'
+        if key not in seen:
+            seen.add(key)
+            cleaned.append(key)
+
+    # Allow empty list (means no tags)
+    return True, cleaned, None
 
 
 def _check_executive_access():
@@ -96,9 +148,9 @@ def create_speaker():
             "email": "s.chen@openai.com" (optional),
             "phone": "(555) 123-4567" (optional),
             "linkedinUrl": "https://linkedin.com/in/schen" (optional),
-            "notes": "Excellent for technical audiences" (optional),
-            "universityId": 1 (optional - auto-assigned if single university)
+            "notes": "Excellent for technical audiences" (optional)
         }
+        University is set from the current user's executive university (first in list).
 
     Returns:
         201: Created speaker
@@ -142,6 +194,23 @@ def create_speaker():
     if not email and not phone and not linkedin_url:
         return jsonify({'error': 'At least one contact method (email, phone, or LinkedIn) is required'}), 400
 
+    # Email and phone format validation (when provided)
+    valid, err = validate_email_format(email or '')
+    if not valid:
+        return jsonify({'error': err}), 400
+    valid, err = validate_phone_format(phone or '')
+    if not valid:
+        return jsonify({'error': err}), 400
+
+    # Speaker background tags (optional, chosen from fixed set)
+    raw_tags = data.get('tags') if 'tags' in data else None
+    tags = None
+    if raw_tags is not None:
+        tags_valid, cleaned_tags, tags_error = _validate_speaker_tags(raw_tags)
+        if not tags_valid:
+            return jsonify({'error': tags_error}), 400
+        tags = cleaned_tags
+
     # Content moderation
     if not moderate_content(name):
         return jsonify({'error': 'Name contains inappropriate content'}), 400
@@ -152,20 +221,11 @@ def create_speaker():
     if notes and not moderate_content(notes):
         return jsonify({'error': 'Notes contain inappropriate content'}), 400
 
-    # Determine university
+    # Determine university from current user's executive membership (use first)
     user_universities = _get_user_executive_universities(current_user)
-    university_id = data.get('universityId')
-
-    if university_id:
-        # Verify user has executive access at this university (or is admin)
-        if not current_user.is_site_admin():
-            if not UniversityRole.is_executive_or_higher(current_user.id, university_id):
-                return jsonify({'error': 'You are not an executive at this university'}), 403
-    else:
-        # Auto-assign first executive university
-        if not user_universities:
-            return jsonify({'error': 'No university association found'}), 400
-        university_id = user_universities[0]['id']
+    if not user_universities:
+        return jsonify({'error': 'No university association found'}), 400
+    university_id = user_universities[0]['id']
 
     speaker = Speaker(
         name=name,
@@ -175,6 +235,7 @@ def create_speaker():
         phone=phone,
         linkedin_url=linkedin_url,
         notes=notes,
+        tags=json.dumps(tags) if tags else None,
         university_id=university_id,
         added_by_id=current_user.id,
     )
@@ -248,6 +309,23 @@ def update_speaker(speaker_id):
     if not email and not phone and not linkedin_url:
         return jsonify({'error': 'At least one contact method (email, phone, or LinkedIn) is required'}), 400
 
+    # Email and phone format validation (when provided)
+    valid, err = validate_email_format(email or '')
+    if not valid:
+        return jsonify({'error': err}), 400
+    valid, err = validate_phone_format(phone or '')
+    if not valid:
+        return jsonify({'error': err}), 400
+
+    # Speaker background tags (optional, chosen from fixed set)
+    raw_tags = data.get('tags') if 'tags' in data else None
+    tags = None
+    if raw_tags is not None:
+        tags_valid, cleaned_tags, tags_error = _validate_speaker_tags(raw_tags)
+        if not tags_valid:
+            return jsonify({'error': tags_error}), 400
+        tags = cleaned_tags
+
     # Content moderation
     if not moderate_content(name):
         return jsonify({'error': 'Name contains inappropriate content'}), 400
@@ -266,6 +344,8 @@ def update_speaker(speaker_id):
     speaker.phone = phone
     speaker.linkedin_url = linkedin_url
     speaker.notes = notes
+    if raw_tags is not None:
+        speaker.tags = json.dumps(tags) if tags else None
 
     db.session.commit()
 

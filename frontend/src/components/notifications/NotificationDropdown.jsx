@@ -99,7 +99,7 @@ export default function NotificationDropdown() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={handleToggle}
-        className="relative p-2 rounded-md text-gray-700 hover:text-foreground hover:bg-gray-100 transition-all duration-150"
+        className="relative p-2 rounded-md text-gray-700 hover:text-foreground hover:bg-gray-100 transition-all duration-150 cursor-pointer"
         aria-label="Notifications"
       >
         <NotificationsIcon />
