@@ -9,12 +9,14 @@ import {
   getEventByAttendanceToken,
   submitAttendance,
   getEventAttendance,
+  getEventAttendanceToken,
 } from '../api/attendance';
 
 export const attendanceKeys = {
   all: ['attendance'],
   event: (token) => [...attendanceKeys.all, 'event', token],
   records: (eventId) => [...attendanceKeys.all, 'records', eventId],
+  token: (eventId) => [...attendanceKeys.all, 'token', eventId],
 };
 
 export function useAttendanceEvent(token) {
@@ -37,8 +39,11 @@ export function useSubmitAttendance() {
         ...old,
         alreadyCheckedIn: true,
       }));
-      // Invalidate attendance records so executives see fresh data
-      queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
+      // Invalidate only the attendance records for this event (token cache unchanged)
+      const eventId = result.eventId ?? result.attendance?.eventId;
+      if (eventId) {
+        queryClient.invalidateQueries({ queryKey: attendanceKeys.records(eventId) });
+      }
     },
   });
 }
@@ -50,5 +55,21 @@ export function useEventAttendance(eventId) {
     enabled: !!eventId,
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Fetch the attendance token for QR code display.
+ * Only runs when enabled (e.g. when modal is open).
+ * Backend checks permissions and returns 403 if not authorized.
+ */
+export function useEventAttendanceToken(eventId, enabled = false) {
+  return useQuery({
+    queryKey: attendanceKeys.token(eventId),
+    queryFn: () => getEventAttendanceToken(eventId),
+    enabled: !!eventId && enabled,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: false,
   });
 }

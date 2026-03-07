@@ -2,27 +2,35 @@
  * AttendanceQRModal Component
  *
  * Displays a QR code for event attendance check-in.
- * The attendance token is pre-generated when the event is created,
- * so this modal renders instantly with no loading state.
+ * Fetches the attendance token when the modal opens via GET request.
+ * Backend validates permissions (executive+ or site admin) before returning the token.
  */
 
 import { useRef } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { BaseModal, GradientButton, SecondaryButton } from '../ui';
-import { CopyIcon, DownloadIcon, CheckIcon } from '../icons';
-import { useClipboard } from '../../hooks';
+import { CopyIcon, DownloadIcon, CheckIcon, SpinnerIcon } from '../icons';
+import { useClipboard, useEventAttendanceToken } from '../../hooks';
 
 export default function AttendanceQRModal({
   isOpen,
   onClose,
+  eventId,
   eventTitle,
-  existingToken,
 }) {
   const qrContainerRef = useRef(null);
   const { copy, isCopied } = useClipboard();
 
-  const attendanceUrl = existingToken
-    ? `${window.location.origin}/app/attend/${existingToken}`
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+  } = useEventAttendanceToken(eventId, isOpen);
+
+  const token = data?.token;
+  const attendanceUrl = token
+    ? `${window.location.origin}/app/attend/${token}`
     : null;
 
   const handleCopyLink = () => {
@@ -45,6 +53,17 @@ export default function AttendanceQRModal({
     link.click();
   };
 
+  const getErrorMessage = () => {
+    if (!isError || !error) return null;
+    if (error?.status === 403) {
+      return 'You do not have permission to view the attendance QR code for this event.';
+    }
+    if (error?.status === 404) {
+      return 'Event not found.';
+    }
+    return error?.message || 'Failed to load attendance QR code. Please try again.';
+  };
+
   return (
     <BaseModal
       isOpen={isOpen}
@@ -53,7 +72,16 @@ export default function AttendanceQRModal({
       size="sm"
     >
       <div className="p-6 space-y-6">
-        {attendanceUrl ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <SpinnerIcon className="h-8 w-8 text-primary" />
+            <p className="text-sm text-muted-foreground">Loading QR code...</p>
+          </div>
+        ) : isError ? (
+          <p className="text-center text-muted-foreground">
+            {getErrorMessage()}
+          </p>
+        ) : attendanceUrl ? (
           <>
             {/* QR Code */}
             <div
@@ -91,7 +119,7 @@ export default function AttendanceQRModal({
           </>
         ) : (
           <p className="text-center text-muted-foreground">
-            No attendance token available for this event. Please try closing and reopening this modal.
+            No attendance token available for this event.
           </p>
         )}
       </div>

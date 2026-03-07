@@ -4,7 +4,7 @@ Attendance Routes
 API endpoints for event attendance tracking via QR code check-in.
 
 Endpoints:
-- POST /api/events/<id>/attendance-token - Generate attendance token (executive+)
+- GET /api/events/<id>/attendance-token - Get attendance token, generate if missing (executive+)
 - GET /api/attendance/<token> - Get event info by attendance token (public)
 - POST /api/attendance/<token> - Submit attendance (public)
 - GET /api/events/<id>/attendance - Get attendance records (executive+)
@@ -57,16 +57,16 @@ def _datetime_to_iso_utc(dt):
 # Generate Attendance Token
 # =============================================================================
 
-@attendance_bp.route('/api/events/<int:event_id>/attendance-token', methods=['POST'])
+@attendance_bp.route('/api/events/<int:event_id>/attendance-token', methods=['GET'])
 @login_required
 def generate_attendance_token(event_id):
     """
-    Generate or retrieve an attendance QR token for an event.
+    Get the attendance QR token for an event. Generates one if it doesn't exist.
 
     Authorization: Executive+ at the event's university, or site admin.
 
     Returns:
-        200: Token and attendance URL
+        200: { token: string }
         403: Not authorized
         404: Event not found
     """
@@ -180,7 +180,7 @@ def submit_attendance(token):
     user_id = current_user.id if current_user.is_authenticated else None
     existing = EventAttendance.find_existing(event.id, user_id=user_id, email=email)
     if existing:
-        return jsonify({'success': True, 'alreadyCheckedIn': True}), 200
+        return jsonify({'success': True, 'alreadyCheckedIn': True, 'eventId': event.id}), 200
 
     record = EventAttendance(
         event_id=event.id,
@@ -197,12 +197,13 @@ def submit_attendance(token):
         db.session.rollback()
         existing = EventAttendance.find_existing(event.id, user_id=user_id, email=email)
         if existing:
-            return jsonify({'success': True, 'alreadyCheckedIn': True}), 200
+            return jsonify({'success': True, 'alreadyCheckedIn': True, 'eventId': event.id}), 200
         return jsonify({'error': 'Failed to record attendance'}), 500
 
     return jsonify({
         'success': True,
         'alreadyCheckedIn': False,
+        'eventId': event.id,
         'attendance': record.to_dict(),
     }), 201
 

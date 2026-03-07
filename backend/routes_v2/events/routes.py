@@ -23,7 +23,7 @@ from datetime import datetime
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import func
+from sqlalchemy import func, and_
 from backend.extensions import db
 from backend.models import Event, EventAttendee, University, UniversityRole, EventAttendance
 from backend.constants import UniversityRoles
@@ -78,39 +78,62 @@ def get_university_events(university_id):
     upcoming_only = request.args.get('upcoming', 'true').lower() == 'true'
     limit = request.args.get('limit', 20, type=int)
 
-    query = Event.query.filter_by(university_id=university_id)
-
+    base_filter = Event.university_id == university_id
     if upcoming_only:
-        query = query.filter(Event.start_time >= datetime.utcnow())
-        query = query.order_by(Event.start_time.asc())
-    else:
-        query = query.order_by(Event.start_time.desc())
+        base_filter = and_(base_filter, Event.start_time >= datetime.utcnow())
 
-    events = query.limit(limit).all()
-
-    # Check if current user has RSVPed to each event
-    user_rsvps = set()
     if current_user.is_authenticated:
+        # Single query with LEFT JOIN to get events + isAttending in one round-trip
+        rows = (
+            db.session.query(Event, EventAttendee.id.label('rsvp_id'))
+            .outerjoin(
+                EventAttendee,
+                and_(
+                    EventAttendee.event_id == Event.id,
+                    EventAttendee.user_id == current_user.id,
+                )
+            )
+            .filter(base_filter)
+            .order_by(Event.start_time.asc() if upcoming_only else Event.start_time.desc())
+            .limit(limit)
+            .all()
+        )
+        event_ids = [e.id for e, _ in rows]
+        attendee_counts = dict(
+            db.session.query(EventAttendee.event_id, func.count(EventAttendee.id))
+            .filter(EventAttendee.event_id.in_(event_ids))
+            .group_by(EventAttendee.event_id)
+            .all()
+        ) if event_ids else {}
+        events_data = [
+            {**event.to_dict(attendee_count=attendee_counts.get(event.id, 0)), 'isAttending': rsvp_id is not None}
+            for event, rsvp_id in rows
+        ]
+    else:
+        events = (
+            Event.query.filter(base_filter)
+            .order_by(Event.start_time.asc() if upcoming_only else Event.start_time.desc())
+            .limit(limit)
+            .all()
+        )
         event_ids = [e.id for e in events]
-        if event_ids:
-            rsvps = EventAttendee.query.filter(
-                EventAttendee.event_id.in_(event_ids),
-                EventAttendee.user_id == current_user.id
-            ).all()
-            user_rsvps = {r.event_id for r in rsvps}
-
-    events_data = []
-    for event in events:
-        event_dict = event.to_dict()
-        event_dict['isAttending'] = event.id in user_rsvps
-        events_data.append(event_dict)
+        attendee_counts = dict(
+            db.session.query(EventAttendee.event_id, func.count(EventAttendee.id))
+            .filter(EventAttendee.event_id.in_(event_ids))
+            .group_by(EventAttendee.event_id)
+            .all()
+        ) if event_ids else {}
+        events_data = [
+            {**e.to_dict(attendee_count=attendee_counts.get(e.id, 0)), 'isAttending': False}
+            for e in events
+        ]
 
     # Include attendance counts for executives+
     if current_user.is_authenticated:
         is_exec = current_user.is_site_admin() or \
             UniversityRole.get_role_level(current_user.id, university_id) >= UniversityRoles.EXECUTIVE
         if is_exec:
-            event_ids = [e.id for e in events]
+            event_ids = [e['id'] for e in events_data]
             if event_ids:
                 counts = dict(
                     db.session.query(EventAttendance.event_id, func.count(EventAttendance.id))

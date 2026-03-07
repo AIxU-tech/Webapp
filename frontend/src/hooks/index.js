@@ -214,6 +214,7 @@ export {
   useAttendanceEvent,
   useSubmitAttendance,
   useEventAttendance,
+  useEventAttendanceToken,
   attendanceKeys,
 } from './useAttendance';
 

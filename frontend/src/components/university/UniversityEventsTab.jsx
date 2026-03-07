@@ -44,7 +44,7 @@ export default function UniversityEventsTab({
     setIsModalOpen(true);
   };
 
-  // QR modal state
+  // QR modal state: { id, title } when open, null when closed
   const [qrEvent, setQrEvent] = useState(null);
 
   // Handle delete action - opens confirmation modal
@@ -102,7 +102,7 @@ export default function UniversityEventsTab({
               onRsvp={handleRsvp}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              onShowQR={setQrEvent}
+              onShowQR={(event) => setQrEvent(event ? { id: event.id, title: event.title } : null)}
               currentUserId={currentUserId}
               isAuthenticated={isAuthenticated}
               canManageEvent={canManageEvents}
@@ -147,8 +147,8 @@ export default function UniversityEventsTab({
       <AttendanceQRModal
         isOpen={qrEvent !== null}
         onClose={() => setQrEvent(null)}
+        eventId={qrEvent?.id}
         eventTitle={qrEvent?.title}
-        existingToken={qrEvent?.attendanceToken}
       />
     </>
   );

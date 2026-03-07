@@ -32,10 +32,10 @@ def _set_event_token(app, event):
 
 
 class TestGenerateAttendanceToken:
-    """Tests for POST /api/events/<id>/attendance-token"""
+    """Tests for GET /api/events/<id>/attendance-token"""
 
     def test_executive_can_generate_token(self, authenticated_executive_client, test_event):
-        response = authenticated_executive_client.post(
+        response = authenticated_executive_client.get(
             f'/api/events/{test_event.id}/attendance-token'
         )
         assert response.status_code == 200
@@ -45,34 +45,35 @@ class TestGenerateAttendanceToken:
         assert 'attendanceUrl' not in data
 
     def test_token_is_idempotent(self, authenticated_executive_client, test_event):
-        r1 = authenticated_executive_client.post(
+        r1 = authenticated_executive_client.get(
             f'/api/events/{test_event.id}/attendance-token'
         )
-        r2 = authenticated_executive_client.post(
+        r2 = authenticated_executive_client.get(
             f'/api/events/{test_event.id}/attendance-token'
         )
+        assert r1.status_code == 200 and r2.status_code == 200
         assert r1.get_json()['token'] == r2.get_json()['token']
 
     def test_member_cannot_generate_token(self, authenticated_member_client, test_event):
-        response = authenticated_member_client.post(
+        response = authenticated_member_client.get(
             f'/api/events/{test_event.id}/attendance-token'
         )
         assert response.status_code == 403
 
     def test_unauthenticated_cannot_generate_token(self, client, test_event):
-        response = client.post(
+        response = client.get(
             f'/api/events/{test_event.id}/attendance-token'
         )
         assert response.status_code == 401
 
     def test_nonexistent_event_returns_404(self, authenticated_executive_client):
-        response = authenticated_executive_client.post(
+        response = authenticated_executive_client.get(
             '/api/events/99999/attendance-token'
         )
         assert response.status_code == 404
 
     def test_admin_can_generate_token_for_any_event(self, authenticated_admin_client, test_event):
-        response = authenticated_admin_client.post(
+        response = authenticated_admin_client.get(
             f'/api/events/{test_event.id}/attendance-token'
         )
         assert response.status_code == 200
