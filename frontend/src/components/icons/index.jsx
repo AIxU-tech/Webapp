@@ -38,6 +38,7 @@ export {
   BuildingIcon,
   MapPinIcon,
   CalendarIcon,
+  CalendarPlusIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -45,6 +46,8 @@ export {
   CodeIcon,
   BriefcaseIcon,
   SparklesIcon,
+  QRCodeIcon,
+  DownloadIcon,
 } from './ui';
 
 // =============================================================================

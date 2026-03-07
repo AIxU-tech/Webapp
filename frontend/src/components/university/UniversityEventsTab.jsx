@@ -7,8 +7,7 @@
 
 import { useState } from 'react';
 import { useUniversityEvents, useToggleRsvp, useDeleteEvent } from '../../hooks';
-import { EventCard } from '../events';
-import { CreateEventModal } from '../events';
+import { EventCard, CreateEventModal, AttendanceQRModal } from '../events';
 import { LoadingState, EmptyState, GradientButton, ConfirmationModal } from '../ui';
 import { CalendarIcon, PlusIcon } from '../icons';
 
@@ -44,6 +43,9 @@ export default function UniversityEventsTab({
     setEditingEvent(event);
     setIsModalOpen(true);
   };
+
+  // QR modal state: { id, title } when open, null when closed
+  const [qrEvent, setQrEvent] = useState(null);
 
   // Handle delete action - opens confirmation modal
   const [eventToDelete, setEventToDelete] = useState(null);
@@ -100,6 +102,7 @@ export default function UniversityEventsTab({
               onRsvp={handleRsvp}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onShowQR={(event) => setQrEvent(event ? { id: event.id, title: event.title } : null)}
               currentUserId={currentUserId}
               isAuthenticated={isAuthenticated}
               canManageEvent={canManageEvents}
@@ -138,6 +141,14 @@ export default function UniversityEventsTab({
         message="Are you sure you want to delete this event? This action cannot be undone."
         confirmText="Delete"
         variant="danger"
+      />
+
+      {/* Attendance QR Modal */}
+      <AttendanceQRModal
+        isOpen={qrEvent !== null}
+        onClose={() => setQrEvent(null)}
+        eventId={qrEvent?.id}
+        eventTitle={qrEvent?.title}
       />
     </>
   );

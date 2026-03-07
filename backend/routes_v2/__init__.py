@@ -14,6 +14,7 @@ from backend.routes_v2.uploads.routes import uploads_bp
 from backend.routes_v2.speakers.routes import speakers_bp
 from backend.routes_v2.profile.sections import profile_sections_bp
 from backend.routes_v2.resume.routes import resume_bp
+from backend.routes_v2.attendance.routes import attendance_bp
 
 __all__ = [
     'public_bp',
@@ -32,5 +33,6 @@ __all__ = [
     'speakers_bp',
     'profile_sections_bp',
     'resume_bp',
+    'attendance_bp',
 ]
 

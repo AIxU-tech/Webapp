@@ -27,6 +27,7 @@ from backend.models.notification import Notification
 from backend.models.speaker import Speaker
 from backend.models.profile_sections import Education, Experience, Project
 from backend.models.resume import Resume
+from backend.models.event_attendance import EventAttendance
 
 __all__ = [
     'User',
@@ -58,4 +59,5 @@ __all__ = [
     'Experience',
     'Project',
     'Resume',
+    'EventAttendance',
 ]

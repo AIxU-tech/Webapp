@@ -35,6 +35,7 @@ import MessagesPage from './pages/MessagesPage';
 import NewsPage from './pages/NewsPage';
 import SpeakersPage from './pages/SpeakersPage';
 import AdminUniversityRequestsPage from './pages/AdminUniversityRequestsPage';
+import AttendEventPage from './pages/AttendEventPage';
 import ScrollToTop from './components/layout/ScrollToTop';
 
 function App() {
@@ -83,6 +84,9 @@ function App() {
         <Route path="/request-university" element={<RequestUniversityVerifyPage />} />
         <Route path="/request-university/details" element={<UniversityRequestDetailsPage />} />
         <Route path="/request-university/submitted" element={<UniversityRequestSubmittedPage />} />
+
+        {/* Event Attendance Check-in (public, standalone page) */}
+        <Route path="/attend/:token" element={<AttendEventPage />} />
 
         {/*
         Landing Page Route

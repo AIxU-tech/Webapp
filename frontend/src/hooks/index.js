@@ -208,6 +208,17 @@ export {
 } from './useUniversityRequests';
 
 // =============================================================================
+// Attendance Hooks
+// =============================================================================
+export {
+  useAttendanceEvent,
+  useSubmitAttendance,
+  useEventAttendance,
+  useEventAttendanceToken,
+  attendanceKeys,
+} from './useAttendance';
+
+// =============================================================================
 // Speakers Hooks
 // =============================================================================
 export {
