@@ -438,6 +438,40 @@ def authenticated_member_client(client, member_user, app):
 
 
 # =============================================================================
+# Event Fixtures
+# =============================================================================
+
+@pytest.fixture(scope='function')
+def test_event(app, test_university, executive_user):
+    """
+    Create a test event for attendance tests.
+
+    Args:
+        app: Flask application fixture
+        test_university: Test university fixture
+        executive_user: Executive user fixture
+
+    Returns:
+        Event: Created test event
+    """
+    with app.app_context():
+        from backend.models.event import Event
+        from datetime import datetime, timedelta
+        event = Event(
+            university_id=test_university.id,
+            title='Test Event',
+            description='A test event',
+            location='Room 101',
+            start_time=datetime.utcnow() + timedelta(days=1),
+            created_by_id=executive_user.id
+        )
+        db.session.add(event)
+        db.session.commit()
+        db.session.refresh(event)
+        return event
+
+
+# =============================================================================
 # Note Fixtures
 # =============================================================================
 

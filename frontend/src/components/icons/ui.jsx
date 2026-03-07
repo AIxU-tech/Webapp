@@ -106,6 +106,13 @@ export const CalendarIcon = ({ className = 'h-5 w-5' }) => (
   </svg>
 );
 
+export const CalendarPlusIcon = ({ className = 'h-5 w-5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11v6m-3-3h6" />
+  </svg>
+);
+
 export const ChevronDownIcon = ({ className = 'h-5 w-5', expanded = false }) => (
   <svg
     className={`${className} transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
@@ -163,6 +170,26 @@ export const BriefcaseIcon = ({ className = 'h-5 w-5' }) => (
 export const SparklesIcon = ({ className = 'h-4 w-4' }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+  </svg>
+);
+
+export const QRCodeIcon = ({ className = 'h-5 w-5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="2" width="8" height="8" rx="1" />
+    <rect x="14" y="2" width="8" height="8" rx="1" />
+    <rect x="2" y="14" width="8" height="8" rx="1" />
+    <rect x="14" y="14" width="4" height="4" rx="0.5" />
+    <path d="M18 14h4v4" />
+    <path d="M14 18h4v4" />
+    <rect x="5" y="5" width="2" height="2" />
+    <rect x="17" y="5" width="2" height="2" />
+    <rect x="5" y="17" width="2" height="2" />
+  </svg>
+);
+
+export const DownloadIcon = ({ className = 'h-5 w-5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
   </svg>
 );
 

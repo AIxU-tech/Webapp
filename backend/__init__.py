@@ -138,6 +138,7 @@ def create_app(config_class=Config):
         speakers_bp,
         profile_sections_bp,
         resume_bp,
+        attendance_bp,
     )
 
     app.register_blueprint(public_bp)
@@ -156,6 +157,7 @@ def create_app(config_class=Config):
     app.register_blueprint(speakers_bp)
     app.register_blueprint(profile_sections_bp)
     app.register_blueprint(resume_bp)
+    app.register_blueprint(attendance_bp)
 
     # =========================================================================
     # Register WebSocket Event Handlers

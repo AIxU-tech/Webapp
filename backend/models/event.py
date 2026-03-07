@@ -67,21 +67,26 @@ class Event(db.Model):
     )
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # QR attendance token (generated on demand by executives)
+    attendance_token = db.Column(db.String(64), nullable=True, unique=True, index=True)
+
     # Relationships
     university = db.relationship('University', backref='university_events')
     created_by = db.relationship('User', backref='created_events', passive_deletes=True)
     attendees = db.relationship('EventAttendee', backref='event', cascade='all, delete-orphan')
 
-    def to_dict(self, include_attendees=False):
+    def to_dict(self, include_attendees=False, attendee_count=None):
         """
         Serialize event to dictionary for API responses.
 
         Args:
             include_attendees: If True, include list of attendee user info
+            attendee_count: If provided, use instead of len(attendees) to avoid N+1
 
         Returns:
             dict: Event data
         """
+        count = attendee_count if attendee_count is not None else (len(self.attendees) if self.attendees else 0)
         data = {
             'id': self.id,
             'universityId': self.university_id,
@@ -92,7 +97,7 @@ class Event(db.Model):
             'endTime': _datetime_to_iso_utc(self.end_time),
             'createdById': self.created_by_id,
             'createdAt': _datetime_to_iso_utc(self.created_at),
-            'attendeeCount': len(self.attendees) if self.attendees else 0,
+            'attendeeCount': count,
         }
 
         if include_attendees:
