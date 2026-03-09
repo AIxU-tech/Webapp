@@ -31,6 +31,14 @@ class Config:
     # Session lifetime: 31 days for "remember me" functionality
     PERMANENT_SESSION_LIFETIME = timedelta(days=31)
 
+    # =========================================================================
+    # Remember Me Cookie (Flask-Login persistent authentication)
+    # =========================================================================
+    REMEMBER_COOKIE_DURATION = timedelta(days=31)
+    REMEMBER_COOKIE_SECURE = not DEV_MODE
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
+
     # Database configuration
     # URL has to be in certain format for render
     uri = os.environ.get("DATABASE_URL")
