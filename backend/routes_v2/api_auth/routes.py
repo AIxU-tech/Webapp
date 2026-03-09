@@ -76,7 +76,7 @@ def api_login():
         # Check if user exists and password is correct
         if user and user.check_password(password):
             # Log the user in (creates Flask-Login session)
-            login_user(user)
+            login_user(user, remember=True)
 
             # Return success with user data
             return jsonify({
@@ -467,7 +467,7 @@ def complete_account():
         db.session.commit()
 
         # Log the user in
-        login_user(user)
+        login_user(user, remember=True)
 
         return jsonify({
             'success': True,
@@ -617,7 +617,7 @@ def reset_password():
     # if send_password_reset_confirmation(user.email):
     #     return jsonify({'message': 'Password reset successful'}), 200
 
-    login_user(user)
+    login_user(user, remember=True)
 
     return jsonify({'message': 'Password reset successful'}), 200
 
