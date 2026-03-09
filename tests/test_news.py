@@ -197,24 +197,44 @@ class TestAdminOperations:
 
         assert response.status_code == 403
 
-    def test_get_scheduler_status_as_admin(self, authenticated_admin_client, admin_user, app):
-        """Test that admin can get scheduler status"""
-        response = authenticated_admin_client.get('/api/news/scheduler')
+    def test_cron_refresh_with_valid_secret(self, client, app, monkeypatch):
+        """Test that cron refresh succeeds with correct secret"""
+        monkeypatch.setenv('CRON_SECRET', 'test-secret-123')
+        monkeypatch.setattr(
+            'backend.services.scheduler.fetch_top_ai_content',
+            lambda: {'success': True, 'message': 'ok', 'batch_id': 'b1',
+                     'stories_count': 1, 'papers_count': 1}
+        )
+        monkeypatch.setattr(
+            'backend.services.scheduler.cleanup_old_batches',
+            lambda keep_count=7: 0
+        )
+
+        response = client.post(
+            '/api/news/cron-refresh',
+            headers={'X-Cron-Secret': 'test-secret-123'}
+        )
 
         assert response.status_code == 200
         data = response.get_json()
         assert data['success'] is True
-        assert 'scheduler' in data
 
-    def test_get_scheduler_status_as_user_fails(self, authenticated_client, app):
-        """Test that regular user cannot get scheduler status"""
-        response = authenticated_client.get('/api/news/scheduler')
+    def test_cron_refresh_with_wrong_secret(self, client, app, monkeypatch):
+        """Test that cron refresh rejects an invalid secret"""
+        monkeypatch.setenv('CRON_SECRET', 'real-secret')
 
-        assert response.status_code == 403
+        response = client.post(
+            '/api/news/cron-refresh',
+            headers={'X-Cron-Secret': 'wrong-secret'}
+        )
 
-    def test_get_scheduler_status_unauthenticated(self, client, app):
-        """Test that unauthenticated user cannot get scheduler status"""
-        response = client.get('/api/news/scheduler')
+        assert response.status_code == 401
+
+    def test_cron_refresh_without_secret(self, client, app, monkeypatch):
+        """Test that cron refresh rejects requests with no secret"""
+        monkeypatch.setenv('CRON_SECRET', 'real-secret')
+
+        response = client.post('/api/news/cron-refresh')
 
         assert response.status_code == 401
 

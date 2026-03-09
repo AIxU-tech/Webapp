@@ -16,7 +16,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, EmptyState, IconButton, Alert, UnsavedChangesModal } from '../../ui';
-import { CodeIcon, EditIcon, XIcon } from '../../icons';
+import { CodeIcon, EditIcon, XIcon, PlusIcon } from '../../icons';
 import { useBeforeUnload, useClickOutside, useEscapeKey } from '../../../hooks';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -329,33 +329,62 @@ export default function SkillsCard({ skills = [], isOwnProfile, onSave }) {
               </div>
             )}
 
-            {/* Input for adding new skills */}
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => {
-                setInputValue(e.target.value);
-                setValidationError(null); // Clear error on input change
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder="Type a skill and press Enter..."
-              maxLength={MAX_SKILL_LENGTH}
-              className="w-full px-3 py-2 bg-muted border border-border rounded-lg
-                         focus:outline-none focus:ring-2 focus:ring-ring
-                         focus:border-transparent text-sm placeholder-muted-foreground
-                         transition-all"
-            />
+            {/* Input with Add button */}
+            <div className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={(e) => {
+                  setInputValue(e.target.value);
+                  setValidationError(null);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Type a skill..."
+                maxLength={MAX_SKILL_LENGTH}
+                className="flex-1 px-3 py-2 bg-muted border border-border rounded-lg
+                           focus:outline-none focus:ring-2 focus:ring-ring
+                           focus:border-transparent text-sm placeholder-muted-foreground
+                           transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (inputValue.trim() && addSkill(inputValue)) {
+                    setInputValue('');
+                    inputRef.current?.focus();
+                  }
+                }}
+                disabled={!inputValue.trim()}
+                className={`flex-shrink-0 p-2 rounded-lg transition-all ${
+                  inputValue.trim()
+                    ? 'bg-primary text-white hover:bg-primary/90 active:scale-95'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed'
+                }`}
+                aria-label="Add skill"
+              >
+                <PlusIcon className="w-4 h-4" />
+              </button>
+            </div>
 
             {/* Validation error display */}
             {validationError && (
               <p className="text-xs text-red-500 mt-1.5">{validationError}</p>
             )}
 
-            {/* Skills count */}
-            <p className="text-xs text-muted-foreground mt-1">
-              {editSkills.length}/{MAX_SKILLS} skills
-            </p>
+            {/* Skills count and mobile Done button */}
+            <div className="flex items-center justify-between mt-1.5">
+              <p className="text-xs text-muted-foreground">
+                {editSkills.length}/{MAX_SKILLS} skills
+              </p>
+              <button
+                type="button"
+                onClick={saveAndExit}
+                className="md:hidden text-xs font-medium text-primary hover:text-primary/80 transition-colors px-2 py-1"
+              >
+                Done
+              </button>
+            </div>
           </div>
         ) : hasSkills ? (
           /* ═══════════════════════════════════════════════════════════════════

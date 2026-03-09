@@ -121,7 +121,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="h-[calc(100dvh-8rem)] xl:h-[calc(100dvh-4rem)] flex items-start justify-center xl:px-2 xl:py-2">
+    <div className="fixed inset-x-0 top-16 bottom-16 xl:bottom-0 flex items-start justify-center xl:px-2 xl:py-2">
       <div className="w-full h-full bg-card xl:border xl:border-border xl:rounded-2xl overflow-hidden xl:shadow-card flex">
         {/* Sidebar - hidden on mobile when conversation active */}
         <div className={`${activeUserId ? 'hidden md:flex' : 'flex'} w-full md:w-auto`}>

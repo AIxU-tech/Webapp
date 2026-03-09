@@ -19,7 +19,7 @@ load_dotenv()
 
 import psycopg2
 
-EMAIL = 'osto@uoregon.edu'
+EMAIL = 'brynn.creer@colorado.edu'
 ADMIN_LEVEL = 1  # ADMIN permission level
 
 

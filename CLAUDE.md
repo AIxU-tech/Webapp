@@ -29,12 +29,16 @@ AIxU_website/
 ├── requirements.txt            # Python dependencies
 ├── requirements-test.txt       # Testing dependencies
 ├── pytest.ini                  # Pytest configuration
+├── Dockerfile                  # Container definition (Flask app)
+├── docker-compose.yml          # Multi-container orchestration (Flask + PostgreSQL)
+├── dev.sh                      # Development startup script
+├── main.tf                     # Terraform infrastructure configuration
 ├── .env                        # Environment variables (git-ignored)
 │
 ├── backend/
 │   ├── __init__.py            # Application factory (create_app)
 │   ├── config.py              # Config + TestConfig classes
-│   ├── constants.py           # Permission constants, UniversityRoles, attachment limits
+│   ├── constants.py           # Permission constants, UniversityRoles, attachment/resume limits
 │   ├── extensions.py          # Flask extensions (db, login_manager, socketio)
 │   ├── models/                # Database models
 │   │   ├── user.py            # User model (profile, banner, stats, social_links)
@@ -42,26 +46,36 @@ AIxU_website/
 │   │   ├── university_role.py # Per-university role assignments
 │   │   ├── university_request.py # University addition requests
 │   │   ├── password_reset_token.py # Password reset tokens
+│   │   ├── profile_sections.py # Education, Experience, Project models
+│   │   ├── resume.py          # Resume upload metadata (GCS-backed, one per user)
 │   │   ├── note.py            # Notes/posts
 │   │   ├── note_comment.py    # Threaded comments on notes
 │   │   ├── note_attachment.py # GCS-based file attachments for notes
 │   │   ├── opportunity.py     # Job/project opportunity postings
 │   │   ├── opportunity_tag.py # Normalized tags for opportunities
-│   │   ├── event.py           # University club events + attendees
+│   │   ├── event.py           # University club events + attendees + attendance_token
+│   │   ├── event_attendance.py # QR-based event attendance records
+│   │   ├── speaker.py         # Guest speaker contacts (executive-only)
 │   │   ├── message.py         # Direct messages
+│   │   ├── notification.py    # Notification model with upsert/decrement logic
 │   │   ├── ai_news.py         # AI news stories, papers, chat messages
 │   │   └── relationships.py   # Junction tables (follows, likes, bookmarks)
 │   ├── routes_v2/             # API blueprints (modular structure)
 │   │   ├── auth/              # Legacy HTML authentication
 │   │   ├── api_auth/          # JSON API authentication + password reset
-│   │   ├── profile/           # User profile + banner
+│   │   ├── profile/           # User profile + banner + profile sections
+│   │   │   ├── routes.py      # Profile CRUD, picture, banner, account deletion
+│   │   │   └── sections.py    # Education/Experience/Project CRUD endpoints
 │   │   ├── universities/      # University + role + logo/banner management
 │   │   ├── university_requests/ # University request flow
 │   │   ├── community/         # Notes + comments + attachments
 │   │   ├── opportunities/     # Job/opportunity board
 │   │   ├── events/            # University club events
+│   │   ├── attendance/        # Public QR-based event attendance (no auth required)
+│   │   ├── speakers/          # Guest speaker contacts (executive+)
+│   │   ├── resume/            # Resume upload/download/delete
 │   │   ├── messages/          # Messaging
-│   │   ├── notifications/     # Notifications
+│   │   ├── notifications/     # Notification REST API + legacy university-post endpoints
 │   │   ├── news/              # AI news and research papers
 │   │   ├── uploads/           # GCS file upload signed URLs
 │   │   └── public/            # Public pages + city search
@@ -76,12 +90,13 @@ AIxU_website/
 │   │       ├── story_scout.py # Haiku + web search → news candidates
 │   │       ├── paper_scout.py # Haiku + web search → paper candidates
 │   │       └── curator.py     # Sonnet → rank and summarize top results
-│   ├── sockets/               # WebSocket handlers
+│   ├── sockets/               # WebSocket handlers (events.py)
 │   └── utils/                 # Utility functions
 │       ├── email.py           # Email sending, verification, password reset
 │       ├── image.py           # Image compression, 5:1 banner cropping
-│       ├── validation.py      # Input validation (.edu email, URLs)
+│       ├── validation.py      # Input validation (.edu email, URLs, phone format)
 │       ├── permissions.py     # Permission checks + route decorators
+│       ├── profile.py         # Auto-populate education on registration
 │       └── time.py            # Time formatting helpers
 │
 ├── frontend/src/
@@ -95,25 +110,32 @@ AIxU_website/
 │   │   ├── notes.js           # Notes + comments API
 │   │   ├── opportunities.js   # Opportunities API
 │   │   ├── events.js          # Events API
-│   │   ├── users.js           # Users + banner API
+│   │   ├── attendance.js      # QR attendance API (public endpoints)
+│   │   ├── speakers.js        # Speakers API
+│   │   ├── users.js           # Users + banner + profile sections API
 │   │   ├── messages.js        # Messages API
+│   │   ├── notifications.js   # Notifications API
 │   │   ├── news.js            # AI news/papers + chat API
+│   │   ├── resume.js          # Resume upload/download API
 │   │   └── uploads.js         # GCS file upload + attachment API
 │   ├── components/
 │   │   ├── admin/             # RequestCard
 │   │   ├── auth/              # AuthFormLayout, ProtectedRoute, LoginModal, RegisterModal, etc.
 │   │   ├── community/         # NoteCard, CommentSection, CreateNoteModal, EditNoteModal, NoteAttachments, NoteLikersModal
-│   │   ├── events/            # CreateEventModal, EventCard
+│   │   ├── events/            # CreateEventModal, EventCard, AttendanceQRModal
 │   │   ├── home/              # FeatureCard
 │   │   ├── icons/             # Centralized icon library (100+ icons across 11 files)
-│   │   ├── layout/            # AppLayout, NavBar, Footer, FeedPageLayout, AppPrefetcher, PlasmaBackground
+│   │   ├── layout/            # AppLayout, NavBar, Footer, FeedPageLayout, AppPrefetcher, PlasmaBackground, ScrollToTop
 │   │   ├── messages/          # ConversationPanel, ConversationSidebar, MessageBubble, MessageInput, UserSearchBar
 │   │   ├── news/              # ContentCard
+│   │   ├── notifications/     # NotificationDropdown
 │   │   ├── opportunities/     # CreateOpportunityModal, OpportunityCard
 │   │   ├── profile/           # EditProfileModal, ProfileCard, ProfilePictureSection
 │   │   │   ├── header/        # ProfileHeader
+│   │   │   │   └── images/    # Profile header image components
 │   │   │   ├── sections/      # ProfileSection, AboutSection, ExperienceSection, etc.
 │   │   │   └── sidebar/       # SkillsCard, ActivityCard, AIClubsCard, RecentPostsCard, etc.
+│   │   ├── speakers/          # SpeakerCard, CreateSpeakerModal
 │   │   ├── university/        # UniversityCard, University*Tab, EditUniversityIdentityModal, etc.
 │   │   └── ui/                # Generic UI components (organized into subdirectories)
 │   │       ├── buttons/       # GradientButton, CloseButton, IconButton, LikeButton, SecondaryButton
@@ -125,6 +147,8 @@ AIxU_website/
 │   │       ├── lists/         # FeedItemList, UserListItem
 │   │       ├── modals/        # BaseModal, ConfirmationModal, UnsavedChangesModal
 │   │       └── popovers/      # MemberActionsPopover, SharePopover
+│   ├── constants/
+│   │   └── speakerTags.js     # Speaker background tag definitions
 │   ├── contexts/
 │   │   ├── AuthContext.jsx    # User auth state
 │   │   ├── SocketContext.jsx  # WebSocket connection
@@ -136,26 +160,39 @@ AIxU_website/
 │   │   ├── index.js           # Barrel export
 │   │   ├── useUI.js           # UI utilities (escape, scroll lock, debounce, etc.)
 │   │   ├── useForm.js         # Form state and validation
+│   │   ├── useLoginForm.js    # Login form logic
+│   │   ├── useRegisterForm.js # Registration form logic
+│   │   ├── useFeedPageState.js # Feed page state (search, filters, modals)
 │   │   ├── useUniversities.js # University data + mutations
 │   │   ├── useNotes.js        # Notes + comments (infinite scroll)
 │   │   ├── useOpportunities.js # Opportunities (infinite scroll)
 │   │   ├── useEvents.js       # Events + RSVP
+│   │   ├── useAttendance.js   # QR attendance (event lookup, submit, records)
+│   │   ├── useSpeakers.js     # Speaker CRUD
 │   │   ├── useMessages.js     # Messages + WebSocket updates
-│   │   ├── useUsers.js        # Profile + banner
+│   │   ├── useUsers.js        # Profile + banner + profile sections (education/experience/project)
+│   │   ├── useResume.js       # Resume upload/download/delete
+│   │   ├── useNotifications.js # Notification list, unread count, mark-read
 │   │   ├── useNews.js         # AI content + chat
 │   │   ├── useUniversityRequests.js # Admin request management
 │   │   ├── useClipboard.js    # Clipboard operations
 │   │   └── factories/         # Hook factory utilities
-│   ├── pages/                 # Route-level components (20 pages)
+│   ├── pages/                 # Route-level components (22 pages, includes AttendEventPage)
 │   └── config/
 │       ├── cache.js           # React Query stale/gc times
 │       └── styles.js          # Design system constants (gradients, shadows)
+│
+├── scripts/                   # Operations scripts
+│   ├── cleanup_orphaned_uploads.py # Clean up unlinked GCS files
+│   ├── refresh_news.py        # Manually trigger AI news refresh
+│   ├── set_admin.py           # Promote user to site admin
+│   └── update_university_domains.py # Batch update university email domains
 │
 ├── static/app/                # React build output (Vite)
 │
 ├── migrations/                # Flask-Migrate (Alembic) migrations
 │
-├── tests/                     # pytest test suite (14 test files)
+├── tests/                     # pytest test suite (16 test files)
 │   ├── conftest.py           # Fixtures (users, universities, roles)
 │   └── test_*.py             # Test files
 │
@@ -174,8 +211,21 @@ All models in `backend/models/` inherit from `db.Model`.
 **Profile:** `first_name`, `last_name`, `university`, `about_section`, `location`, `skills` (JSON), `social_links` (JSON: `[{"type": "linkedin", "url": "..."}]`)
 **Media:** `profile_picture`, `profile_picture_filename`, `profile_picture_mimetype`, `banner_image`, `banner_image_filename`, `banner_image_mimetype`
 **Stats:** `post_count`, `follower_count`, `following_count`
+**Relationships:** `education_entries`, `experience_entries`, `project_entries` (via profile_sections), `resume` (one-to-one)
 
 **Key methods:** `set_password()`, `check_password()`, `is_site_admin()`, `get_university_role()`, `is_executive_at()`, `is_president_at()`, `has_liked_note()`, `has_bookmarked_note()`, `get_social_links_list()`, `set_social_links_list()`, `to_dict()`
+
+### Profile Sections (`backend/models/profile_sections.py`)
+Three models for structured profile data, all with `user_id` FK (cascade delete), `display_order`, and `to_dict()`.
+
+**Education:** `institution`, `degree`, `field_of_study`, `start_date`, `end_date`, `gpa`, `description`
+**Experience:** `title`, `company`, `location`, `start_date`, `end_date`, `description`
+**Project:** `title`, `description`, `url`, `start_date`, `end_date`, `technologies` (JSON string)
+
+### Resume (`backend/models/resume.py`)
+**Fields:** `id`, `user_id` (unique — one per user), `gcs_path`, `filename`, `content_type`, `size_bytes`, `created_at`
+
+Max 5MB. PDF and Word documents only (`ALLOWED_RESUME_TYPES` in constants). Stored in GCS.
 
 ### University (`backend/models/university.py`)
 **Core:** `id`, `name`, `clubName`, `location`, `email_domain`, `admin_id`
@@ -192,7 +242,7 @@ Members tracked via UniversityRole table (not stored directly).
 
 Role levels: `MEMBER (0)`, `EXECUTIVE (1)`, `PRESIDENT (2)`
 
-**Key methods:** `get_role()`, `get_role_level()`, `set_role()`, `remove_role()`, `is_executive_or_higher()`, `is_president()`
+**Key methods:** `get_role()`, `get_role_level()`, `set_role()`, `remove_role()`, `is_executive_or_higher()`, `is_president()`, `is_executive_anywhere(user_id)`
 
 ### UniversityRequest (`backend/models/university_request.py`)
 **Status:** `PENDING`, `APPROVED`, `REJECTED`
@@ -237,11 +287,36 @@ Tags stored via OpportunityTag table.
 Normalized tag storage for efficient filtering.
 
 ### Event & EventAttendee (`backend/models/event.py`)
-**Event:** `id`, `university_id`, `title`, `description`, `location`, `start_time`, `end_time`, `created_by_id`
+**Event:** `id`, `university_id`, `title`, `description`, `location`, `start_time`, `end_time`, `created_by_id`, `attendance_token` (unique, auto-generated on creation)
 **EventAttendee:** `event_id`, `user_id`, `status` (attending/maybe/declined)
+
+Note: `attendance_token` is excluded from `to_dict()` to prevent accidental exposure. It is only returned to executives via dedicated attendance endpoints.
+
+### EventAttendance (`backend/models/event_attendance.py`)
+**Fields:** `id`, `event_id`, `name`, `email` (optional), `user_id` (optional), `checked_in_via` (default: `qr_scan`), `checked_in_at`
+
+Day-of attendance tracking via QR code scan — separate from RSVP (EventAttendee). No account required to check in.
+
+**Deduplication:** Partial unique indexes prevent duplicate check-ins: one per `user_id` per event (for logged-in users), one per `email` per event (for anonymous users without an account). Race conditions handled via IntegrityError catch with rollback and re-query.
+
+**Key methods:** `find_existing()` (application-level dedup check), `to_dict()`
+
+### Speaker (`backend/models/speaker.py`)
+**Fields:** `id`, `name`, `position`, `organization`, `email`, `phone`, `linkedin_url`, `notes`, `tags` (JSON string), `university_id`, `added_by_id`, `created_at`, `updated_at`
+
+Guest speaker contacts shared across university AI clubs. Only accessible to executives+.
+
+Tags are from a fixed set defined in `speakers/routes.py` (`SPEAKER_TAG_CHOICES`) synced with `frontend/src/constants/speakerTags.js`.
 
 ### Message (`backend/models/message.py`)
 **Fields:** `id`, `sender_id`, `recipient_id`, `content`, `is_read`, `created_at`
+
+### Notification (`backend/models/notification.py`)
+**Fields:** `id`, `recipient_id`, `actor_id`, `verb`, `target_id`, `target_type`, `extra_data` (JSON), `is_read`, `created_at`, `updated_at`
+
+Aggregated notifications: multiple actions on the same target merge into one row with a count.
+
+**Key methods:** `upsert_for_event()` (create or increment), `decrement_for_event()` (decrement or delete), `to_dict()`
 
 ### AI News Models (`backend/models/ai_news.py`)
 **AINewsStory:** `id`, `title`, `summary`, `batch_id`, `fetched_at`, `event_date`, `image_url`, `emoji`
@@ -274,7 +349,7 @@ ADMIN = 1      # Full access everywhere
 ### University-Level (`UniversityRole.role`)
 ```python
 MEMBER = 0      # Standard member
-EXECUTIVE = 1   # Manage members, create events
+EXECUTIVE = 1   # Manage members, create events, access speakers
 PRESIDENT = 2   # Manage executives, transfer leadership
 ```
 
@@ -298,7 +373,7 @@ get_user_university_permissions(user, uni_id) # Returns permission dict
 ### Authentication (`/api/auth/*`)
 ```
 POST /login                  - JSON login
-POST /register               - Registration (auto-enrolls)
+POST /register               - Registration (auto-enrolls, creates initial education)
 POST /verify-email           - Email verification (6-digit code)
 POST /resend-verification    - Resend code
 POST /logout                 - Logout
@@ -322,6 +397,28 @@ GET    /user/<id>/profile_picture - Serve profile picture
 GET    /user/<id>/banner      - Serve banner image
 GET    /api/users/<id>        - Get user by ID with activity
 DELETE /api/account           - Delete account
+```
+
+### Profile Sections (`/api/profile/*`)
+```
+POST   /api/profile/education       - Create education entry
+PUT    /api/profile/education/<id>  - Update education entry
+DELETE /api/profile/education/<id>  - Delete education entry
+
+POST   /api/profile/experience       - Create experience entry
+PUT    /api/profile/experience/<id>  - Update experience entry
+DELETE /api/profile/experience/<id>  - Delete experience entry
+
+POST   /api/profile/projects         - Create project entry
+PUT    /api/profile/projects/<id>    - Update project entry
+DELETE /api/profile/projects/<id>    - Delete project entry
+```
+
+### Resume (`/api/profile/resume`, `/api/users/*/resume`)
+```
+POST   /api/profile/resume       - Confirm resume upload (replace if exists)
+DELETE /api/profile/resume       - Delete own resume
+GET    /api/users/<id>/resume    - Get user's resume (authenticated only)
 ```
 
 ### Universities (`/api/universities/*`)
@@ -362,6 +459,15 @@ DELETE /api/events/<id>              - Delete event (executive+)
 POST   /api/events/<id>/rsvp         - Toggle RSVP (status: attending|maybe|declined)
 ```
 
+### Attendance (`/api/attendance/*`)
+```
+GET  /api/attendance/event/<token>       - Get event info by attendance token (public, no auth required)
+POST /api/attendance/event/<token>       - Submit attendance check-in (public, no auth required)
+GET  /api/attendance/records/<event_id>  - Get attendance records (executive+ or admin)
+```
+
+The event lookup endpoint auto-fills name/email for logged-in users. Attendance tokens are pre-generated on event creation.
+
 ### Notes (`/api/notes/*`)
 ```
 GET    /                      - List (?search, ?user, ?university_id, ?tag, ?bookmarked, ?page, ?page_size)
@@ -389,6 +495,14 @@ POST   /<id>/bookmark         - Toggle bookmark
 DELETE /<id>                  - Delete opportunity
 ```
 
+### Speakers (`/api/speakers/*`)
+```
+GET    /                      - List all speakers + user's executive university IDs
+POST   /                      - Create speaker (executive+)
+PUT    /<id>                  - Update speaker (original adder or admin)
+DELETE /<id>                  - Delete speaker (original adder or admin)
+```
+
 ### Messages (`/api/messages/*`)
 ```
 GET  /conversations           - Get all conversations
@@ -396,6 +510,16 @@ GET  /conversation/<user_id>  - Get messages with user
 POST /                        - Send message
 GET  /unread-count            - Get unread count
 GET  /api/users/search        - Search users by name/email
+```
+
+### Notifications (`/api/notifications/*`)
+```
+GET   /api/notifications              - Get last 20 notifications
+GET   /api/notifications/count        - Get unread count
+PATCH /api/notifications/<id>/read    - Mark single notification read
+PATCH /api/notifications/read-all     - Mark all notifications read
+GET   /api/notifications/university-posts - Legacy: recent posts from university members
+GET   /api/notifications/check-new    - Legacy: check for new notifications since timestamp
 ```
 
 ### AI News (`/api/news/*`, `/api/papers/*`)
@@ -425,12 +549,6 @@ DELETE /api/uploads/attachments/<id> - Delete attachment
 GET    /api/notes/<id>/attachments - Get attachments for a note
 ```
 
-### Notifications (`/api/notifications/*`)
-```
-GET /api/notifications/university-posts - Recent posts from university members
-GET /api/notifications/check-new        - Check for new notifications since timestamp
-```
-
 ### Public (`/api/*`)
 ```
 GET /api/cities/search        - City search (Nominatim proxy)
@@ -444,17 +562,20 @@ GET /api/cities/search        - City search (Nominatim proxy)
 
 **University Request:** `/add-university`, `/request-university`, `/request-university/details`, `/request-university/submitted`
 
+**Attendance:** `/attend/:token` - Mobile-first QR check-in page (standalone, no AppLayout, no auth required)
+
 **Main App (with AppLayout):**
 - `/community` - Notes feed (infinite scroll)
+- `/notes/:noteId` - Note detail
 - `/universities` - Universities list
 - `/universities/:id` - University detail (tabbed: Posts, Events, Opportunities, Members, About)
 - `/opportunities` - Opportunities board (infinite scroll)
 - `/profile` - Current user profile
 - `/users/:userId` - User profile
-- `/messages` - Messaging
+- `/messages` - Messaging (ProtectedRoute)
 - `/news` - AI news and research
+- `/speakers` - Guest speaker contacts (executive+)
 - `/admin/university-requests` - Admin request queue
-- `/notes/:noteId` - Note detail
 
 ---
 
@@ -470,9 +591,17 @@ GET /api/cities/search        - City search (Nominatim proxy)
 
 **Opportunities:** `useInfiniteOpportunities(params)`, `useCreateOpportunity()`, `useBookmarkOpportunity()`, `useDeleteOpportunity()`
 
+**Attendance:** `useAttendanceEvent(token)`, `useSubmitAttendance()`, `useEventAttendance(eventId)`
+
+**Speakers:** `useSpeakers()`, `useCreateSpeaker()`, `useUpdateSpeaker()`, `useDeleteSpeaker()`
+
 **Messages:** `useConversations()`, `useConversation(userId)`, `useSendMessage()`, `useSearchUsers(query)`, `useUnreadCount()`
 
-**Users:** `useUser(userId)`, `useUpdateProfile()`, `useUploadProfilePicture()`, `useDeleteProfilePicture()`, `useUploadProfileBanner()`
+**Users:** `useUser(userId)`, `useUpdateProfile()`, `useUploadProfilePicture()`, `useDeleteProfilePicture()`, `useUploadProfileBanner()`, `useCreateEducation()`, `useUpdateEducation()`, `useDeleteEducation()`, `useCreateExperience()`, `useUpdateExperience()`, `useDeleteExperience()`, `useCreateProject()`, `useUpdateProject()`, `useDeleteProject()`
+
+**Resume:** `useResume(userId)`, `useUploadResume(userId)`, `useDeleteResume()`
+
+**Notifications:** `useNotifications()`, `useUnreadNotificationCount()`, `useMarkAllNotificationsRead()`
 
 **AI News:** `useAIContent()`, `useNews()`, `usePapers()`, `useRefreshAIContent()`, `useStoryChatMutation()`, `usePaperChatMutation()`, `useChatHistory(sessionId)`, `useClearChatMutation()`
 
@@ -492,8 +621,10 @@ GET /api/cities/search        - City search (Nominatim proxy)
 
 ### Form Utilities
 - `useForm(config)` - Form state, validation, submission
+- `useLoginForm({ onSuccess })` - Login form logic
+- `useRegisterForm()` - Registration form logic
+- `useFeedPageState(config)` - Feed page state (search, filters, modals)
 - `useEmailVerification(config)` - Email verification flow
-- `useFeedPageState()` - Feed page state (search, filters, modals)
 
 ---
 
@@ -512,9 +643,9 @@ Claude-powered content fetching via a 4-agent pipeline.
 **Key functions:** `fetch_top_ai_content()`, `get_latest_content()`, `chat_with_story()`, `chat_with_paper()`, `get_chat_history()`, `cleanup_old_batches()`
 
 ### Storage Service (`backend/services/storage.py`)
-Google Cloud Storage integration for note attachments via signed URLs.
+Google Cloud Storage integration for note attachments and resumes via signed URLs.
 
-**Key functions:** `generate_upload_url()`, `generate_download_url()`, `delete_file()`, `delete_files()`, `delete_user_uploads()`, `validate_content_type()`, `validate_file_extension()`
+**Key functions:** `generate_upload_url()`, `generate_download_url()`, `delete_file()`, `delete_files()`, `delete_user_uploads()`, `validate_content_type()`, `validate_file_extension()`, `is_gcs_configured()`
 **File organization:** `uploads/{user_id}/{uuid}_{filename}`
 **Credential priority:** GCS_CREDENTIALS_JSON (base64 env) → service account file → GOOGLE_APPLICATION_CREDENTIALS → ADC
 
@@ -572,6 +703,14 @@ cd frontend && npm run build     # Output to static/app/
 2. Client function in `frontend/src/api/*.js`
 3. React Query hook in `frontend/src/hooks/`
 
+### Operations Scripts
+```bash
+python scripts/set_admin.py              # Promote user to site admin
+python scripts/refresh_news.py           # Manually trigger AI news refresh
+python scripts/cleanup_orphaned_uploads.py # Clean up unlinked GCS files
+python scripts/update_university_domains.py # Batch update email domains
+```
+
 ---
 
 ## Testing
@@ -582,7 +721,9 @@ pytest -v                        # Verbose
 pytest -m unit                   # Unit tests only
 ```
 
-**Fixtures:** `app`, `client`, `test_user`, `test_university`, `authenticated_client`, `admin_user`, `president_user`, `executive_user`
+**Test files (16):** auth, health, profile, universities, university_roles, university_requests, community, events, attendance, messages, models, security, utils, notifications, news, speakers
+
+**Fixtures:** `app`, `client`, `test_user`, `test_user_with_university`, `second_user`, `test_university`, `second_university`, `test_note`, `multiple_notes`, `test_event`, `test_message`, `conversation_messages`, `pending_university_request`, `authenticated_client`, `admin_user`, `president_user`, `executive_user`, `member_user`, `sample_image_data`
 
 ---
 
@@ -601,7 +742,8 @@ ANTHROPIC_API_KEY=...
 DEV_MODE=true                    # Accept any 6-digit code
 GCS_BUCKET_NAME=...              # Google Cloud Storage bucket
 GCS_PROJECT_ID=...               # GCP project ID
-GCS_CREDENTIALS_JSON=...         # Base64-encoded service account JSON
+GCS_CREDENTIALS_JSON=...         # Base64-encoded service account JSON (production)
+GCS_CREDENTIALS_PATH=...         # Service account key file (local/Docker)
 ```
 
 ### Config Class
@@ -635,10 +777,11 @@ Uses SQLite `:memory:`, disables CSRF, faster bcrypt rounds.
 
 ### Frontend
 - **Pages:** Route-level components
-- **Components:** Organized by feature (community/, events/, messages/, university/, profile/, etc.) with shared primitives in ui/ subdirectories (buttons/, cards/, display/, feedback/, forms/, images/, lists/, modals/, popovers/)
+- **Components:** Organized by feature (community/, events/, messages/, university/, profile/, speakers/, notifications/, etc.) with shared primitives in ui/ subdirectories (buttons/, cards/, display/, feedback/, forms/, images/, lists/, modals/, popovers/)
 - **Hooks:** React Query for data, useUI.js for DOM utilities, factories/ for hook generation
-- **Contexts:** Auth, Socket, Query, Modals, MessageTarget
+- **Contexts:** Auth, Socket, Query, Modals, MessageTarget, Terms
 - **API:** One module per backend feature
+- **Constants:** Shared constants (e.g., speaker tags) synced between frontend and backend
 
 ### Caching Strategy
 - Aggressive for static data (Universities: 10min, News: 5min)
@@ -656,3 +799,8 @@ Uses SQLite `:memory:`, disables CSRF, faster bcrypt rounds.
 - Max 5 attachments per note, max 10MB per file
 - 26 allowed MIME types (images, documents, spreadsheets, presentations, text/code, archives)
 - Defined in `backend/constants.py` (`ALLOWED_ATTACHMENT_TYPES`)
+
+### Resume Uploads
+- One resume per user, uploaded via GCS signed URLs
+- Max 5MB, PDF and Word documents only
+- Defined in `backend/constants.py` (`ALLOWED_RESUME_TYPES`, `MAX_RESUME_SIZE_BYTES`)

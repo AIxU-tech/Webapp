@@ -17,6 +17,7 @@
 
 import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { getCurrentUser, devLogin } from '../api/auth';
+import { queryClient } from './QueryProvider';
 
 // Cookie helpers for tracking returning users across sessions
 const RETURNING_USER_COOKIE = 'aixu_returning_user';
@@ -124,6 +125,7 @@ export function AuthProvider({ children }) {
    * @param {object} userData - User object from login response
    */
   function loginUser(userData) {
+    queryClient.clear();
     setUser(userData);
     setReturningUserCookie();
   }
@@ -135,6 +137,7 @@ export function AuthProvider({ children }) {
    */
   function logoutUser() {
     setUser(null);
+    queryClient.clear();
   }
 
   // Check returning user cookie (true if user has ever logged in on this browser)

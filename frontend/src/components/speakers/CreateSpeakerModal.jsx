@@ -6,15 +6,16 @@
  */
 
 import { useState, useEffect } from 'react';
-import { BaseModal, GradientButton, SecondaryButton, Alert } from '../ui';
+import { BaseModal, GradientButton, SecondaryButton, Alert, ToggleTag, TagGroup } from '../ui';
 import { useCreateSpeaker, useUpdateSpeaker } from '../../hooks';
 import { isValidUrl } from '../../utils/socialLinks';
+import { validateEmailFormat, validatePhoneFormat } from '../../utils';
+import { SPEAKER_TAGS } from '../../constants/speakerTags';
 
-export default function CreateSpeakerModal({ isOpen, onClose, speaker = null, userUniversities = [] }) {
+export default function CreateSpeakerModal({ isOpen, onClose, speaker = null }) {
   const isEditMode = !!speaker;
 
   // Form state
-  const [universityId, setUniversityId] = useState('');
   const [name, setName] = useState('');
   const [position, setPosition] = useState('');
   const [organization, setOrganization] = useState('');
@@ -22,6 +23,7 @@ export default function CreateSpeakerModal({ isOpen, onClose, speaker = null, us
   const [phone, setPhone] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [notes, setNotes] = useState('');
+  const [tags, setTags] = useState([]);
 
   // Inline field errors (contact, linkedinUrl) + server error
   const [fieldErrors, setFieldErrors] = useState({});
@@ -43,7 +45,7 @@ export default function CreateSpeakerModal({ isOpen, onClose, speaker = null, us
         setPhone(speaker.phone || '');
         setLinkedinUrl(speaker.linkedinUrl || '');
         setNotes(speaker.notes || '');
-        setUniversityId(speaker.universityId || '');
+        setTags(Array.isArray(speaker.tags) ? speaker.tags : []);
       } else {
         setName('');
         setPosition('');
@@ -52,12 +54,12 @@ export default function CreateSpeakerModal({ isOpen, onClose, speaker = null, us
         setPhone('');
         setLinkedinUrl('');
         setNotes('');
-        setUniversityId(userUniversities.length === 1 ? userUniversities[0].id : '');
+        setTags([]);
       }
       setFieldErrors({});
       setServerError('');
     }
-  }, [isOpen, speaker, userUniversities]);
+  }, [isOpen, speaker]);
 
   const handleClose = () => {
     setFieldErrors({});
@@ -71,6 +73,12 @@ export default function CreateSpeakerModal({ isOpen, onClose, speaker = null, us
     }
   };
 
+  const toggleTag = (tagId) => {
+    setTags((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     setServerError('');
@@ -79,6 +87,16 @@ export default function CreateSpeakerModal({ isOpen, onClose, speaker = null, us
     // At least one contact field
     if (!email.trim() && !phone.trim() && !linkedinUrl.trim()) {
       errors.contact = 'At least one contact method (email, phone, or LinkedIn) is required';
+    }
+
+    // Email and phone format validation (when provided)
+    if (email.trim()) {
+      const emailValidation = validateEmailFormat(email);
+      if (!emailValidation.valid) errors.email = emailValidation.error;
+    }
+    if (phone.trim()) {
+      const phoneValidation = validatePhoneFormat(phone);
+      if (!phoneValidation.valid) errors.phone = phoneValidation.error;
     }
 
     // LinkedIn URL validation using the platform's isValidUrl utility
@@ -112,15 +130,8 @@ export default function CreateSpeakerModal({ isOpen, onClose, speaker = null, us
       phone: phone.trim() || undefined,
       linkedinUrl: processedLinkedinUrl,
       notes: notes.trim() || undefined,
+      tags,
     };
-
-    // Add university for create mode
-    if (!isEditMode) {
-      const selectedUniId = universityId || (userUniversities.length === 1 ? userUniversities[0].id : null);
-      if (selectedUniId) {
-        speakerData.universityId = Number(selectedUniId);
-      }
-    }
 
     if (isEditMode) {
       updateMutation.mutate(
@@ -150,28 +161,6 @@ export default function CreateSpeakerModal({ isOpen, onClose, speaker = null, us
         {serverError && (
           <div className="mb-4">
             <Alert variant="error">{serverError}</Alert>
-          </div>
-        )}
-
-        {/* University Selector (only for create mode with multiple universities) */}
-        {!isEditMode && userUniversities.length > 1 && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">
-              University <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={universityId}
-              onChange={(e) => setUniversityId(e.target.value)}
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-              required
-            >
-              <option value="">Select university...</option>
-              {userUniversities.map((uni) => (
-                <option key={uni.id} value={uni.id}>
-                  {uni.name}
-                </option>
-              ))}
-            </select>
           </div>
         )}
 
@@ -238,9 +227,12 @@ export default function CreateSpeakerModal({ isOpen, onClose, speaker = null, us
               type="email"
               placeholder="speaker@example.com"
               value={email}
-              onChange={(e) => { setEmail(e.target.value); clearFieldError('contact'); }}
+              onChange={(e) => { setEmail(e.target.value); clearFieldError('contact'); clearFieldError('email'); }}
               className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
+            {fieldErrors.email && (
+              <p className="text-xs text-red-500 mt-1">{fieldErrors.email}</p>
+            )}
           </div>
 
           {/* Phone */}
@@ -252,9 +244,12 @@ export default function CreateSpeakerModal({ isOpen, onClose, speaker = null, us
               type="tel"
               placeholder="(555) 123-4567"
               value={phone}
-              onChange={(e) => { setPhone(e.target.value); clearFieldError('contact'); }}
+              onChange={(e) => { setPhone(e.target.value); clearFieldError('contact'); clearFieldError('phone'); }}
               className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
+            {fieldErrors.phone && (
+              <p className="text-xs text-red-500 mt-1">{fieldErrors.phone}</p>
+            )}
           </div>
         </div>
 
@@ -273,6 +268,25 @@ export default function CreateSpeakerModal({ isOpen, onClose, speaker = null, us
           {fieldErrors.linkedinUrl && (
             <p className="text-xs text-red-500 mt-1">{fieldErrors.linkedinUrl}</p>
           )}
+        </div>
+
+        {/* Speaker tags (optional) */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-foreground mb-1">
+            Speaker tags <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+          </label>
+          <TagGroup>
+            {SPEAKER_TAGS.map((tag) => (
+              <ToggleTag
+                key={tag.id}
+                selected={tags.includes(tag.id)}
+                onClick={() => toggleTag(tag.id)}
+                size="sm"
+              >
+                {tag.label}
+              </ToggleTag>
+            ))}
+          </TagGroup>
         </div>
 
         {/* Notes */}

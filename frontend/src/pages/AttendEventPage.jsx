@@ -1,0 +1,500 @@
+/**
+ * AttendEventPage
+ *
+ * Mobile-first standalone page for event attendance check-in via QR code.
+ * Uses PlasmaBackground with a centered card, matching auth page styling.
+ * Displays the university club logo prominently when available.
+ *
+ * Inspired by the AttendanceTracker reference design:
+ * - Staggered fade-in animations for sequential element entrance
+ * - Subtle logo glow pulse behind the club logo
+ * - Sparkle decorations on the success screen
+ * - Warm, inviting copy and generous spacing
+ *
+ * States: loading, error, past event, already checked in, form, success.
+ */
+
+import { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useAttendanceEvent, useSubmitAttendance, usePageTitle } from '../hooks';
+import { FormInput, GradientButton, Alert } from '../components/ui';
+import { BrainCircuitIcon, CheckCircleIcon, CalendarIcon, MapPinIcon, ClockIcon, AlertCircleIcon } from '../components/icons';
+import { GRADIENT_PRIMARY } from '../config/styles';
+import { PlasmaBackground } from '../components/layout';
+import { getUniversityLogoUrl } from '../api/universities';
+import { parseUtcDate } from '../utils/time';
+
+// ---------------------------------------------------------------------------
+// Animation keyframes injected once into the document head
+// ---------------------------------------------------------------------------
+
+const STYLE_ID = 'attend-event-animations';
+
+function ensureAnimationStyles() {
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = `
+    @keyframes attend-fade-in {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes attend-logo-ring-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(99, 155, 255, 0.0); }
+      50%      { box-shadow: 0 0 24px 4px rgba(99, 155, 255, 0.25); }
+    }
+    @keyframes attend-sparkle {
+      0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+      50%      { opacity: 1; transform: scale(1) rotate(20deg); }
+    }
+    @keyframes attend-glow-pulse {
+      0%, 100% { opacity: 0.15; transform: scale(1); }
+      50%      { opacity: 0.3;  transform: scale(1.1); }
+    }
+    .attend-fade-in {
+      opacity: 0;
+      animation: attend-fade-in 0.5s ease-out forwards;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatEventTime(startTime, endTime) {
+  const start = parseUtcDate(startTime);
+  if (!start) return '';
+  const options = { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true };
+  let str = start.toLocaleString('en-US', options);
+  if (endTime) {
+    const end = parseUtcDate(endTime);
+    if (end) {
+      str += ` \u2013 ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+    }
+  }
+  return str;
+}
+
+/** Wrapper that applies a staggered fade-in animation. */
+function FadeIn({ delay = 0, children, className = '' }) {
+  return (
+    <div
+      className={`attend-fade-in ${className}`}
+      style={{ animationDelay: `${delay}s` }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function Sparkle({ delay, x, y }) {
+  return (
+    <div
+      className="absolute text-primary/60 text-xl pointer-events-none select-none"
+      style={{
+        left: x,
+        top: y,
+        animation: `attend-sparkle 2s ease-in-out ${delay}s infinite`,
+      }}
+    >
+      &#10022;
+    </div>
+  );
+}
+
+function ClubLogo({ event }) {
+  const [imgError, setImgError] = useState(false);
+  const hasLogo = event?.universityId && event?.universityHasLogo && !imgError;
+
+  if (hasLogo) {
+    return (
+      <div className="relative mx-auto w-28 h-28">
+        {/* Soft glow behind logo */}
+        <div
+          className="absolute inset-0 rounded-full bg-primary/20 blur-2xl scale-[1.6]"
+          style={{ animation: 'attend-glow-pulse 4s ease-in-out infinite' }}
+        />
+        {/* Logo circle with ring pulse */}
+        <div
+          className="relative w-28 h-28 rounded-full overflow-hidden border-2 border-white/30 shadow-xl"
+          style={{ animation: 'attend-logo-ring-pulse 3s ease-in-out infinite' }}
+        >
+          <img
+            src={getUniversityLogoUrl(event.universityId)}
+            alt={`${event.universityName || 'University'} logo`}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-center">
+      <div className={`w-12 h-12 ${GRADIENT_PRIMARY} rounded-xl flex items-center justify-center mr-3`}>
+        <BrainCircuitIcon className="h-6 w-6 text-white" />
+      </div>
+      <span className="text-2xl font-bold text-foreground">AIxU</span>
+    </div>
+  );
+}
+
+function EventDetailsCard({ event }) {
+  if (!event) return null;
+  return (
+    <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-sm">
+      <h3 className="font-semibold text-foreground">{event.title}</h3>
+      <div className="flex flex-col gap-1 text-muted-foreground">
+        {event.startTime && (
+          <span className="flex items-center gap-2">
+            <ClockIcon className="h-3.5 w-3.5 flex-shrink-0" />
+            {formatEventTime(event.startTime, event.endTime)}
+          </span>
+        )}
+        {event.location && (
+          <span className="flex items-center gap-2">
+            <MapPinIcon className="h-3.5 w-3.5 flex-shrink-0" />
+            {event.location}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SuccessCheckmark() {
+  return (
+    <div className={`mx-auto w-20 h-20 ${GRADIENT_PRIMARY} rounded-full flex items-center justify-center shadow-lg`}>
+      <CheckCircleIcon className="h-10 w-10 text-white" />
+    </div>
+  );
+}
+
+function GoToAppLink({ user }) {
+  return (
+    <Link
+      to={user ? '/community' : '/'}
+      className="text-sm text-primary hover:underline transition-colors"
+    >
+      Go to AIxU
+    </Link>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main page component
+// ---------------------------------------------------------------------------
+
+export default function AttendEventPage() {
+  const { token } = useParams();
+  const { user } = useAuth();
+  const { data, isLoading, isError } = useAttendanceEvent(token);
+  const submitMutation = useSubmitAttendance();
+
+  usePageTitle('Check In');
+
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [hasAutoFilled, setHasAutoFilled] = useState(false);
+
+  // Inject animation keyframes on mount
+  useEffect(() => {
+    ensureAnimationStyles();
+  }, []);
+
+  useEffect(() => {
+    if (data?.autoFill && !hasAutoFilled) {
+      setName(data.autoFill.name || '');
+      setEmail(data.autoFill.email || '');
+      setHasAutoFilled(true);
+    }
+  }, [data, hasAutoFilled]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setFormError('');
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setFormError('Please enter your name.');
+      return;
+    }
+
+    submitMutation.mutate(
+      { token, data: { name: trimmedName, email: email.trim() || undefined } },
+      {
+        onSuccess: () => setIsSubmitted(true),
+        onError: (err) => setFormError(err.message || 'Failed to submit attendance.'),
+      }
+    );
+  };
+
+  const event = data?.event;
+  const alreadyCheckedIn = data?.alreadyCheckedIn;
+  const firstName = name.trim().split(/\s+/)[0];
+
+  // -------------------------------------------------------------------
+  // State renderers
+  // -------------------------------------------------------------------
+
+  const renderLoading = () => (
+    <div className="flex flex-col items-center gap-4 py-12">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-muted-foreground">Loading event...</p>
+    </div>
+  );
+
+  const renderError = () => (
+    <div className="text-center space-y-4 py-6">
+      <FadeIn>
+        <div className="w-16 h-16 mx-auto rounded-full bg-destructive/10 flex items-center justify-center">
+          <AlertCircleIcon className="h-8 w-8 text-destructive" />
+        </div>
+      </FadeIn>
+      <FadeIn delay={0.1}>
+        <h2 className="text-2xl font-bold text-foreground">Invalid Link</h2>
+      </FadeIn>
+      <FadeIn delay={0.2}>
+        <p className="text-muted-foreground">
+          This attendance link is invalid or has expired. Please ask the event organizer for a new QR code.
+        </p>
+      </FadeIn>
+      <FadeIn delay={0.3}>
+        <div className="pt-2">
+          <GoToAppLink user={user} />
+        </div>
+      </FadeIn>
+    </div>
+  );
+
+  const renderPastEvent = () => (
+    <div className="space-y-6 py-4">
+      <div className="text-center space-y-3">
+        <FadeIn>
+          <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+            <CalendarIcon className="h-8 w-8 text-muted-foreground" />
+          </div>
+        </FadeIn>
+        <FadeIn delay={0.1}>
+          <h2 className="text-2xl font-bold text-foreground">Event Has Ended</h2>
+        </FadeIn>
+        <FadeIn delay={0.15}>
+          <p className="text-muted-foreground">
+            This event is no longer accepting check-ins.
+          </p>
+        </FadeIn>
+      </div>
+      <FadeIn delay={0.25}>
+        <EventDetailsCard event={event} />
+      </FadeIn>
+      <FadeIn delay={0.35}>
+        <div className="text-center pt-2">
+          <GoToAppLink user={user} />
+        </div>
+      </FadeIn>
+    </div>
+  );
+
+  const renderAlreadyCheckedIn = () => (
+    <div className="space-y-6 py-4">
+      <div className="text-center space-y-4">
+        <FadeIn>
+          <SuccessCheckmark />
+        </FadeIn>
+        <FadeIn delay={0.15}>
+          <h2 className="text-2xl font-bold text-foreground">Already Checked In!</h2>
+        </FadeIn>
+        <FadeIn delay={0.25}>
+          <p className="text-muted-foreground">
+            You've already marked your attendance for this event.
+          </p>
+        </FadeIn>
+      </div>
+      <FadeIn delay={0.35}>
+        <div className="text-center pt-2">
+          <GoToAppLink user={user} />
+        </div>
+      </FadeIn>
+    </div>
+  );
+
+  const renderSuccess = () => (
+    <div className="relative space-y-6 py-4">
+      {/* Sparkle decorations */}
+      <Sparkle delay={0} x="8%" y="5%" />
+      <Sparkle delay={0.4} x="88%" y="10%" />
+      <Sparkle delay={0.8} x="12%" y="78%" />
+      <Sparkle delay={1.2} x="85%" y="72%" />
+
+      <div className="text-center space-y-4">
+        <FadeIn>
+          <SuccessCheckmark />
+        </FadeIn>
+        <FadeIn delay={0.15}>
+          <h2 className="text-2xl font-bold text-foreground">
+            You're in{firstName ? `, ${firstName}` : ''}!
+          </h2>
+        </FadeIn>
+        <FadeIn delay={0.25}>
+          <p className="text-muted-foreground">
+            Attendance recorded successfully
+          </p>
+        </FadeIn>
+        <FadeIn delay={0.35}>
+          <div className={`w-12 h-1 mx-auto rounded-full ${GRADIENT_PRIMARY}`} />
+        </FadeIn>
+        <FadeIn delay={0.45}>
+          <p className="text-lg font-medium text-foreground">
+            Enjoy the event! 🎉
+          </p>
+        </FadeIn>
+      </div>
+
+      <FadeIn delay={0.55}>
+        <div className="text-center pt-2">
+          <GoToAppLink user={user} />
+        </div>
+      </FadeIn>
+
+      {!user && (
+        <FadeIn delay={0.65}>
+          <div className="text-center space-y-3 border-t border-border pt-6">
+            <p className="text-sm text-muted-foreground">
+              Save your info for faster check-ins
+            </p>
+            <GradientButton
+              as={Link}
+              to={email.trim() ? `/register?email=${encodeURIComponent(email.trim())}` : '/register'}
+              size="sm"
+            >
+              Create Account
+            </GradientButton>
+          </div>
+        </FadeIn>
+      )}
+    </div>
+  );
+
+  const renderForm = () => (
+    <div className="space-y-6">
+      <FadeIn>
+        <div className="text-center space-y-1">
+          <h2 className="text-2xl font-bold text-foreground">Hey there! 👋</h2>
+          <p className="text-muted-foreground">Let's get you checked in</p>
+        </div>
+      </FadeIn>
+
+      <FadeIn delay={0.1}>
+        <EventDetailsCard event={event} />
+      </FadeIn>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {formError && (
+          <FadeIn>
+            <Alert type="error">{formError}</Alert>
+          </FadeIn>
+        )}
+
+        <FadeIn delay={0.2}>
+          <div>
+            <label htmlFor="attend-name" className="block text-sm font-medium text-foreground mb-1.5">
+              Your Name <span className="text-destructive">*</span>
+            </label>
+            <FormInput
+              id="attend-name"
+              name="name"
+              placeholder="Full name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoComplete="name"
+            />
+          </div>
+        </FadeIn>
+
+        <FadeIn delay={0.3}>
+          <div>
+            <label htmlFor="attend-email" className="block text-sm font-medium text-foreground mb-1.5">
+              Email <span className="text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <FormInput
+              id="attend-email"
+              type="email"
+              name="email"
+              placeholder="student@university.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+          </div>
+        </FadeIn>
+
+        <FadeIn delay={0.4}>
+          <GradientButton
+            type="submit"
+            className="w-full"
+            loading={submitMutation.isPending}
+            loadingText="Checking in..."
+          >
+            Mark Attendance
+          </GradientButton>
+        </FadeIn>
+      </form>
+    </div>
+  );
+
+  // -------------------------------------------------------------------
+  // Pick the right content renderer
+  // -------------------------------------------------------------------
+
+  const renderContent = () => {
+    if (isLoading) return renderLoading();
+    if (isError || !event) return renderError();
+    if (event.isPast) return renderPastEvent();
+    if (alreadyCheckedIn && !isSubmitted) return renderAlreadyCheckedIn();
+    if (isSubmitted) return renderSuccess();
+    return renderForm();
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden no-scrollbar">
+      <PlasmaBackground
+        variant="fullscreen"
+        radialWhitecast={true}
+        cardRadius={0.35}
+      />
+
+      <div className="relative z-10 w-full max-w-md px-6 py-12">
+        <div className="bg-card border border-border rounded-xl shadow-card p-8">
+          {/* Club logo or AIxU branding */}
+          <FadeIn>
+            <div className="flex justify-center mb-6">
+              <ClubLogo event={event} />
+            </div>
+          </FadeIn>
+
+          {/* University name below logo when logo is shown */}
+          {event?.universityId && event?.universityHasLogo && event?.universityName && (
+            <FadeIn delay={0.05}>
+              <p className="text-center text-sm text-muted-foreground mb-6">
+                {event.universityName}
+              </p>
+            </FadeIn>
+          )}
+
+          {renderContent()}
+        </div>
+      </div>
+    </div>
+  );
+}

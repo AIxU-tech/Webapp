@@ -18,15 +18,40 @@ Permission Logic:
 - RSVP: Any authenticated user can RSVP to events
 """
 
+import os
 from datetime import datetime
-from flask import Blueprint, request, jsonify
+
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
+from sqlalchemy import func, and_
 from backend.extensions import db
-from backend.models import Event, EventAttendee, University, UniversityRole
+from backend.models import Event, EventAttendee, University, UniversityRole, EventAttendance
 from backend.constants import UniversityRoles
 from backend.utils.permissions import can_manage_university_members
+from backend.utils.email import send_event_created_email, send_event_cancelled_email, generate_secure_token
+from backend.routes_v2.events.helpers import send_bulk_email
+
+_DEV_MODE = os.environ.get('DEV_MODE')
+_APP_URL = "http://localhost:8000" if _DEV_MODE else "https://aixu.tech"
 
 events_bp = Blueprint('events', __name__)
+
+
+def _get_member_recipients(university):
+    """Return a list of (email, first_name) for all members."""
+    return [
+        (m['user'].email, m['user'].first_name)
+        for m in university.get_members()
+    ]
+
+
+def _format_event_date(start_time, end_time=None):
+    """Format event start/end into a readable string."""
+    fmt = "%B %d, %Y at %I:%M %p UTC"
+    text = start_time.strftime(fmt)
+    if end_time:
+        text += f" — {end_time.strftime('%I:%M %p UTC')}"
+    return text
 
 
 # =============================================================================
@@ -53,32 +78,71 @@ def get_university_events(university_id):
     upcoming_only = request.args.get('upcoming', 'true').lower() == 'true'
     limit = request.args.get('limit', 20, type=int)
 
-    query = Event.query.filter_by(university_id=university_id)
-
+    base_filter = Event.university_id == university_id
     if upcoming_only:
-        query = query.filter(Event.start_time >= datetime.utcnow())
-        query = query.order_by(Event.start_time.asc())
-    else:
-        query = query.order_by(Event.start_time.desc())
+        base_filter = and_(base_filter, Event.start_time >= datetime.utcnow())
 
-    events = query.limit(limit).all()
-
-    # Check if current user has RSVPed to each event
-    user_rsvps = set()
     if current_user.is_authenticated:
+        # Single query with LEFT JOIN to get events + isAttending in one round-trip
+        rows = (
+            db.session.query(Event, EventAttendee.id.label('rsvp_id'))
+            .outerjoin(
+                EventAttendee,
+                and_(
+                    EventAttendee.event_id == Event.id,
+                    EventAttendee.user_id == current_user.id,
+                )
+            )
+            .filter(base_filter)
+            .order_by(Event.start_time.asc() if upcoming_only else Event.start_time.desc())
+            .limit(limit)
+            .all()
+        )
+        event_ids = [e.id for e, _ in rows]
+        attendee_counts = dict(
+            db.session.query(EventAttendee.event_id, func.count(EventAttendee.id))
+            .filter(EventAttendee.event_id.in_(event_ids))
+            .group_by(EventAttendee.event_id)
+            .all()
+        ) if event_ids else {}
+        events_data = [
+            {**event.to_dict(attendee_count=attendee_counts.get(event.id, 0)), 'isAttending': rsvp_id is not None}
+            for event, rsvp_id in rows
+        ]
+    else:
+        events = (
+            Event.query.filter(base_filter)
+            .order_by(Event.start_time.asc() if upcoming_only else Event.start_time.desc())
+            .limit(limit)
+            .all()
+        )
         event_ids = [e.id for e in events]
-        if event_ids:
-            rsvps = EventAttendee.query.filter(
-                EventAttendee.event_id.in_(event_ids),
-                EventAttendee.user_id == current_user.id
-            ).all()
-            user_rsvps = {r.event_id for r in rsvps}
+        attendee_counts = dict(
+            db.session.query(EventAttendee.event_id, func.count(EventAttendee.id))
+            .filter(EventAttendee.event_id.in_(event_ids))
+            .group_by(EventAttendee.event_id)
+            .all()
+        ) if event_ids else {}
+        events_data = [
+            {**e.to_dict(attendee_count=attendee_counts.get(e.id, 0)), 'isAttending': False}
+            for e in events
+        ]
 
-    events_data = []
-    for event in events:
-        event_dict = event.to_dict()
-        event_dict['isAttending'] = event.id in user_rsvps
-        events_data.append(event_dict)
+    # Include attendance counts for executives+
+    if current_user.is_authenticated:
+        is_exec = current_user.is_site_admin() or \
+            UniversityRole.get_role_level(current_user.id, university_id) >= UniversityRoles.EXECUTIVE
+        if is_exec:
+            event_ids = [e['id'] for e in events_data]
+            if event_ids:
+                counts = dict(
+                    db.session.query(EventAttendance.event_id, func.count(EventAttendance.id))
+                    .filter(EventAttendance.event_id.in_(event_ids))
+                    .group_by(EventAttendance.event_id)
+                    .all()
+                )
+                for event_dict in events_data:
+                    event_dict['attendanceCount'] = counts.get(event_dict['id'], 0)
 
     return jsonify({
         'events': events_data
@@ -156,7 +220,7 @@ def create_event(university_id):
         if start_time >= end_time:
             return jsonify({'error': 'Start time must be before end time'}), 400
 
-    # Create event
+    # Create event with pre-generated attendance token
     event = Event(
         university_id=university_id,
         title=data['title'].strip(),
@@ -164,11 +228,28 @@ def create_event(university_id):
         location=data.get('location', '').strip() or None,
         start_time=start_time,
         end_time=end_time,
-        created_by_id=current_user.id
+        created_by_id=current_user.id,
+        attendance_token=generate_secure_token(32),
     )
 
     db.session.add(event)
     db.session.commit()
+
+    # Notify all club members about the new event (non-blocking)
+    recipients = _get_member_recipients(uni)
+    if recipients:
+        rsvp_url = f"{_APP_URL}/app/universities/{university_id}"
+        send_bulk_email(
+            current_app._get_current_object(),
+            recipients,
+            send_event_created_email,
+            club_name=uni.clubName,
+            event_title=event.title,
+            event_date=_format_event_date(event.start_time, event.end_time),
+            event_location=event.location,
+            event_description=event.description,
+            rsvp_url=rsvp_url,
+        )
 
     return jsonify(event.to_dict()), 201
 
@@ -199,6 +280,13 @@ def get_event(event_id):
         ).first()
         event_dict['isAttending'] = attendee is not None
         event_dict['attendeeStatus'] = attendee.status if attendee else None
+
+        # Include attendance data for executives+
+        is_exec = current_user.is_site_admin() or \
+            UniversityRole.get_role_level(current_user.id, event.university_id) >= UniversityRoles.EXECUTIVE
+        if is_exec:
+            event_dict['attendanceToken'] = event.attendance_token
+            event_dict['attendanceCount'] = EventAttendance.query.filter_by(event_id=event.id).count()
     else:
         event_dict['isAttending'] = False
         event_dict['attendeeStatus'] = None
@@ -235,8 +323,26 @@ def delete_event(event_id):
         if role_level < UniversityRoles.EXECUTIVE:
             return jsonify({'error': 'Not authorized to delete this event'}), 403
 
+    # Capture details before deletion for the cancellation email
+    uni = event.university
+    event_title = event.title
+    event_date = _format_event_date(event.start_time, event.end_time)
+    club_name = uni.clubName
+    recipients = _get_member_recipients(uni)
+
     db.session.delete(event)
     db.session.commit()
+
+    # Notify all club members about the cancellation (non-blocking)
+    if recipients:
+        send_bulk_email(
+            current_app._get_current_object(),
+            recipients,
+            send_event_cancelled_email,
+            club_name=club_name,
+            event_title=event_title,
+            event_date=event_date,
+        )
 
     return jsonify({'success': True, 'message': 'Event deleted successfully'})
 

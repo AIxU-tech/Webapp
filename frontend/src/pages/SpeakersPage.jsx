@@ -8,10 +8,11 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSpeakers, useDeleteSpeaker, usePageTitle, useDelayedLoading } from '../hooks';
-import { EmptyState, ErrorState, GradientButton, ConfirmationModal, CardSkeleton } from '../components/ui';
+import { EmptyState, ErrorState, GradientButton, ConfirmationModal, CardSkeleton, ToggleTag, TagGroup } from '../components/ui';
 import { SearchIcon, PlusIcon, SpeakersIcon } from '../components/icons';
 import SpeakerCard from '../components/speakers/SpeakerCard';
 import CreateSpeakerModal from '../components/speakers/CreateSpeakerModal';
+import { SPEAKER_TAGS } from '../constants/speakerTags';
 
 // Lock icon for access-denied state
 function LockIcon({ className = 'h-12 w-12' }) {
@@ -56,17 +57,39 @@ export default function SpeakersPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [speakerToDelete, setSpeakerToDelete] = useState(null);
+  const [selectedTags, setSelectedTags] = useState([]);
 
-  // Client-side search
+  // Client-side search + tag filtering
   const filteredSpeakers = useMemo(() => {
-    if (!searchTerm.trim()) return speakers;
-    const term = searchTerm.toLowerCase();
-    return speakers.filter((s) =>
-      s.name?.toLowerCase().includes(term) ||
-      s.position?.toLowerCase().includes(term) ||
-      s.organization?.toLowerCase().includes(term)
+    let result = speakers;
+
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter((s) =>
+        s.name?.toLowerCase().includes(term) ||
+        s.position?.toLowerCase().includes(term) ||
+        s.organization?.toLowerCase().includes(term)
+      );
+    }
+
+    if (selectedTags.length > 0) {
+      result = result.filter((s) => {
+        const speakerTags = Array.isArray(s.tags) ? s.tags : [];
+        // Match ANY of the selected tags
+        return speakerTags.some((tag) => selectedTags.includes(tag));
+      });
+    }
+
+    return result;
+  }, [speakers, searchTerm, selectedTags]);
+
+  const handleToggleTag = (tagId) => {
+    setSelectedTags((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
     );
-  }, [speakers, searchTerm]);
+  };
+
+  const handleClearTags = () => setSelectedTags([]);
 
   // Handle delete confirmation
   const handleDeleteConfirm = () => {
@@ -119,6 +142,11 @@ export default function SpeakersPage() {
       <PageHeader onCreateClick={() => setShowCreateModal(true)} />
 
       <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+      <TagsFilter
+        selectedTags={selectedTags}
+        onToggleTag={handleToggleTag}
+        onClear={handleClearTags}
+      />
 
       {/* Speakers Grid or Empty State */}
       {filteredSpeakers.length > 0 ? (
@@ -159,7 +187,6 @@ export default function SpeakersPage() {
           setEditingSpeaker(null);
         }}
         speaker={editingSpeaker}
-        userUniversities={userUniversities}
       />
 
       {/* Delete Confirmation Modal */}
@@ -215,6 +242,39 @@ function SearchBar({ searchTerm, onSearchChange }) {
           aria-label="Search speakers"
         />
       </div>
+    </div>
+  );
+}
+
+function TagsFilter({ selectedTags, onToggleTag, onClear }) {
+  if (!SPEAKER_TAGS || SPEAKER_TAGS.length === 0) return null;
+
+  return (
+    <div className="mb-6 flex flex-wrap items-center gap-2">
+      <span className="text-sm font-medium text-foreground mr-2">
+        Filter by background:
+      </span>
+      <TagGroup>
+        {SPEAKER_TAGS.map((tag) => (
+          <ToggleTag
+            key={tag.id}
+            selected={selectedTags.includes(tag.id)}
+            onClick={() => onToggleTag(tag.id)}
+            size="sm"
+          >
+            {tag.label}
+          </ToggleTag>
+        ))}
+      </TagGroup>
+      {selectedTags.length > 0 && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="cursor-pointer ml-2 text-xs text-muted-foreground hover:text-foreground underline"
+        >
+          Clear tags
+        </button>
+      )}
     </div>
   );
 }

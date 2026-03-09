@@ -246,7 +246,7 @@ def api_verify_email():
             session.pop('verification_timestamp', None)
 
             # Log the user in
-            login_user(user)
+            login_user(user, remember=True)
 
             return jsonify({
                 'success': True,

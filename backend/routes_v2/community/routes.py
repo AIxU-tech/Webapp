@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from backend.extensions import db
 from backend.models import Note, NoteComment, User, University, NoteAttachment
+from backend.models.notification import Notification
 from backend.routes_v2.community.helpers import (
     create_db_note,
     get_paginated_notes,
@@ -20,6 +21,12 @@ from backend.routes_v2.community.helpers import (
 )
 from backend.services.content_moderator import moderate_content
 from backend.constants import MAX_ATTACHMENTS_PER_NOTE
+from backend.routes_v2.notifications.helpers import (
+    notify_post_liked,
+    notify_post_unliked,
+    notify_post_commented,
+    notify_comment_deleted,
+)
 
 community_bp = Blueprint('community', __name__)
 
@@ -240,6 +247,9 @@ def delete_note(note_id):
         # Save author reference before deletion
         author_id = note.author_id
 
+        # Clean up any notifications referencing this note
+        Notification.query.filter_by(target_id=note_id, target_type='post').delete()
+
         # Delete the note (cascades to attachments table)
         db.session.delete(note)
         db.session.commit()
@@ -358,6 +368,11 @@ def toggle_like(note_id):
 
         # Will like or unlike the note, and perform necessary database updates
         is_liked = toggle_like_status(current_user, note)
+
+        if is_liked:
+            notify_post_liked(note, current_user)
+        else:
+            notify_post_unliked(note, current_user)
 
         return jsonify({
             'success': True,
@@ -497,6 +512,8 @@ def add_comment(note_id):
         comment = create_comment(note, current_user.id, text, parent_id)
         db.session.commit()
 
+        notify_post_commented(note, current_user, text)
+
         # Get the comment dict with isLiked set correctly
         comment_dict = comment.to_dict()
         comment_dict['isLiked'] = False  # New comment, not liked yet
@@ -571,6 +588,8 @@ def remove_comment(note_id, comment_id):
         note = Note.query.get(note_id)
         delete_comment(comment, note)
         db.session.commit()
+
+        notify_comment_deleted(note, current_user)
 
         return jsonify({
             'success': True,

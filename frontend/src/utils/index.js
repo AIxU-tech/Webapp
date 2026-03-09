@@ -28,6 +28,8 @@ export {
   MAX_SOCIAL_LINKS,
 } from './socialLinks';
 
+export { validateEmailFormat, validatePhoneFormat } from './validation';
+
 // URL construction utilities
 export {
   getUserProfilePictureUrl,

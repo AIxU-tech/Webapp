@@ -370,7 +370,7 @@ export default function OpportunitiesPage() {
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="flex items-center text-sm text-primary hover:text-primary/80 transition-colors ml-auto"
+              className="cursor-pointer flex items-center text-sm text-primary hover:text-primary/80 transition-colors ml-auto"
             >
               <XIcon className="h-4 w-4 mr-1" />
               Clear filters
@@ -389,8 +389,6 @@ export default function OpportunitiesPage() {
               selected={bookmarkedFilter ? null : tagFilter}
               onChange={handleTagChange}
               onHover={handleCategoryTagHover}
-              showAll
-              allLabel="All Categories"
             />
           </div>
 
@@ -399,7 +397,7 @@ export default function OpportunitiesPage() {
             <button
               onClick={handleBookmarkedToggle}
               onMouseEnter={handleBookmarkHover}
-              className={`
+              className={`cursor-pointer
                 inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200
                 ${bookmarkedFilter
                   ? 'bg-primary text-white shadow-md'

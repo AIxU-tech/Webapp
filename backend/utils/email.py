@@ -225,3 +225,126 @@ def send_password_reset_confirmation(email: str):
     body = "Your password was successfully reset."
 
     return send_email(subject, body, to_email_override=email)
+
+
+def send_new_conversation_email(
+    recipient_email: str,
+    recipient_first_name: str,
+    sender_name: str,
+    messages_url: str,
+) -> bool:
+    """
+    Notify a user that someone has started a new conversation with them.
+
+    Sent only for the very first message between two users so the
+    recipient knows to check their inbox.
+
+    Args:
+        recipient_email: Email address of the message recipient.
+        recipient_first_name: Recipient's first name for personalization.
+        sender_name: Full name of the person who sent the message.
+        messages_url: Direct link to the messages page.
+
+    Returns:
+        True if the email was sent successfully, False otherwise.
+    """
+    greeting = f"Hi {recipient_first_name}" if recipient_first_name else "Hi there"
+    subject = f"You have a new message on AIxU"
+    body = f"""{greeting},
+
+{sender_name} sent you a message on AIxU. Open your inbox to read and reply:
+
+{messages_url}
+
+Best regards,
+The AIxU Team"""
+
+    return send_email(subject, body, to_email_override=recipient_email)
+
+
+def send_event_created_email(
+    recipient_email: str,
+    recipient_first_name: str,
+    club_name: str,
+    event_title: str,
+    event_date: str,
+    event_location: str,
+    event_description: str,
+    rsvp_url: str,
+) -> bool:
+    """
+    Notify a club member that a new event has been created.
+
+    Args:
+        recipient_email: Member's email address.
+        recipient_first_name: Member's first name for personalization.
+        club_name: Name of the club hosting the event.
+        event_title: Title of the new event.
+        event_date: Human-readable date/time string.
+        event_location: Event location (or None).
+        event_description: Event description (or None).
+        rsvp_url: Link to the university page where the member can RSVP.
+
+    Returns:
+        True if the email was sent successfully, False otherwise.
+    """
+    greeting = f"Hi {recipient_first_name}" if recipient_first_name else "Hi there"
+    subject = f"New Event: {event_title} — {club_name}"
+
+    details = f"Date: {event_date}"
+    if event_location:
+        details += f"\nLocation: {event_location}"
+    if event_description:
+        details += f"\n\n{event_description}"
+
+    body = f"""{greeting},
+
+{club_name} just posted a new event:
+
+{event_title}
+{details}
+
+RSVP on AIxU:
+{rsvp_url}
+
+Best regards,
+The AIxU Team"""
+
+    return send_email(subject, body, to_email_override=recipient_email)
+
+
+def send_event_cancelled_email(
+    recipient_email: str,
+    recipient_first_name: str,
+    club_name: str,
+    event_title: str,
+    event_date: str,
+) -> bool:
+    """
+    Notify a club member that an event has been cancelled.
+
+    Args:
+        recipient_email: Member's email address.
+        recipient_first_name: Member's first name for personalization.
+        club_name: Name of the club that hosted the event.
+        event_title: Title of the cancelled event.
+        event_date: Human-readable date/time the event was scheduled for.
+
+    Returns:
+        True if the email was sent successfully, False otherwise.
+    """
+    greeting = f"Hi {recipient_first_name}" if recipient_first_name else "Hi there"
+    subject = f"Event Cancelled: {event_title} — {club_name}"
+    body = f"""{greeting},
+
+The following event from {club_name} has been cancelled:
+
+{event_title}
+Date: {event_date}
+
+If you have any questions, please reach out to your club's executive team on AIxU.
+
+Best regards,
+The AIxU Team"""
+
+    return send_email(subject, body, to_email_override=recipient_email)

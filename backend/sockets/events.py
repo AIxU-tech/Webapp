@@ -22,7 +22,11 @@ Usage:
     emit_new_message(recipient_id, message_data)
 """
 
+import logging
+
 from backend.extensions import socketio
+
+logger = logging.getLogger(__name__)
 
 
 def emit_new_message(recipient_id, message_data, conversation_data=None):
@@ -86,7 +90,7 @@ def emit_new_message(recipient_id, message_data, conversation_data=None):
     # Using 'new_message' as the event name for clarity
     socketio.emit('new_message', payload, room=room)
 
-    print(f'[Socket] Emitted new_message to user_{recipient_id}')
+    logger.debug('Emitted new_message to user_%s', recipient_id)
 
 
 def emit_messages_read(sender_id, reader_id, conversation_id):
@@ -119,7 +123,7 @@ def emit_messages_read(sender_id, reader_id, conversation_id):
 
     socketio.emit('messages_read', payload, room=room)
 
-    print(f'[Socket] Emitted messages_read to user_{sender_id}')
+    logger.debug('Emitted messages_read to user_%s', sender_id)
 
 
 def emit_new_note(author_id, note_data, exclude_author=True):
@@ -151,7 +155,7 @@ def emit_new_note(author_id, note_data, exclude_author=True):
     else:
         socketio.emit('new_note', payload, broadcast=True)
 
-    print(f'[Socket] Broadcasted new_note from user_{author_id}')
+    logger.debug('Broadcasted new_note from user_%s', author_id)
 
 
 def emit_note_liked(note_author_id, liker_id, note_id, likes_count, is_liked):
@@ -184,7 +188,7 @@ def emit_note_liked(note_author_id, liker_id, note_id, likes_count, is_liked):
 
     socketio.emit('note_liked', payload, room=room)
 
-    print(f'[Socket] Emitted note_liked to user_{note_author_id}')
+    logger.debug('Emitted note_liked to user_%s', note_author_id)
 
 
 def emit_new_follower(followed_user_id, follower_data):
@@ -208,7 +212,30 @@ def emit_new_follower(followed_user_id, follower_data):
 
     socketio.emit('new_follower', payload, room=room)
 
-    print(f'[Socket] Emitted new_follower to user_{followed_user_id}')
+    logger.debug('Emitted new_follower to user_%s', followed_user_id)
+
+
+def emit_notification_update(recipient_id, notification_data):
+    """
+    Emit a notification event to a specific user.
+
+    Called after a notification row is upserted so the recipient's
+    UI can update in real time (badge count, dropdown list).
+
+    Args:
+        recipient_id (int): The user ID receiving the notification
+        notification_data (dict): The serialised notification (from to_dict())
+    """
+    room = f'user_{recipient_id}'
+
+    payload = {
+        'type': 'notification_update',
+        'notification': notification_data,
+    }
+
+    socketio.emit('notification_update', payload, room=room)
+
+    logger.debug('Emitted notification_update to user_%s', recipient_id)
 
 
 def emit_university_update(university_id, members, update_type, user_data=None):
@@ -236,4 +263,4 @@ def emit_university_update(university_id, members, update_type, user_data=None):
         room = f'user_{member_id}'
         socketio.emit('university_update', payload, room=room)
 
-    print(f'[Socket] Emitted university_update ({update_type}) to {len(members)} members')
+    logger.debug('Emitted university_update (%s) to %d members', update_type, len(members))

@@ -7,6 +7,8 @@ Extracted to avoid code duplication in routes.
 
 from __future__ import annotations
 
+import re
+
 
 # =============================================================================
 # TEMPORARY: Whitelisted non-.edu domains for testing
@@ -90,6 +92,57 @@ def validate_url(url: str) -> bool:
         return result.scheme in ('http', 'https') and bool(result.netloc)
     except Exception:
         return False
+
+
+# Simplified email format: local@domain.tld, reasonable length (RFC allows longer; we cap for safety)
+_EMAIL_FORMAT_RE = re.compile(
+    r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$',
+    re.IGNORECASE,
+)
+_EMAIL_MAX_LEN = 254
+
+
+def validate_email_format(email: str) -> tuple[bool, str | None]:
+    """
+    Validate that a string is a well-formed email address (format only).
+    Use for optional contact email fields; empty string is considered valid (field not required).
+
+    Args:
+        email: The email string to validate (can be empty)
+
+    Returns:
+        Tuple of (is_valid, error_message). error_message is None when valid.
+    """
+    if not email or not email.strip():
+        return True, None
+    s = email.strip()
+    if len(s) > _EMAIL_MAX_LEN:
+        return False, 'Email address is too long'
+    if not _EMAIL_FORMAT_RE.match(s):
+        return False, 'Please enter a valid email address'
+    return True, None
+
+
+def validate_phone_format(phone: str) -> tuple[bool, str | None]:
+    """
+    Validate that a string is a well-formed phone number (digits, optional + prefix,
+    optional spaces/dashes/parens). Allows international formats; requires 7–15 digits.
+
+    Args:
+        phone: The phone string to validate (can be empty)
+
+    Returns:
+        Tuple of (is_valid, error_message). error_message is None when valid.
+    """
+    if not phone or not phone.strip():
+        return True, None
+    s = phone.strip()
+    digits = ''.join(c for c in s if c.isdigit())
+    if not digits:
+        return False, 'Please enter a valid phone number (digits only, with optional +, spaces, or dashes)'
+    if len(digits) < 7 or len(digits) > 15:
+        return False, 'Phone number must be between 7 and 15 digits'
+    return True, None
 
 
 def validate_social_links(social_links: list | None) -> tuple[bool, str | None]:

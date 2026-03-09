@@ -208,6 +208,17 @@ export {
 } from './useUniversityRequests';
 
 // =============================================================================
+// Attendance Hooks
+// =============================================================================
+export {
+  useAttendanceEvent,
+  useSubmitAttendance,
+  useEventAttendance,
+  useEventAttendanceToken,
+  attendanceKeys,
+} from './useAttendance';
+
+// =============================================================================
 // Speakers Hooks
 // =============================================================================
 export {
@@ -217,6 +228,26 @@ export {
   useDeleteSpeaker,
   speakerKeys,
 } from './useSpeakers';
+
+// =============================================================================
+// Notifications Hooks
+// =============================================================================
+export {
+  useNotifications,
+  useUnreadNotificationCount,
+  useMarkAllNotificationsRead,
+  notificationKeys,
+} from './useNotifications';
+
+// =============================================================================
+// Resume Hooks
+// =============================================================================
+export {
+  useResume,
+  useUploadResume,
+  useDeleteResume,
+  resumeKeys,
+} from './useResume';
 
 // =============================================================================
 // UI Utility Hooks

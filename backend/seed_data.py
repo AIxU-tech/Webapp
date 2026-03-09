@@ -9,6 +9,7 @@ Or from the project root:
 """
 
 import random
+import json
 from datetime import datetime, timedelta
 
 # Setup Flask app context
@@ -176,6 +177,13 @@ def seed_universities():
             "location": "Cambridge, MA",
             "email_domain": "mit",
             "description": "Connecting MIT students with AI research opportunities and industry partners."
+        },
+        {
+            "name": "University of Colorado Boulder",
+            "clubName": "CU Boulder AI",
+            "location": "Boulder, CO",
+            "email_domain": "colorado",
+            "description": "CU Boulder's AI community fostering collaboration between students and the Boulder tech industry."
         },
         {
             "name": "UC Berkeley",
@@ -402,14 +410,14 @@ def seed_users(universities):
             "location": "Seattle, WA",
             "skills": ["Python", "Security", "Adversarial ML"]
         },
-        # {
-        #     "email": "alsa8624@colorado.edu",
-        #     "first_name": "Alex",
-        #     "last_name": "Savard",
-        #     "about_section": "Computer science student interested in AI and machine learning.",
-        #     "location": "Boulder, CO",
-        #     "skills": ["Python", "Java", "C++"]
-        # }
+        {
+            "email": "alsa8624@colorado.edu",
+            "first_name": "Alex",
+            "last_name": "Savard",
+            "about_section": "Computer science student interested in AI and machine learning.",
+            "location": "Boulder, CO",
+            "skills": ["Python", "Java", "C++"]
+        }
     ]
 
     users = []
@@ -827,6 +835,7 @@ def seed_speakers(users, universities):
             "email": "feifeili@stanford.edu",
             "linkedin_url": "https://linkedin.com/in/faboretum",
             "notes": "Co-director of Stanford HAI. Great for talks on computer vision and AI ethics. Prefers 45-min format.",
+            "tags": ["academic_research", "policy_ethics"],
         },
         {
             "name": "Dr. Andrew Ng",
@@ -836,6 +845,7 @@ def seed_speakers(users, universities):
             "phone": "(650) 555-0142",
             "linkedin_url": "https://linkedin.com/in/andrewyng",
             "notes": "Excellent speaker for introductory AI topics. Very student-friendly. Books 2-3 months in advance.",
+            "tags": ["industry_ml_engineer", "startup_founder"],
         },
         {
             "name": "Dr. Timnit Gebru",
@@ -844,6 +854,7 @@ def seed_speakers(users, universities):
             "email": "timnit@dairinstitute.org",
             "linkedin_url": "https://linkedin.com/in/timnit-gebru",
             "notes": "Expert on AI ethics and fairness. Passionate about diversity in tech. Prefers panel or Q&A format.",
+            "tags": ["policy_ethics", "academic_research"],
         },
         {
             "name": "Dr. Yann LeCun",
@@ -852,6 +863,7 @@ def seed_speakers(users, universities):
             "email": "ylecun@meta.com",
             "linkedin_url": "https://linkedin.com/in/yann-lecun",
             "notes": "Turing Award winner. Great for deep learning fundamentals talks. Limited availability.",
+            "tags": ["academic_research", "industry_ml_engineer"],
         },
         {
             "name": "Rachel Thomas",
@@ -860,6 +872,7 @@ def seed_speakers(users, universities):
             "email": "rachel@fast.ai",
             "linkedin_url": "https://linkedin.com/in/rachel-thomas-ai",
             "notes": "Focuses on practical deep learning and AI accessibility. Great for workshop-style sessions.",
+            "tags": ["industry_ml_engineer", "startup_founder"],
         },
         {
             "name": "Dr. Percy Liang",
@@ -868,6 +881,7 @@ def seed_speakers(users, universities):
             "email": "pliang@cs.stanford.edu",
             "phone": "(650) 555-0198",
             "notes": "Expert on foundation models and NLP. Runs the HELM benchmark. Good for research-oriented talks.",
+            "tags": ["academic_research"],
         },
         {
             "name": "Sarah Guo",
@@ -876,6 +890,7 @@ def seed_speakers(users, universities):
             "email": "sarah@conviction.com",
             "linkedin_url": "https://linkedin.com/in/sarahguo",
             "notes": "AI venture capitalist. Great for talks on AI startups and entrepreneurship. Very engaging speaker.",
+            "tags": ["vc_investor", "startup_founder"],
         },
         {
             "name": "Dr. Dario Amodei",
@@ -883,6 +898,7 @@ def seed_speakers(users, universities):
             "organization": "Anthropic",
             "linkedin_url": "https://linkedin.com/in/dario-amodei",
             "notes": "Expert on AI safety. Prefers moderated discussion format. Requires 3+ months advance booking.",
+            "tags": ["policy_ethics", "industry_ml_engineer"],
         },
     ]
 
@@ -898,6 +914,7 @@ def seed_speakers(users, universities):
             phone=data.get("phone"),
             linkedin_url=data.get("linkedin_url"),
             notes=data.get("notes"),
+            tags=json.dumps(data.get("tags") or []),
             university_id=uni.id,
             added_by_id=adder.id,
             created_at=datetime.utcnow() - timedelta(days=random.randint(1, 90)),

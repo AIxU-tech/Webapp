@@ -50,6 +50,7 @@ export default function MessageInput({ onSend, disabled = false, autoFocus = fal
           className="
             flex-1 px-4 py-2
             bg-muted/50 border border-border rounded-2xl
+            text-base md:text-sm
             text-foreground placeholder-muted-foreground
             focus:outline-none focus:ring-2 focus:ring-primary
             resize-none
