@@ -48,7 +48,7 @@ import {
   ConfirmationModal,
   Toast,
 } from '../components/ui';
-import { NoteCard, NotesFilter, CreateNoteModal, EditNoteModal } from '../components/community';
+import { NoteCard, NotesFilter, CreateNoteModal, EditNoteModal, NotesLoadingSkeleton } from '../components/community';
 
 // Icons
 import {
@@ -516,12 +516,14 @@ export default function CommunityPage() {
         isAuthenticated={isAuthenticated}
       />
 
-      {/* Notes List */}
+      {/* Notes List — skeleton while loading, feed once data arrives */}
+      {showLoading ? (
+        <NotesLoadingSkeleton />
+      ) : (
       <FeedItemList
         items={notes}
-        isLoading={showLoading}
+        isLoading={false}
         error={queryError}
-        loadingText="Loading notes..."
         emptyIcon={bookmarkedFilter ? <BookmarkIcon className="h-12 w-12" /> : <FileTextIcon className="h-12 w-12" />}
         emptyTitle={
           searchQuery
@@ -558,6 +560,7 @@ export default function CommunityPage() {
           />
         )}
       />
+      )}
 
       {/* Infinite Scroll Sentinel - Triggers load when scrolled into view */}
       {hasNextPage && (

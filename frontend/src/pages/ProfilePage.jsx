@@ -46,7 +46,6 @@ import {
 import {
   Alert,
   Toast,
-  LoadingState,
   ErrorState,
   BannerUploadModal,
   ConfirmationModal,
@@ -62,6 +61,7 @@ import {
   EducationSection,
   ProjectsSection,
   ResumeSection,
+  ProfilePageSkeleton,
 } from '../components/profile';
 
 export default function ProfilePage() {
@@ -274,7 +274,7 @@ export default function ProfilePage() {
   // ---------------------------------------------------------------------------
 
   if (isLoading) {
-    return <LoadingState fullPage text="Loading profile..." />;
+    return <ProfilePageSkeleton />;
   }
 
   if (error || !user) {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useConversation, useSendMessage } from '../../hooks';
-import { Avatar, EmptyState, LoadingState } from '../ui';
+import { Avatar, EmptyState } from '../ui';
 import { MessageCircleIcon } from '../icons';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
@@ -21,7 +21,7 @@ function ConversationHeader({ user }) {
   );
 }
 
-export default function ConversationPanel({ userId, recipientUser, isNewConversation, onConversationCreated, onThreadMouseEnter, onThreadMouseLeave, autoFocusInput, onAutoFocusConsumed }) {
+export default function ConversationPanel({ userId, recipientUser, isNewConversation, onConversationCreated, onThreadMouseEnter, onThreadMouseLeave, autoFocusInput, onAutoFocusConsumed, isParentLoading = false }) {
   const { data: conversationData, isLoading } = useConversation(userId);
   const messages = conversationData?.messages || [];
   const user = conversationData?.user || recipientUser;
@@ -70,11 +70,13 @@ export default function ConversationPanel({ userId, recipientUser, isNewConversa
   if (!userId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-card md:border-l md:border-border">
-        <EmptyState
-          icon={<MessageCircleIcon className="h-12 w-12" />}
-          title="No conversations yet"
-          description="Search for a user above to start messaging"
-        />
+        {!isParentLoading && (
+          <EmptyState
+            icon={<MessageCircleIcon className="h-12 w-12" />}
+            title="No conversations yet"
+            description="Search for a user above to start messaging"
+          />
+        )}
       </div>
     );
   }
@@ -89,16 +91,9 @@ export default function ConversationPanel({ userId, recipientUser, isNewConversa
         onMouseEnter={onThreadMouseEnter}
         onMouseLeave={onThreadMouseLeave}
       >
-        {isLoading && !isNewConversation ? (
-          <LoadingState text="Loading messages..." />
-        ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-          </div>
-        ) : (
-          messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
-          ))
-        )}
+        {messages.length > 0 && messages.map((message) => (
+          <MessageBubble key={message.id} message={message} />
+        ))}
       </div>
 
       <MessageInput

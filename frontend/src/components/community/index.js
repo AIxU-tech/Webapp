@@ -9,6 +9,7 @@
  */
 
 export { default as NewsLoadingSkeleton } from './NewsLoadingSkeleton';
+export { default as NotesLoadingSkeleton } from './NotesLoadingSkeleton';
 export { default as NoteCard } from './NoteCard';
 export { default as CommentSection } from './CommentSection';
 export { default as CommentCard } from './CommentCard';

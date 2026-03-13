@@ -7,8 +7,9 @@ import {
   usePageTitle,
   markConversationRead,
   clearUnreadConversation,
+  prefetchConversation,
 } from '../hooks';
-import { LoadingState, ErrorState } from '../components/ui';
+import { ErrorState } from '../components/ui';
 import { ArrowLeftIcon } from '../components/icons';
 import {
   ConversationSidebar,
@@ -106,9 +107,9 @@ export default function MessagesPage() {
     setRecipientUser(null);
   }, []);
 
-  if (isLoading && conversations.length === 0) {
-    return <LoadingState fullPage text="Loading messages..." size="lg" />;
-  }
+  const handlePrefetchConversation = useCallback((userId) => {
+    prefetchConversation(queryClient, userId);
+  }, [queryClient]);
 
   if (error && conversations.length === 0) {
     return (
@@ -128,8 +129,10 @@ export default function MessagesPage() {
           <ConversationSidebar
             conversations={conversations}
             activeUserId={activeUserId}
+            isLoading={isLoading}
             onSelectConversation={handleSelectConversation}
             onStartNewConversation={handleStartNewConversation}
+            onPrefetchConversation={handlePrefetchConversation}
             disableScroll={hoverArea === 'conversation'}
             onMouseEnter={() => setHoverArea('sidebar')}
             onMouseLeave={() => setHoverArea(null)}
@@ -153,6 +156,7 @@ export default function MessagesPage() {
             userId={activeUserId}
             recipientUser={recipientUser}
             isNewConversation={isNewConversation}
+            isParentLoading={isLoading}
             onConversationCreated={handleConversationCreated}
             onThreadMouseEnter={() => setHoverArea('conversation')}
             onThreadMouseLeave={() => setHoverArea(null)}

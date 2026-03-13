@@ -1,4 +1,5 @@
 import ConversationListItem from './ConversationListItem';
+import ConversationListSkeleton from './ConversationListSkeleton';
 import UserSearchBar from './UserSearchBar';
 import { EmptyState } from '../ui';
 import { MessageCircleIcon } from '../icons';
@@ -6,8 +7,10 @@ import { MessageCircleIcon } from '../icons';
 export default function ConversationSidebar({
   conversations,
   activeUserId,
+  isLoading = false,
   onSelectConversation,
   onStartNewConversation,
+  onPrefetchConversation,
   disableScroll = false,
   onMouseEnter,
   onMouseLeave,
@@ -22,7 +25,9 @@ export default function ConversationSidebar({
       <UserSearchBar onStartNewConversation={onStartNewConversation} />
 
       <div className={`flex-1 ${disableScroll ? 'overflow-hidden' : 'overflow-y-auto'} py-1`}>
-        {conversations.length === 0 ? (
+        {isLoading && conversations.length === 0 ? (
+          <ConversationListSkeleton />
+        ) : conversations.length === 0 ? (
           <EmptyState
             icon={<MessageCircleIcon className="h-12 w-12" />}
             title="No conversations yet"
@@ -35,6 +40,7 @@ export default function ConversationSidebar({
               conversation={conversation}
               isActive={conversation.otherUser.id === activeUserId}
               onClick={() => onSelectConversation(conversation.otherUser.id)}
+              onHover={() => onPrefetchConversation?.(conversation.otherUser.id)}
             />
           ))
         )}
