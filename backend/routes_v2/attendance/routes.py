@@ -181,6 +181,11 @@ def submit_attendance(token):
     existing = EventAttendance.find_existing(event.id, user_id=user_id, email=email)
     if existing:
         return jsonify({'success': True, 'alreadyCheckedIn': True, 'eventId': event.id}), 200
+    
+
+    # Check if the attendance is in the event time window
+    if event.start_time > datetime.utcnow() or event.end_time < datetime.utcnow():
+        return jsonify({'error': 'This event is not currently active'}), 400
 
     record = EventAttendance(
         event_id=event.id,

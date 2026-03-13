@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { BaseModal, GradientButton, SecondaryButton, DatePicker, TimePicker } from '../ui';
+import { BaseModal, GradientButton, SecondaryButton, DatePicker, TimePicker, Alert } from '../ui';
 import { timeToMinutes, minutesToTime } from '../ui/forms/TimePicker';
 import { useCreateEvent, useUpdateEvent } from '../../hooks';
 import { parseUtcDate } from '../../utils/time';
@@ -74,13 +74,17 @@ export default function CreateEventModal({ isOpen, onClose, universityId, event 
   const [startTime, setStartTime] = useState(null);
   const [endTime, setEndTime] = useState(null);
   const [durationMinutes, setDurationMinutes] = useState(DEFAULT_DURATION);
+  const [error, setError] = useState('');
   // Mutations
   const createEventMutation = useCreateEvent();
   const updateEventMutation = useUpdateEvent();
   const activeMutation = isEditMode ? updateEventMutation : createEventMutation;
 
-  // Pre-fill form when editing an existing event
+  // Pre-fill form when editing an existing event, reset error when opening
   useEffect(() => {
+    if (isOpen) {
+      setError('');
+    }
     if (isOpen && event) {
       setTitle(event.title || '');
       setDescription(event.description || '');
@@ -115,6 +119,7 @@ export default function CreateEventModal({ isOpen, onClose, universityId, event 
 
   // Reset form and close modal
   const handleClose = () => {
+    setError('');
     setTitle('');
     setDescription('');
     setLocation('');
@@ -177,14 +182,15 @@ export default function CreateEventModal({ isOpen, onClose, universityId, event 
   // Form submission
   const handleSubmit = (e) => {
     e.preventDefault();
+    setError('');
 
     if (!title.trim()) {
-      alert('Title is required');
+      setError('Title is required');
       return;
     }
 
     if (!date || !startTime) {
-      alert('Date and start time are required');
+      setError('Date and start time are required');
       return;
     }
 
@@ -206,9 +212,8 @@ export default function CreateEventModal({ isOpen, onClose, universityId, event 
           onSuccess: () => {
             handleClose();
           },
-          onError: (error) => {
-            console.error('Error updating event:', error);
-            alert(error.message || 'Failed to update event. Please try again.');
+          onError: (err) => {
+            setError(err.message || 'Failed to update event. Please try again.');
           },
         }
       );
@@ -219,9 +224,8 @@ export default function CreateEventModal({ isOpen, onClose, universityId, event 
           onSuccess: () => {
             handleClose();
           },
-          onError: (error) => {
-            console.error('Error creating event:', error);
-            alert(error.message || 'Failed to create event. Please try again.');
+          onError: (err) => {
+            setError(err.message || 'Failed to create event. Please try again.');
           },
         }
       );
@@ -250,102 +254,108 @@ export default function CreateEventModal({ isOpen, onClose, universityId, event 
       size="2xl"
     >
       <form onSubmit={handleSubmit} className="p-6">
+        {error && (
+          <Alert variant="error" className="mb-4">
+            {error}
+          </Alert>
+        )}
+
         {/* Title */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Event Title <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            placeholder="e.g., AI Workshop: Introduction to Neural Networks"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          />
-        </div>
-
-        {/* Description */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Description
-          </label>
-          <textarea
-            placeholder="Describe the event, what attendees will learn or do, any prerequisites..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-          />
-          <p className="text-xs text-muted-foreground mt-1 text-right">
-            {charCount} characters
-          </p>
-        </div>
-
-        {/* Location */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Location
-          </label>
-          <input
-            type="text"
-            placeholder="e.g., Room 101, Computer Science Building or Zoom link"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          />
-        </div>
-
-        {/* Date */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Date <span className="text-red-500">*</span>
-          </label>
-          <DatePicker
-            value={date}
-            onChange={handleDateChange}
-            minDate={minDate}
-            placeholder="Select a date"
-            required
-            id="event-date"
-            ariaLabel="Event date"
-          />
-        </div>
-
-        {/* Start Time / End Time Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Start Time */}
-          <div>
+          <div className="mb-4">
             <label className="block text-sm font-medium text-foreground mb-2">
-              Start Time <span className="text-red-500">*</span>
+              Event Title <span className="text-red-500">*</span>
             </label>
-            <TimePicker
-              value={startTime}
-              onChange={handleStartTimeChange}
-              placeholder="Start time"
-              disabled={!date}
+            <input
+              type="text"
+              placeholder="e.g., AI Workshop: Introduction to Neural Networks"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               required
-              id="event-start-time"
-              ariaLabel="Event start time"
+              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
 
-          {/* End Time */}
-          <div>
+          {/* Description */}
+          <div className="mb-4">
             <label className="block text-sm font-medium text-foreground mb-2">
-              End Time
-              {durationLabel && (
-                <span className="text-muted-foreground font-normal ml-1">
-                  ({durationLabel})
-                </span>
-              )}
+              Description
             </label>
-            <TimePicker
-              value={endTime}
-              onChange={handleEndTimeChange}
-              referenceTime={startTime}
-              placeholder="End time"
-              disabled={!startTime}
+            <textarea
+              placeholder="Describe the event, what attendees will learn or do, any prerequisites..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+            />
+            <p className="text-xs text-muted-foreground mt-1 text-right">
+              {charCount} characters
+            </p>
+          </div>
+
+          {/* Location */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Location
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., Room 101, Computer Science Building or Zoom link"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+          </div>
+
+          {/* Date */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Date <span className="text-red-500">*</span>
+            </label>
+            <DatePicker
+              value={date}
+              onChange={handleDateChange}
+              minDate={minDate}
+              placeholder="Select a date"
+              required
+              id="event-date"
+              ariaLabel="Event date"
+            />
+          </div>
+
+          {/* Start Time / End Time Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* Start Time */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Start Time <span className="text-red-500">*</span>
+              </label>
+              <TimePicker
+                value={startTime}
+                onChange={handleStartTimeChange}
+                placeholder="Start time"
+                disabled={!date}
+                required
+                id="event-start-time"
+                ariaLabel="Event start time"
+              />
+            </div>
+
+            {/* End Time */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                End Time
+                {durationLabel && (
+                  <span className="text-muted-foreground font-normal ml-1">
+                    ({durationLabel})
+                  </span>
+                )}
+              </label>
+              <TimePicker
+                value={endTime}
+                onChange={handleEndTimeChange}
+                referenceTime={startTime}
+                placeholder="End time"
+                disabled={!startTime}
               id="event-end-time"
               ariaLabel="Event end time"
             />
