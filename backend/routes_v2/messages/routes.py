@@ -18,6 +18,7 @@ so their UI updates instantly without needing to refresh or poll.
 
 import os
 import threading
+import time
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
@@ -95,6 +96,8 @@ def get_conversations():
 
     Conversations are sorted by most recent message first.
     """
+    if current_app.config.get('DEV_MODE', False):
+        time.sleep(1.5)
     try:
         # Get all messages involving the current user
         all_messages = Message.query.filter(
@@ -221,6 +224,8 @@ def get_conversation(user_id):
         404: User not found
         500: Server error
     """
+    if current_app.config.get('DEV_MODE', False):
+        time.sleep(1.5)
     try:
         # Get the other user
         other_user = User.query.get(user_id)

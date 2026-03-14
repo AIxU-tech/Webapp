@@ -37,7 +37,6 @@ import {
   useDeleteNote,
   usePageTitle,
   useInfiniteScroll,
-  useDelayedLoading,
   prefetchInfiniteNotes,
 } from '../hooks';
 
@@ -123,14 +122,14 @@ export default function CommunityPage() {
     isFetchingNextPage,
   } = useInfiniteNotes(queryParams);
 
-  // Only show loading spinner if loading takes >200ms (prevents flash)
-  const showLoading = useDelayedLoading(isLoading);
-
   // Extract and flatten notes from infinite query data
   const allNotes = useMemo(() => {
     if (!data?.pages) return [];
     return data.pages.flatMap((page) => page.notes || []);
   }, [data]);
+
+  // Show skeleton when loading with no data yet (avoids empty-state flash on initial load)
+  const showSkeleton = isLoading && !data?.pages?.length;
 
   /**
    * Notes are already filtered by backend based on tagFilter from URL
@@ -517,7 +516,7 @@ export default function CommunityPage() {
       />
 
       {/* Notes List — skeleton while loading, feed once data arrives */}
-      {showLoading ? (
+      {showSkeleton ? (
         <NotesLoadingSkeleton />
       ) : (
       <FeedItemList

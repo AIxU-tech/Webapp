@@ -21,7 +21,9 @@ RESTful Endpoints:
 - GET /user/<id>/banner - Serve banner image from database
 """
 
-from flask import Blueprint, request, jsonify, send_file, redirect, Response
+import time
+
+from flask import Blueprint, request, jsonify, send_file, redirect, Response, current_app
 from flask_login import login_required, current_user, logout_user
 from datetime import datetime
 import base64
@@ -466,6 +468,8 @@ def get_user_detail(user_id: int):
     Returns:
         JSON object with user profile and activity data
     """
+    if current_app.config.get('DEV_MODE', False):
+        time.sleep(1.5)
     user = User.query.get(user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404

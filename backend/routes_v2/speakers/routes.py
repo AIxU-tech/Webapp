@@ -14,7 +14,9 @@ Permission Logic:
 - Edit/delete restricted to the user who added the speaker, or site admin
 """
 
-from flask import Blueprint, request, jsonify
+import time
+
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 import json
 from backend.extensions import db
@@ -117,6 +119,8 @@ def list_speakers():
     Returns:
         JSON with speakers array and userUniversities array
     """
+    if current_app.config.get('DEV_MODE', False):
+        time.sleep(1.5)
     authorized, error_response = _check_executive_access()
     if not authorized:
         return error_response

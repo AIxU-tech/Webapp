@@ -27,7 +27,6 @@ import {
   useDeleteOpportunity,
   useInfiniteScroll,
   usePageTitle,
-  useDelayedLoading,
   prefetchInfiniteOpportunities,
 } from '../hooks';
 
@@ -91,14 +90,14 @@ export default function OpportunitiesPage() {
     isFetchingNextPage,
   } = useInfiniteOpportunities(queryParams);
 
-  // Only show skeleton if loading takes >200ms (prevents flash on cached data)
-  const showLoading = useDelayedLoading(loading);
-
   // Extract and flatten opportunities from infinite query data
   const opportunities = useMemo(() => {
     if (!data?.pages) return [];
     return data.pages.flatMap((page) => page.opportunities || []);
   }, [data]);
+
+  // Show skeleton when loading with no data yet (avoids empty-state flash on initial load)
+  const showSkeleton = loading && !data?.pages?.length;
 
   // Mutations
   const createOpportunityMutation = useCreateOpportunity();
@@ -417,7 +416,7 @@ export default function OpportunitiesPage() {
       </div>
 
       {/* Opportunities List — skeleton while loading, feed once data arrives */}
-      {showLoading ? (
+      {showSkeleton ? (
         <OpportunitiesLoadingSkeleton />
       ) : (
         <FeedItemList

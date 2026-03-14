@@ -7,7 +7,7 @@
 
 import { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useSpeakers, useDeleteSpeaker, usePageTitle, useDelayedLoading } from '../hooks';
+import { useSpeakers, useDeleteSpeaker, usePageTitle } from '../hooks';
 import { EmptyState, ErrorState, GradientButton, ConfirmationModal, CardSkeleton, ToggleTag, TagGroup } from '../components/ui';
 import { SearchIcon, PlusIcon, SpeakersIcon } from '../components/icons';
 import SpeakerCard from '../components/speakers/SpeakerCard';
@@ -46,7 +46,6 @@ export default function SpeakersPage() {
   const speakers = data?.speakers || [];
   const userUniversities = data?.userUniversities || [];
 
-  const showLoading = useDelayedLoading(isLoading);
   const error = queryError?.message || null;
 
   // Delete mutation
@@ -113,12 +112,17 @@ export default function SpeakersPage() {
     );
   }
 
-  // Loading state
-  if (showLoading) {
+  // Loading state (skeleton when loading with no data yet)
+  if (isLoading && speakers.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
         <PageHeader onCreateClick={() => setShowCreateModal(true)} />
         <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+        <TagsFilter
+          selectedTags={selectedTags}
+          onToggleTag={handleToggleTag}
+          onClear={handleClearTags}
+        />
         <LoadingSkeleton />
       </div>
     );
@@ -250,17 +254,16 @@ function TagsFilter({ selectedTags, onToggleTag, onClear }) {
   if (!SPEAKER_TAGS || SPEAKER_TAGS.length === 0) return null;
 
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-2">
+    <div className="mb-8 flex flex-wrap items-center gap-3">
       <span className="text-sm font-medium text-foreground mr-2">
         Filter by background:
       </span>
-      <TagGroup>
+      <TagGroup className="gap-3">
         {SPEAKER_TAGS.map((tag) => (
           <ToggleTag
             key={tag.id}
             selected={selectedTags.includes(tag.id)}
             onClick={() => onToggleTag(tag.id)}
-            size="sm"
           >
             {tag.label}
           </ToggleTag>
@@ -270,7 +273,7 @@ function TagsFilter({ selectedTags, onToggleTag, onClear }) {
         <button
           type="button"
           onClick={onClear}
-          className="cursor-pointer ml-2 text-xs text-muted-foreground hover:text-foreground underline"
+          className="cursor-pointer ml-2 text-sm text-muted-foreground hover:text-foreground underline"
         >
           Clear tags
         </button>

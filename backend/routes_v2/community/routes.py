@@ -1,4 +1,6 @@
-from flask import Blueprint, request, jsonify
+import time
+
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from backend.extensions import db
 from backend.models import Note, NoteComment, User, University, NoteAttachment
@@ -295,6 +297,8 @@ def api_notes():
     Returns note objects with author info, likes, bookmarks, etc.
     Visibility rules are applied automatically (university_only notes filtered).
     """
+    if current_app.config.get('DEV_MODE', False):
+        time.sleep(1.5)
     # Bookmarked filter requires authentication
     if request.args.get('bookmarked') and not current_user.is_authenticated:
         return jsonify({'error': 'Authentication required to view bookmarked notes'}), 401
