@@ -184,7 +184,10 @@ def submit_attendance(token):
     
 
     # Check if the attendance is in the event time window
-    if event.start_time > datetime.utcnow() or event.end_time < datetime.utcnow():
+    now = datetime.utcnow()
+    if event.start_time > now:
+        return jsonify({'error': 'This event is not currently active'}), 400
+    if event.end_time is not None and event.end_time < now:
         return jsonify({'error': 'This event is not currently active'}), 400
 
     record = EventAttendance(

@@ -462,7 +462,8 @@ def test_event(app, test_university, executive_user):
             title='Test Event',
             description='A test event',
             location='Room 101',
-            start_time=datetime.utcnow() + timedelta(days=1),
+            start_time=datetime.utcnow() - timedelta(hours=1),
+            end_time=datetime.utcnow() + timedelta(hours=1),
             created_by_id=executive_user.id
         )
         db.session.add(event)
