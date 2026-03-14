@@ -33,7 +33,7 @@ import {
 } from '../hooks';
 
 // UI Components
-import { BaseModal, LoadingState, SecondaryButton, BannerUploadModal, ConfirmationModal } from '../components/ui';
+import { BaseModal, SecondaryButton, BannerUploadModal, ConfirmationModal } from '../components/ui';
 
 // University Components
 import {
@@ -48,6 +48,7 @@ import {
   EditUniversityIdentityModal,
   LeadershipCard,
   UpcomingEventsCard,
+  UniversityPageSkeleton,
 } from '../components/university';
 
 export default function UniversityDetailPage() {
@@ -369,11 +370,7 @@ export default function UniversityDetailPage() {
   // ---------------------------------------------------------------------------
 
   if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 py-10">
-        <LoadingState text="Loading university..." />
-      </div>
-    );
+    return <UniversityPageSkeleton />;
   }
 
   // ---------------------------------------------------------------------------

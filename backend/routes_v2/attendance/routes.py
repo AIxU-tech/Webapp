@@ -148,15 +148,12 @@ def submit_attendance(token):
 
     Returns:
         201: Attendance recorded
-        400: Validation error or event is past
+        400: Validation error
         404: Invalid token
     """
     event = Event.query.filter_by(attendance_token=token).first()
     if not event:
         return jsonify({'error': 'Invalid attendance link'}), 404
-
-    if _is_event_past(event):
-        return jsonify({'error': 'This event has already ended'}), 400
 
     data = request.get_json()
     if not data:
@@ -181,14 +178,6 @@ def submit_attendance(token):
     existing = EventAttendance.find_existing(event.id, user_id=user_id, email=email)
     if existing:
         return jsonify({'success': True, 'alreadyCheckedIn': True, 'eventId': event.id}), 200
-    
-
-    # Check if the attendance is in the event time window
-    now = datetime.utcnow()
-    if event.start_time > now:
-        return jsonify({'error': 'This event is not currently active'}), 400
-    if event.end_time is not None and event.end_time < now:
-        return jsonify({'error': 'This event is not currently active'}), 400
 
     record = EventAttendance(
         event_id=event.id,

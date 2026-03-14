@@ -274,8 +274,6 @@ def get_pending():
     if current_user.permission_level < ADMIN:
         return jsonify({'error': 'Admin permission required'}), 403
 
-    if current_app.config.get('DEV_MODE', False):
-        time.sleep(1.5)
     requests = UniversityRequest.get_pending_requests()
     return jsonify({
         'requests': [r.to_dict() for r in requests],

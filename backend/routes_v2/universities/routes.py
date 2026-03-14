@@ -25,8 +25,6 @@ RESTful Endpoints:
 - DELETE /api/universities/<id>/roles/<user_id> - Remove user role (president or admin)
 """
 
-import time
-
 from flask import Blueprint, request, jsonify, Response, current_app
 from flask_login import login_required, current_user
 import hashlib
@@ -62,8 +60,6 @@ def list_universities():
     Get list of all universities with full details for React frontend.
     Returns universities with stats, tags, and other information needed for the grid display.
     """
-    if current_app.config.get('DEV_MODE', False):
-        time.sleep(1.5)
     universities = University.query.order_by(University.name).all()
 
     universities_data = []
@@ -209,8 +205,6 @@ def get_university(university_id: int):
     Returns:
         JSON object with university details
     """
-    if current_app.config.get('DEV_MODE', False):
-        time.sleep(1.5)
     # Fetch university from database
     uni = University.query.get(university_id)
     if not uni:

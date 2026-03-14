@@ -9,8 +9,6 @@ Endpoints:
 - DELETE /api/profile/resume     - Delete own resume
 """
 
-import time
-
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 
@@ -115,8 +113,6 @@ def get_user_resume(user_id):
 
     Only authenticated users can view resumes.
     """
-    if current_app.config.get('DEV_MODE', False):
-        time.sleep(1.5)
     resume = Resume.query.filter_by(user_id=user_id).first()
     if not resume:
         return jsonify({'success': True, 'resume': None})

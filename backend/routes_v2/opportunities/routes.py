@@ -11,8 +11,6 @@ RESTful Endpoints:
 - DELETE /api/opportunities/<id> - Delete opportunity
 """
 
-import time
-
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from backend.extensions import db
@@ -112,8 +110,6 @@ def list_opportunities():
           - Users from the same university as the author
           - Site admins
     """
-    if current_app.config.get('DEV_MODE', False):
-        time.sleep(1.5)
     # Bookmarked filter requires authentication
     if request.args.get('bookmarked') and not current_user.is_authenticated:
         return jsonify({'error': 'Authentication required to view bookmarked opportunities'}), 401

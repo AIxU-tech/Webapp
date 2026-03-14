@@ -21,7 +21,6 @@ Endpoints:
 
 import hmac
 import os
-import time
 
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
@@ -162,8 +161,6 @@ def get_ai_content():
     Returns:
         JSON response with stories, papers, counts, and batch ID
     """
-    if current_app.config.get('DEV_MODE', False):
-        time.sleep(1.5)
     stories_limit = request.args.get('stories_limit', default=3, type=int)
     papers_limit = request.args.get('papers_limit', default=3, type=int)
     stories_limit = max(1, min(stories_limit, 10))
