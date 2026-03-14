@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from backend.extensions import db
 from backend.models import Note, NoteComment, User, University, NoteAttachment

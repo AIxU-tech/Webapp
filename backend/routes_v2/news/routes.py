@@ -22,7 +22,7 @@ Endpoints:
 import hmac
 import os
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 
 from backend.services.ai_news import (

@@ -5,4 +5,5 @@
 
 export { default as CreateOpportunityModal } from './CreateOpportunityModal';
 export { default as OpportunityCard } from './OpportunityCard';
+export { default as OpportunitiesLoadingSkeleton } from './OpportunitiesLoadingSkeleton';
 

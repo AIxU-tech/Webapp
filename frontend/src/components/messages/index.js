@@ -1,4 +1,5 @@
 export { default as ConversationListItem } from './ConversationListItem';
+export { default as ConversationListSkeleton } from './ConversationListSkeleton';
 export { default as ConversationSidebar } from './ConversationSidebar';
 export { default as ConversationPanel } from './ConversationPanel';
 export { default as MessageBubble } from './MessageBubble';

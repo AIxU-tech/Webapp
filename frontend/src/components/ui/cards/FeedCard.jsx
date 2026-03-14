@@ -81,7 +81,7 @@ export default function FeedCard({
 
       {/* Tags */}
       {tags.length > 0 && (
-        <TagGroup className="mb-4">
+        <TagGroup className="mt-4 mb-4">
           {tags.map(tag => (
             <Tag key={tag} variant={getTagVariant(tag)} size="sm">{tag}</Tag>
           ))}

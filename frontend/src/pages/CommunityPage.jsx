@@ -37,7 +37,6 @@ import {
   useDeleteNote,
   usePageTitle,
   useInfiniteScroll,
-  useDelayedLoading,
   prefetchInfiniteNotes,
 } from '../hooks';
 
@@ -48,7 +47,7 @@ import {
   ConfirmationModal,
   Toast,
 } from '../components/ui';
-import { NoteCard, NotesFilter, CreateNoteModal, EditNoteModal } from '../components/community';
+import { NoteCard, NotesFilter, CreateNoteModal, EditNoteModal, NotesLoadingSkeleton } from '../components/community';
 
 // Icons
 import {
@@ -123,14 +122,14 @@ export default function CommunityPage() {
     isFetchingNextPage,
   } = useInfiniteNotes(queryParams);
 
-  // Only show loading spinner if loading takes >200ms (prevents flash)
-  const showLoading = useDelayedLoading(isLoading);
-
   // Extract and flatten notes from infinite query data
   const allNotes = useMemo(() => {
     if (!data?.pages) return [];
     return data.pages.flatMap((page) => page.notes || []);
   }, [data]);
+
+  // Show skeleton when loading with no data yet (avoids empty-state flash on initial load)
+  const showSkeleton = isLoading && !data?.pages?.length;
 
   /**
    * Notes are already filtered by backend based on tagFilter from URL
@@ -516,12 +515,14 @@ export default function CommunityPage() {
         isAuthenticated={isAuthenticated}
       />
 
-      {/* Notes List */}
+      {/* Notes List — skeleton while loading, feed once data arrives */}
+      {showSkeleton ? (
+        <NotesLoadingSkeleton />
+      ) : (
       <FeedItemList
         items={notes}
-        isLoading={showLoading}
+        isLoading={false}
         error={queryError}
-        loadingText="Loading notes..."
         emptyIcon={bookmarkedFilter ? <BookmarkIcon className="h-12 w-12" /> : <FileTextIcon className="h-12 w-12" />}
         emptyTitle={
           searchQuery
@@ -558,6 +559,7 @@ export default function CommunityPage() {
           />
         )}
       />
+      )}
 
       {/* Infinite Scroll Sentinel - Triggers load when scrolled into view */}
       {hasNextPage && (

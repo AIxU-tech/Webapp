@@ -1,8 +1,26 @@
 """
-Event helpers — bulk email notifications for club members.
+Event helpers — bulk email notifications, time validation, etc.
 """
 
 import threading
+from datetime import datetime, timezone
+
+
+def validate_event_times_not_in_past(start_time, end_time=None):
+    """
+    Validate that event start and end times are not in the past.
+
+    Returns:
+        None if valid, or (error_message, status_code) if invalid.
+    """
+    now_utc = datetime.now(timezone.utc)
+    if end_time is not None and end_time < now_utc:
+        return ('End time cannot be in the past', 400)
+    if start_time < now_utc:
+        return ('Start time cannot be in the past', 400)
+    return None
+
+
 from concurrent.futures import ThreadPoolExecutor
 
 MAX_EMAIL_WORKERS = 5

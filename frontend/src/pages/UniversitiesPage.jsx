@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useUniversities, usePageTitle, useDelayedLoading } from '../hooks';
+import { useUniversities, usePageTitle } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import { ErrorState, EmptyState, UniversityCardSkeleton, GradientButton } from '../components/ui';
 import { SearchIcon, BuildingIcon, PlusIcon } from '../components/icons';
@@ -34,8 +34,6 @@ export default function UniversitiesPage() {
   // ---------------------------------------------------------------------------
   const { data: universities = [], isLoading, error: queryError } = useUniversities();
 
-  // Delay loading state by 200ms to prevent flash when data loads from cache
-  const showLoading = useDelayedLoading(isLoading);
 
   // Convert error to string for display
   const error = queryError?.message || null;
@@ -64,9 +62,9 @@ export default function UniversitiesPage() {
   }, [universities, searchTerm]);
 
   // ---------------------------------------------------------------------------
-  // Render: Loading State (delayed to prevent flash on cached data)
+  // Render: Loading State (skeleton when loading with no data yet)
   // ---------------------------------------------------------------------------
-  if (showLoading) {
+  if (isLoading && universities.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
         <PageHeader isAdmin={isAdmin} onCreateClick={() => setShowCreateModal(true)} />

@@ -21,7 +21,7 @@ RESTful Endpoints:
 - GET /user/<id>/banner - Serve banner image from database
 """
 
-from flask import Blueprint, request, jsonify, send_file, redirect, Response
+from flask import Blueprint, request, jsonify, send_file, redirect, Response, current_app
 from flask_login import login_required, current_user, logout_user
 from datetime import datetime
 import base64

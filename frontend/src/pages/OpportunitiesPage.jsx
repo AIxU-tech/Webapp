@@ -38,8 +38,7 @@ import {
   TagGroup,
   ConfirmationModal,
 } from '../components/ui';
-import { OpportunityCard } from '../components/opportunities';
-import { CreateOpportunityModal } from '../components/opportunities';
+import { OpportunityCard, CreateOpportunityModal, OpportunitiesLoadingSkeleton } from '../components/opportunities';
 
 import {
   SearchIcon,
@@ -96,6 +95,9 @@ export default function OpportunitiesPage() {
     if (!data?.pages) return [];
     return data.pages.flatMap((page) => page.opportunities || []);
   }, [data]);
+
+  // Show skeleton when loading with no data yet (avoids empty-state flash on initial load)
+  const showSkeleton = loading && !data?.pages?.length;
 
   // Mutations
   const createOpportunityMutation = useCreateOpportunity();
@@ -413,51 +415,54 @@ export default function OpportunitiesPage() {
         </div>
       </div>
 
-      {/* Opportunities List */}
-      <FeedItemList
-        items={filteredOpportunities}
-        isLoading={loading}
-        error={queryError}
-        loadingText="Loading opportunities..."
-        emptyIcon={bookmarkedFilter ? <BookmarkIcon className="h-12 w-12" /> : <OpportunitiesIcon className="h-12 w-12" />}
-        emptyTitle={
-          searchQuery
-            ? 'No results found'
-            : bookmarkedFilter
-              ? 'No bookmarked opportunities yet'
-              : hasActiveFilters
-                ? 'No opportunities found'
-                : 'No opportunities yet'
-        }
-        emptyDescription={
-          searchQuery
-            ? `No opportunities match your search for "${searchQuery}". Try a different keyword or author name.`
-            : bookmarkedFilter
-              ? 'Start bookmarking opportunities you want to save for later. Click the bookmark icon on any opportunity to add it to your collection.'
-              : hasActiveFilters
-                ? 'Try adjusting your filters or search terms.'
-                : 'Be the first to post an opportunity!'
-        }
-        emptyAction={
-          (searchQuery || (hasActiveFilters && !bookmarkedFilter))
-            ? { label: 'Clear filters', onClick: clearFilters }
-            : bookmarkedFilter
-              ? { label: 'View all opportunities', onClick: handleBookmarkedToggle }
-              : undefined
-        }
-        renderItem={(opp) => (
-          <OpportunityCard
-            key={opp.id}
-            opportunity={opp}
-            onBookmark={handleBookmark}
-            onDelete={handleDeleteClick}
-            onMessageUser={(userId) => { setTargetUserId(userId); navigate('/messages'); }}
-            currentUserId={user?.id}
-            isAuthenticated={isAuthenticated}
-            isSiteAdmin={user?.permissionLevel >= 1}
-          />
-        )}
-      />
+      {/* Opportunities List — skeleton while loading, feed once data arrives */}
+      {showSkeleton ? (
+        <OpportunitiesLoadingSkeleton />
+      ) : (
+        <FeedItemList
+          items={filteredOpportunities}
+          isLoading={false}
+          error={queryError}
+          emptyIcon={bookmarkedFilter ? <BookmarkIcon className="h-12 w-12" /> : <OpportunitiesIcon className="h-12 w-12" />}
+          emptyTitle={
+            searchQuery
+              ? 'No results found'
+              : bookmarkedFilter
+                ? 'No bookmarked opportunities yet'
+                : hasActiveFilters
+                  ? 'No opportunities found'
+                  : 'No opportunities yet'
+          }
+          emptyDescription={
+            searchQuery
+              ? `No opportunities match your search for "${searchQuery}". Try a different keyword or author name.`
+              : bookmarkedFilter
+                ? 'Start bookmarking opportunities you want to save for later. Click the bookmark icon on any opportunity to add it to your collection.'
+                : hasActiveFilters
+                  ? 'Try adjusting your filters or search terms.'
+                  : 'Be the first to post an opportunity!'
+          }
+          emptyAction={
+            (searchQuery || (hasActiveFilters && !bookmarkedFilter))
+              ? { label: 'Clear filters', onClick: clearFilters }
+              : bookmarkedFilter
+                ? { label: 'View all opportunities', onClick: handleBookmarkedToggle }
+                : undefined
+          }
+          renderItem={(opp) => (
+            <OpportunityCard
+              key={opp.id}
+              opportunity={opp}
+              onBookmark={handleBookmark}
+              onDelete={handleDeleteClick}
+              onMessageUser={(userId) => { setTargetUserId(userId); navigate('/messages'); }}
+              currentUserId={user?.id}
+              isAuthenticated={isAuthenticated}
+              isSiteAdmin={user?.permissionLevel >= 1}
+            />
+          )}
+        />
+      )}
 
       {/* Infinite scroll trigger */}
       {hasNextPage && (

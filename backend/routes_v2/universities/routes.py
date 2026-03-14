@@ -25,7 +25,7 @@ RESTful Endpoints:
 - DELETE /api/universities/<id>/roles/<user_id> - Remove user role (president or admin)
 """
 
-from flask import Blueprint, request, jsonify, Response
+from flask import Blueprint, request, jsonify, Response, current_app
 from flask_login import login_required, current_user
 import hashlib
 import json

@@ -13,9 +13,11 @@
  * @component
  */
 
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import NavBar from './NavBar';
 import Footer from './Footer';
+
+const FULL_SCREEN_ROUTES = ['/messages'];
 
 /**
  * AppLayout
@@ -26,6 +28,9 @@ import Footer from './Footer';
  * @returns {JSX.Element} The layout wrapper with navbar and content area
  */
 function AppLayout() {
+  const { pathname } = useLocation();
+  const hideFooter = FULL_SCREEN_ROUTES.some((r) => pathname.startsWith(r));
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* =================================================================
@@ -62,15 +67,14 @@ function AppLayout() {
           Site-wide footer with branding, navigation links, and legal info.
           Positioned at the bottom via flexbox layout.
           ================================================================= */}
-      <Footer />
+      {!hideFooter && (
+        <>
+          <Footer />
 
-      {/* =================================================================
-          BOTTOM NAV SPACER (Mobile)
-
-          Prevents the footer and bottom content from being hidden behind
-          the fixed bottom navigation bar on mobile/tablet screens.
-          ================================================================= */}
-      <div className="h-16 xl:hidden" aria-hidden="true" />
+          {/* Bottom nav spacer (mobile) — prevents content hiding behind fixed bottom nav */}
+          <div className="h-16 xl:hidden" aria-hidden="true" />
+        </>
+      )}
     </div>
   );
 }
