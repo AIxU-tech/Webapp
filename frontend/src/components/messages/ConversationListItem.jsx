@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Avatar } from '../ui';
 
-export default function ConversationListItem({ conversation, isActive, onClick }) {
+export default function ConversationListItem({ conversation, isActive, onClick, onHover }) {
   const { otherUser, lastMessage, hasUnread } = conversation;
 
   return (
     <div
       onClick={onClick}
+      onMouseEnter={onHover}
       className={`
         flex items-center gap-3 px-3 py-3 mx-2 my-0.5 rounded-lg cursor-pointer transition-all duration-150
         ${isActive

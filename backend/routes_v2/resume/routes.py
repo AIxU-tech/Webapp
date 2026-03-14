@@ -9,7 +9,7 @@ Endpoints:
 - DELETE /api/profile/resume     - Delete own resume
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 
 from backend.extensions import db

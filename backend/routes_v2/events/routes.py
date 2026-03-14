@@ -19,17 +19,17 @@ Permission Logic:
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, or_
 from backend.extensions import db
 from backend.models import Event, EventAttendee, University, UniversityRole, EventAttendance
 from backend.constants import UniversityRoles
 from backend.utils.permissions import can_manage_university_members
 from backend.utils.email import send_event_created_email, send_event_cancelled_email, generate_secure_token
-from backend.routes_v2.events.helpers import send_bulk_email
+from backend.routes_v2.events.helpers import send_bulk_email, validate_event_times_not_in_past
 
 _DEV_MODE = os.environ.get('DEV_MODE')
 _APP_URL = "http://localhost:8000" if _DEV_MODE else "https://aixu.tech"
@@ -80,7 +80,16 @@ def get_university_events(university_id):
 
     base_filter = Event.university_id == university_id
     if upcoming_only:
-        base_filter = and_(base_filter, Event.start_time >= datetime.utcnow())
+        # Use explicit UTC (naive) to match DB TIMESTAMP WITHOUT TIME ZONE storage
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        start_of_today_utc = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Include: (1) events with no end_time that start today or later, OR
+        #          (2) events with end_time that haven't ended yet (ongoing or future)
+        upcoming_filter = or_(
+            and_(Event.end_time.is_(None), Event.start_time >= start_of_today_utc),
+            and_(Event.end_time.isnot(None), Event.end_time >= now_utc),
+        )
+        base_filter = and_(base_filter, upcoming_filter)
 
     if current_user.is_authenticated:
         # Single query with LEFT JOIN to get events + isAttending in one round-trip
@@ -219,6 +228,10 @@ def create_event(university_id):
         # Validate that start time is before end time
         if start_time >= end_time:
             return jsonify({'error': 'Start time must be before end time'}), 400
+
+    err = validate_event_times_not_in_past(start_time, end_time)
+    if err:
+        return jsonify({'error': err[0]}), err[1]
 
     # Create event with pre-generated attendance token
     event = Event(
@@ -416,6 +429,10 @@ def update_event(event_id):
         # Validate that start time is before end time
         if start_time >= end_time:
             return jsonify({'error': 'Start time must be before end time'}), 400
+
+    err = validate_event_times_not_in_past(start_time, end_time)
+    if err:
+        return jsonify({'error': err[0]}), err[1]
 
     # Update event fields
     event.title = data['title'].strip()

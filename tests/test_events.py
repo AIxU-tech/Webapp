@@ -89,6 +89,19 @@ class TestListEvents:
         assert len(data['events']) == 1
         assert data['events'][0]['title'] == 'Future Event'
 
+    def test_list_events_upcoming_includes_ongoing_same_day(self, client, app, test_university, executive_user):
+        """Test that ongoing events (started minutes ago, same day) appear in upcoming list"""
+        started_10_mins_ago = datetime.utcnow() - timedelta(minutes=10)
+        ends_in_50_mins = datetime.utcnow() + timedelta(minutes=50)
+        _create_event(app, test_university.id, executive_user.id,
+                       title='Ongoing Event', start_time=started_10_mins_ago, end_time=ends_in_50_mins)
+
+        response = client.get(f'/api/universities/{test_university.id}/events')
+        assert response.status_code == 200
+        data = response.get_json()
+        assert len(data['events']) == 1
+        assert data['events'][0]['title'] == 'Ongoing Event'
+
     def test_list_events_upcoming_false_returns_all(self, client, app, test_university, executive_user):
         """Test that upcoming=false returns past events too"""
         past = datetime.utcnow() - timedelta(days=7)
@@ -306,6 +319,34 @@ class TestCreateEvent:
             }
         )
         assert response.status_code == 400
+
+    def test_create_event_start_time_in_past(self, authenticated_executive_client, app, test_university):
+        """Test that start time in the past returns 400"""
+        past = (datetime.utcnow() - timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        response = authenticated_executive_client.post(
+            f'/api/universities/{test_university.id}/events',
+            json={
+                'title': 'Past Event',
+                'startTime': past,
+            }
+        )
+        assert response.status_code == 400
+        assert 'Start time cannot be in the past' in response.get_json()['error']
+
+    def test_create_event_end_time_in_past(self, authenticated_executive_client, app, test_university):
+        """Test that end time in the past returns 400"""
+        past_start = (datetime.utcnow() - timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        past_end = (datetime.utcnow() - timedelta(minutes=30)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        response = authenticated_executive_client.post(
+            f'/api/universities/{test_university.id}/events',
+            json={
+                'title': 'Event With Past End',
+                'startTime': past_start,
+                'endTime': past_end,
+            }
+        )
+        assert response.status_code == 400
+        assert 'End time cannot be in the past' in response.get_json()['error']
 
     def test_create_event_no_body(self, authenticated_executive_client, app, test_university):
         """Test that missing request body returns 400"""
@@ -574,6 +615,36 @@ class TestUpdateEvent:
         )
         assert response.status_code == 400
         assert 'Start time must be before end time' in response.get_json()['error']
+
+    def test_update_event_start_time_in_past(self, authenticated_executive_client, app, test_university, executive_user):
+        """Test that updating to a start time in the past returns 400"""
+        event = _create_event(app, test_university.id, executive_user.id)
+        past = (datetime.utcnow() - timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        response = authenticated_executive_client.put(
+            f'/api/events/{event.id}',
+            json={
+                'title': 'Past Start',
+                'startTime': past,
+            }
+        )
+        assert response.status_code == 400
+        assert 'Start time cannot be in the past' in response.get_json()['error']
+
+    def test_update_event_end_time_in_past(self, authenticated_executive_client, app, test_university, executive_user):
+        """Test that updating to an end time in the past returns 400"""
+        event = _create_event(app, test_university.id, executive_user.id)
+        past_start = (datetime.utcnow() - timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        past_end = (datetime.utcnow() - timedelta(minutes=30)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        response = authenticated_executive_client.put(
+            f'/api/events/{event.id}',
+            json={
+                'title': 'Past End',
+                'startTime': past_start,
+                'endTime': past_end,
+            }
+        )
+        assert response.status_code == 400
+        assert 'End time cannot be in the past' in response.get_json()['error']
 
     def test_update_event_clears_optional_fields(self, authenticated_executive_client, app, test_university, executive_user):
         """Test that omitting optional fields clears them"""

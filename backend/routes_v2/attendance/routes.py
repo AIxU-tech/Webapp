@@ -148,15 +148,12 @@ def submit_attendance(token):
 
     Returns:
         201: Attendance recorded
-        400: Validation error or event is past
+        400: Validation error
         404: Invalid token
     """
     event = Event.query.filter_by(attendance_token=token).first()
     if not event:
         return jsonify({'error': 'Invalid attendance link'}), 404
-
-    if _is_event_past(event):
-        return jsonify({'error': 'This event has already ended'}), 400
 
     data = request.get_json()
     if not data:

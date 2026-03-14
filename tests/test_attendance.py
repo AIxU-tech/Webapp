@@ -222,7 +222,8 @@ class TestSubmitAttendance:
         assert r1.status_code == 201
         assert r2.status_code == 201
 
-    def test_past_event_rejected(self, client, app, test_university, executive_user):
+    def test_past_event_accepts_attendance(self, client, app, test_university, executive_user):
+        """Attendance check-in is allowed anytime (no time restriction)."""
         with app.app_context():
             past_event = Event(
                 university_id=test_university.id,
@@ -239,7 +240,7 @@ class TestSubmitAttendance:
             f'/api/attendance/{token}',
             json={'name': 'John'}
         )
-        assert response.status_code == 400
+        assert response.status_code == 201
 
     def test_invalid_token_returns_404(self, client):
         response = client.post(

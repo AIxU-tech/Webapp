@@ -14,7 +14,7 @@ Permission Logic:
 - Edit/delete restricted to the user who added the speaker, or site admin
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 import json
 from backend.extensions import db
