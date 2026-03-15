@@ -8,6 +8,7 @@
  * @param {string} defaultImage - Fallback image URL or import
  * @param {boolean} canEdit - Whether to show edit button
  * @param {function} onEdit - Callback when edit button clicked
+ * @param {Object} secondaryButton - Optional second button { show, onClick, ariaLabel, icon }
  * @param {string} height - Tailwind height class (e.g., "h-32 sm:h-40")
  * @param {string} rounded - Tailwind rounded class (e.g., "rounded-t-2xl")
  * @param {boolean} hasOverlay - Whether to show gradient overlay
@@ -23,6 +24,7 @@ export default function BannerImage({
   defaultImage,
   canEdit = false,
   onEdit,
+  secondaryButton,
   height = 'h-32 sm:h-40',
   rounded = 'rounded-t-2xl',
   hasOverlay = false,
@@ -34,6 +36,8 @@ export default function BannerImage({
   // Use custom banner if available and no error, otherwise use default
   const showCustomBanner = imageUrl && !imgError;
   const displayUrl = showCustomBanner ? imageUrl : defaultImage;
+
+  const showSecondary = secondaryButton?.show && secondaryButton?.onClick && secondaryButton?.icon;
 
   return (
     <div className={`relative ${height} ${className}`}>
@@ -51,17 +55,31 @@ export default function BannerImage({
         )}
       </div>
 
-      {/* Edit button outside overflow-hidden container so click area isn't clipped */}
+      {/* Buttons outside overflow-hidden container so click area isn't clipped */}
       {/* z-20 ensures button is above overlapping elements like UniversityIdentityBar (z-10) */}
-      {canEdit && (
-        <button
-          type="button"
-          onClick={onEdit}
-          className="absolute bottom-4 right-4 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors cursor-pointer z-20"
-          aria-label="Edit banner image"
-        >
-          <CameraIcon className="h-5 w-5" />
-        </button>
+      {(canEdit || showSecondary) && (
+        <div className="absolute bottom-4 right-4 flex items-center gap-2 z-20">
+          {showSecondary && (
+            <button
+              type="button"
+              onClick={secondaryButton.onClick}
+              className="p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors cursor-pointer"
+              aria-label={secondaryButton.ariaLabel || 'Executive portal'}
+            >
+              {secondaryButton.icon}
+            </button>
+          )}
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors cursor-pointer"
+              aria-label="Edit banner image"
+            >
+              <CameraIcon className="h-5 w-5" />
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

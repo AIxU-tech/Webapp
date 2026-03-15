@@ -83,6 +83,7 @@
 export {
   useUniversities,
   useUniversity,
+  useMemberAttendance,
   useCreateUniversity,
   useRemoveMember,
   useUpdateMemberRole,

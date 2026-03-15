@@ -530,6 +530,8 @@ export default function UniversityDetailPage() {
             university={university}
             canEdit={canEdit}
             onEdit={handleOpenEditIdentity}
+            canManageMembers={canManageMembers}
+            onExecutivePortal={() => navigate(`/executive/${id}`)}
             logoKey={logoKey}
           />
 

@@ -197,6 +197,13 @@ def submit_attendance(token):
             return jsonify({'success': True, 'alreadyCheckedIn': True, 'eventId': event.id}), 200
         return jsonify({'error': 'Failed to record attendance'}), 500
 
+    # Increment cached events_attended_count if user is a member of this university
+    if user_id:
+        role = UniversityRole.get_role(user_id, event.university_id)
+        if role is not None:
+            role.events_attended_count = (role.events_attended_count or 0) + 1
+            db.session.commit()
+
     return jsonify({
         'success': True,
         'alreadyCheckedIn': False,

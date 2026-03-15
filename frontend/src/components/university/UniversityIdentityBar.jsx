@@ -5,7 +5,7 @@
  * name, and action buttons. Slight translucency for modern look.
  */
 
-import { EditIcon, SocialLinkIcon } from '../icons';
+import { EditIcon, SocialLinkIcon, UsersIcon } from '../icons';
 import { IconButton, UniversityLogo } from '../ui';
 import { getUniversityLogoUrl } from '../../api/universities';
 import { getPlatformDisplayName, PLATFORM_ICON_COLORS } from '../../utils/socialLinks';
@@ -14,6 +14,8 @@ export default function UniversityIdentityBar({
   university,
   canEdit,
   onEdit,
+  canManageMembers = false,
+  onExecutivePortal,
   logoKey,
 }) {
   const { id, name, clubName, socialLinks, hasLogo } = university;
@@ -39,6 +41,15 @@ export default function UniversityIdentityBar({
               <h1 className="text-2xl font-bold text-foreground truncate">
                 {name}
               </h1>
+              {canManageMembers && university?.id && onExecutivePortal && (
+                <IconButton
+                  icon={UsersIcon}
+                  onClick={onExecutivePortal}
+                  variant="ghost"
+                  size="md"
+                  label="Executive portal – manage members"
+                />
+              )}
               {canEdit && (
                 <IconButton
                   icon={EditIcon}
