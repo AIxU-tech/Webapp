@@ -7,29 +7,9 @@
 
 import { useNavigate } from 'react-router-dom';
 import { formatDateTime } from '../../utils';
-import {
-  Card,
-  EmptyState,
-  Avatar,
-  SecondaryButton,
-} from '../ui';
+import { Card, SecondaryButton } from '../ui';
 import { ArrowLeftIcon, CalendarIcon, UsersIcon } from '../icons';
-
-function AttendanceListSkeleton({ rows = 3 }) {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 py-2 animate-pulse">
-          <div className="h-10 w-10 rounded-full bg-muted" />
-          <div className="flex-1 space-y-2">
-            <div className="h-4 bg-muted rounded w-32" />
-            <div className="h-3 bg-muted rounded w-24" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+import UserActionListCard from './UserActionListCard';
 
 export default function EventDetailView({
   event,
@@ -114,69 +94,30 @@ export default function EventDetailView({
         </Card>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <Card padding="lg">
-            <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-              <UsersIcon className="h-5 w-5" />
-              RSVPs ({attendees?.length ?? 0})
-            </h2>
-            {!attendees?.length ? (
-              <EmptyState
-                icon={<UsersIcon className="h-10 w-10" />}
-                title="No RSVPs"
-                description="No one has RSVP'd to this event yet."
-              />
-            ) : (
-              <ul className="space-y-3">
-                {attendees.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex items-center gap-3 py-2 border-b border-border last:border-0"
-                  >
-                    <Avatar user={a} name={a.name} size="sm" />
-                    <div>
-                      <p className="font-medium text-foreground text-sm">{a.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        RSVP'd {formatDateTime(a.rsvpAt)}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
+          <UserActionListCard
+            title="RSVPs"
+            icon={UsersIcon}
+            items={attendees}
+            getItemKey={(a) => a.id}
+            renderUser={(a) => a}
+            renderSubtitle={(a) => (a.rsvpAt ? `RSVP'd ${formatDateTime(a.rsvpAt)}` : null)}
+            emptyIcon={UsersIcon}
+            emptyTitle="No RSVPs"
+            emptyDescription="No one has RSVP'd to this event yet."
+          />
 
-          <Card padding="lg">
-            <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-              <UsersIcon className="h-5 w-5" />
-              Checked In ({attendanceRecords?.length ?? 0})
-            </h2>
-            {isLoadingAttendance ? (
-              <AttendanceListSkeleton />
-            ) : !attendanceRecords?.length ? (
-              <EmptyState
-                icon={<UsersIcon className="h-10 w-10" />}
-                title="No one checked in"
-                description="Attendance will appear here after members check in via QR code."
-              />
-            ) : (
-              <ul className="space-y-3">
-                {attendanceRecords.map((r) => (
-                  <li
-                    key={r.id}
-                    className="flex items-center gap-3 py-2 border-b border-border last:border-0"
-                  >
-                    <Avatar user={{ id: r.userId, name: r.name }} name={r.name} size="sm" />
-                    <div>
-                      <p className="font-medium text-foreground text-sm">{r.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDateTime(r.checkedInAt)}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
+          <UserActionListCard
+            title="Checked In"
+            icon={UsersIcon}
+            items={attendanceRecords}
+            getItemKey={(r) => r.id}
+            renderUser={(r) => ({ id: r.userId, name: r.name })}
+            renderSubtitle={(r) => (r.checkedInAt ? formatDateTime(r.checkedInAt) : null)}
+            emptyIcon={UsersIcon}
+            emptyTitle="No one checked in"
+            emptyDescription="Attendance will appear here after members check in via QR code."
+            isLoading={isLoadingAttendance}
+          />
         </div>
       </div>
     </div>

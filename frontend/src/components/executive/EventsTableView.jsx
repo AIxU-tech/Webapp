@@ -5,9 +5,9 @@
  * Executives can view upcoming and past events.
  */
 
-import { Card, EmptyState } from '../ui';
 import { CalendarIcon } from '../icons';
 import ExecutivePortalLayout from './ExecutivePortalLayout';
+import ExecutiveSectionCard from './ExecutiveSectionCard';
 import EventRow from './EventRow';
 
 function EventsTableSkeleton({ rows = 5 }) {
@@ -41,39 +41,27 @@ export default function EventsTableView({
   events,
   isLoading,
 }) {
+  const isEmpty = !events?.length;
+
   return (
     <ExecutivePortalLayout university={university} universityId={universityId}>
-      <Card padding="md">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">All Events</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              View RSVPs and attendance for each event
-            </p>
-          </div>
-          {!isLoading && events?.length != null && (
-            <span className="text-sm text-muted-foreground">
-              {events.length} event{events.length !== 1 ? 's' : ''}
-            </span>
-          )}
+      <ExecutiveSectionCard
+        title="All Events"
+        subtitle="View RSVPs and attendance for each event"
+        count={!isLoading && events?.length != null ? `${events.length} event${events.length !== 1 ? 's' : ''}` : undefined}
+        isEmpty={isEmpty}
+        emptyIcon={CalendarIcon}
+        emptyTitle="No events yet"
+        emptyDescription="Create your first event from the university page."
+        isLoading={isLoading}
+        skeleton={<EventsTableSkeleton />}
+      >
+        <div className="space-y-0">
+          {events.map((event) => (
+            <EventRow key={event.id} event={event} universityId={universityId} />
+          ))}
         </div>
-
-        {isLoading ? (
-            <EventsTableSkeleton />
-          ) : !events?.length ? (
-            <EmptyState
-              icon={<CalendarIcon className="h-12 w-12" />}
-              title="No events yet"
-              description="Create your first event from the university page."
-            />
-        ) : (
-          <div className="space-y-0">
-            {events.map((event) => (
-              <EventRow key={event.id} event={event} universityId={universityId} />
-            ))}
-          </div>
-        )}
-      </Card>
+      </ExecutiveSectionCard>
     </ExecutivePortalLayout>
   );
 }
