@@ -107,6 +107,7 @@ class Event(db.Model):
                     'name': a.user.get_full_name(),
                     'avatar': a.user.get_profile_picture_url(),
                     'status': a.status,
+                    'rsvpAt': _datetime_to_iso_utc(a.created_at),
                 }
                 for a in self.attendees
             ]

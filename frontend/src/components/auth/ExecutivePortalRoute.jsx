@@ -12,6 +12,7 @@
 import { Navigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUniversity } from '../../hooks';
+import { ExecutivePortalSkeleton } from '../executive';
 
 export default function ExecutivePortalRoute({ children }) {
   const { universityId } = useParams();
@@ -19,7 +20,7 @@ export default function ExecutivePortalRoute({ children }) {
   const { data: university, isLoading: universityLoading } = useUniversity(universityId);
 
   if (loading || universityLoading) {
-    return null;
+    return <ExecutivePortalSkeleton />;
   }
 
   if (!isAuthenticated) {

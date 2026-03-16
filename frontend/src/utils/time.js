@@ -100,6 +100,23 @@ export function getTimeAgo(dateInput, options = {}) {
  * @example
  * formatFullDate('2025-12-20T10:30:00Z') // "December 20, 2025"
  */
+export function formatDateTime(isoString) {
+  if (!isoString) return '—';
+  try {
+    const d = typeof isoString === 'string' ? new Date(isoString) : isoString;
+    if (isNaN(d.getTime())) return String(isoString);
+    return d.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    return String(isoString);
+  }
+}
+
 /**
  * Format a date range for profile sections (education, experience, projects).
  *
