@@ -9,15 +9,24 @@
  * - useDeleteResume() - Delete the current user's resume
  */
 
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
-import { getUserResume, confirmResumeUpload, deleteResume } from '../api/resume';
+import {
+  getUserResume,
+  confirmResumeUpload,
+  deleteResume,
+  startResumeParse,
+  getResumeParseStatus,
+  clearResumeParseStatus,
+} from '../api/resume';
 import { requestUploadUrl, uploadToGCS } from '../api/uploads';
 import { userKeys } from './useUsers';
 
 export const resumeKeys = {
   all: ['resumes'],
   detail: (userId) => [...resumeKeys.all, 'detail', userId],
+  parseStatus: ['resumes', 'parse-status'],
 };
 
 function formatBytes(bytes) {
@@ -127,4 +136,70 @@ export function useDeleteResume() {
       queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
   });
+}
+
+/**
+ * Start AI-powered resume parsing.
+ * Triggers background parsing that auto-fills profile data.
+ */
+export function useStartResumeParse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: startResumeParse,
+
+    // Optimistically show the parsing banner immediately
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: resumeKeys.parseStatus });
+      const previous = queryClient.getQueryData(resumeKeys.parseStatus);
+      queryClient.setQueryData(resumeKeys.parseStatus, { status: 'parsing' });
+      return { previous };
+    },
+
+    onError: (_err, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(resumeKeys.parseStatus, context.previous);
+      }
+    },
+
+    onSuccess: () => {
+      // Start polling for status
+      queryClient.invalidateQueries({ queryKey: resumeKeys.parseStatus });
+    },
+  });
+}
+
+/**
+ * Poll for resume parsing status.
+ * Automatically polls every 2s while status is 'parsing'.
+ * When 'complete', invalidates user data so the profile refreshes.
+ *
+ * @param {boolean} enabled - Whether polling should be active
+ */
+export function useResumeParseStatus(enabled = true) {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: resumeKeys.parseStatus,
+    queryFn: getResumeParseStatus,
+    enabled,
+    // Poll every 2s while parsing, stop when done
+    refetchInterval: (q) => {
+      const status = q.state.data?.status;
+      return status === 'parsing' ? 2000 : false;
+    },
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+  // Handle completion side effects outside queryFn to avoid
+  // re-triggering on window focus or component remounts
+  useEffect(() => {
+    if (query.data?.status === 'complete') {
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
+      clearResumeParseStatus().catch(() => {});
+    }
+  }, [query.data?.status, queryClient]);
+
+  return query;
 }

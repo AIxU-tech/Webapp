@@ -92,7 +92,7 @@ export default function RequestCard({ request, onApprove, onReject, isProcessing
         <div className="flex gap-2">
           <SecondaryButton
             variant="success"
-            icon={<CheckIcon className="h-5 w-5" />}
+            icon={<CheckIcon size="md" />}
             onClick={() => setConfirmModal({ isOpen: true, action: 'approve' })}
             disabled={isProcessing}
             className="flex-1"
@@ -101,7 +101,7 @@ export default function RequestCard({ request, onApprove, onReject, isProcessing
           </SecondaryButton>
           <SecondaryButton
             variant="danger"
-            icon={<XIcon className="h-5 w-5" />}
+            icon={<XIcon size="md" />}
             onClick={() => setConfirmModal({ isOpen: true, action: 'reject' })}
             disabled={isProcessing}
             className="flex-1"

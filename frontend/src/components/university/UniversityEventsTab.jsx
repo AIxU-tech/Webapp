@@ -84,7 +84,7 @@ export default function UniversityEventsTab({
       {canCreateEvent && (
         <div className="mb-6">
           <GradientButton
-            icon={<PlusIcon className="h-4 w-4" />}
+            icon={<PlusIcon size="sm" />}
             onClick={() => setIsModalOpen(true)}
           >
             Create Event

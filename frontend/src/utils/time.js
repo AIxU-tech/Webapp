@@ -108,15 +108,17 @@ export function getTimeAgo(dateInput, options = {}) {
  * @returns {string|null} Formatted range like "Jan 2023 — Present", or null if no startDate
  */
 export function formatDateRange(startDate, endDate) {
-  if (!startDate) return null;
   const fmt = (d) => {
     if (!d) return null;
     const date = new Date(d + 'T00:00:00');
     return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   };
   const start = fmt(startDate);
-  const end = endDate ? fmt(endDate) : 'Present';
-  return start ? `${start} — ${end}` : null;
+  const end = endDate ? fmt(endDate) : null;
+  if (start && end) return `${start} — ${end}`;
+  if (start) return `${start} — Present`;
+  if (end) return `Expected ${end}`;
+  return null;
 }
 
 export function formatFullDate(dateInput) {

@@ -140,7 +140,7 @@ function ClubLogo({ event }) {
   return (
     <div className="flex items-center justify-center">
       <div className={`w-12 h-12 ${GRADIENT_PRIMARY} rounded-xl flex items-center justify-center mr-3`}>
-        <BrainCircuitIcon className="h-6 w-6 text-white" />
+        <span className="text-white"><BrainCircuitIcon size="lg" /></span>
       </div>
       <span className="text-2xl font-bold text-foreground">AIxU</span>
     </div>
@@ -155,13 +155,13 @@ function EventDetailsCard({ event }) {
       <div className="flex flex-col gap-1 text-muted-foreground">
         {event.startTime && (
           <span className="flex items-center gap-2">
-            <ClockIcon className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="flex-shrink-0"><ClockIcon size="sm" /></span>
             {formatEventTime(event.startTime, event.endTime)}
           </span>
         )}
         {event.location && (
           <span className="flex items-center gap-2">
-            <MapPinIcon className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="flex-shrink-0"><MapPinIcon size="sm" /></span>
             {event.location}
           </span>
         )}
@@ -258,7 +258,7 @@ export default function AttendEventPage() {
     <div className="text-center space-y-4 py-6">
       <FadeIn>
         <div className="w-16 h-16 mx-auto rounded-full bg-destructive/10 flex items-center justify-center">
-          <AlertCircleIcon className="h-8 w-8 text-destructive" />
+          <span className="text-destructive"><AlertCircleIcon size="xl" /></span>
         </div>
       </FadeIn>
       <FadeIn delay={0.1}>
@@ -282,7 +282,7 @@ export default function AttendEventPage() {
       <div className="text-center space-y-3">
         <FadeIn>
           <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
-            <CalendarIcon className="h-8 w-8 text-muted-foreground" />
+            <span className="text-muted-foreground"><CalendarIcon size="xl" /></span>
           </div>
         </FadeIn>
         <FadeIn delay={0.1}>

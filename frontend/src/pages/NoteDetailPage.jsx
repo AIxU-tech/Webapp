@@ -14,7 +14,7 @@
  * @component
  */
 
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 import {
@@ -33,6 +33,8 @@ import { ArrowLeftIcon } from '../components/icons';
 export default function NoteDetailPage() {
   const { noteId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const highlightCommentId = location.state?.highlightCommentId ?? null;
   const { user, isAuthenticated } = useAuth();
   const isAdmin = user?.permissionLevel >= 1;
   const { openAuthModal } = useAuthModal();
@@ -111,7 +113,7 @@ export default function NoteDetailPage() {
         to="/community"
         className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors"
       >
-        <ArrowLeftIcon className="h-5 w-5 mr-2" />
+        <span className="mr-2"><ArrowLeftIcon size="md" /></span>
         <span className="font-medium">Back to Community</span>
       </Link>
 
@@ -124,7 +126,8 @@ export default function NoteDetailPage() {
         currentUserId={user?.id}
         isAuthenticated={isAuthenticated}
         isAdmin={isAdmin}
-        initialCommentsExpanded={false}
+        initialCommentsExpanded={!!highlightCommentId}
+        highlightCommentId={highlightCommentId}
       />
     </div>
   );

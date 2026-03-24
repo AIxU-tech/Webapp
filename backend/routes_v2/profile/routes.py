@@ -106,7 +106,7 @@ def get_profile_picture(user_id):
         user.profile_picture,
         mimetype=user.profile_picture_mimetype or 'image/jpeg',
         headers={
-            'Cache-Control': 'public, max-age=2592000',
+            'Cache-Control': 'no-cache',
             'ETag': f'"{etag}"',
         }
     )
@@ -137,6 +137,7 @@ def update_profile():
 
     Allows updating:
     - first_name, last_name: User's name
+    - headline: Short professional headline
     - about_section: Bio/about text
     - location: Geographic location
     - avatar_url: Fallback avatar URL
@@ -168,6 +169,8 @@ def update_profile():
             current_user.first_name = data['first_name'].strip() or None
         if 'last_name' in data:
             current_user.last_name = data['last_name'].strip() or None
+        if 'headline' in data:
+            current_user.headline = data['headline'].strip() or None
         if 'about_section' in data:
             current_user.about_section = data['about_section'].strip() or None
         if 'location' in data:
@@ -376,7 +379,7 @@ def get_banner_image(user_id):
         user.banner_image,
         mimetype=user.banner_image_mimetype or 'image/jpeg',
         headers={
-            'Cache-Control': 'public, max-age=2592000',
+            'Cache-Control': 'no-cache',
             'ETag': f'"{etag}"',
         }
     )

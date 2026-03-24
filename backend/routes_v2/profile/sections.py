@@ -35,9 +35,8 @@ SECTION_CONFIGS = {
         'model': Education,
         'required_fields': ['institution', 'degree'],
         'required_error': 'Institution and degree are required',
-        'require_start_date': True,
-        'string_fields': ['institution', 'degree', 'field_of_study', 'description'],
-        'has_gpa': True,
+        'require_start_date': False,
+        'string_fields': ['institution', 'degree', 'field_of_study', 'description', 'gpa'],
         'has_technologies': False,
         'label': 'education',
     },
@@ -47,7 +46,6 @@ SECTION_CONFIGS = {
         'required_error': 'Title and company are required',
         'require_start_date': True,
         'string_fields': ['title', 'company', 'location', 'description'],
-        'has_gpa': False,
         'has_technologies': False,
         'label': 'experience',
     },
@@ -57,7 +55,6 @@ SECTION_CONFIGS = {
         'required_error': 'Title is required',
         'require_start_date': False,
         'string_fields': ['title', 'description', 'url'],
-        'has_gpa': False,
         'has_technologies': True,
         'label': 'project',
     },
@@ -84,18 +81,6 @@ def _validate_date_range(start, end):
         return 'End date cannot be before start date'
     return None
 
-
-def _validate_gpa(value):
-    """Validate GPA is a number in [0.0, 5.0]. Returns (float|None, error)."""
-    if value is None or value == '':
-        return None, None
-    try:
-        gpa = float(value)
-    except (ValueError, TypeError):
-        return None, 'GPA must be a number'
-    if gpa < 0.0 or gpa > 5.0:
-        return None, 'GPA must be between 0.0 and 5.0'
-    return round(gpa, 2), None
 
 
 def _clamp_display_order(value):
@@ -142,12 +127,6 @@ def _create_section_entry(config, data):
         else:
             kwargs[field] = val or None
 
-    if config['has_gpa']:
-        gpa, gpa_err = _validate_gpa(data.get('gpa'))
-        if gpa_err:
-            return {'error': gpa_err}, 400
-        kwargs['gpa'] = gpa
-
     if config['has_technologies']:
         techs = data.get('technologies')
         kwargs['technologies'] = json.dumps(techs) if isinstance(techs, list) else None
@@ -186,12 +165,6 @@ def _update_section_entry(config, entry_id, data):
 
     if 'display_order' in data:
         entry.display_order = _clamp_display_order(data['display_order'])
-
-    if config['has_gpa'] and 'gpa' in data:
-        gpa, gpa_err = _validate_gpa(data['gpa'])
-        if gpa_err:
-            return {'error': gpa_err}, 400
-        entry.gpa = gpa
 
     if config['has_technologies'] and 'technologies' in data:
         techs = data['technologies']

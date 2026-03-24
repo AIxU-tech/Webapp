@@ -91,7 +91,7 @@ export const BUTTON_STYLES = {
    * Secondary button with border and subtle background.
    * Used for secondary actions.
    */
-  secondary: 'bg-muted text-foreground border border-border hover:bg-accent hover:text-accent-foreground transition-colors',
+  secondary: 'bg-muted text-foreground border border-border hover:bg-muted-foreground/10 transition-colors',
 
   /**
    * Outline button with transparent background.

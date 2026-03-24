@@ -8,7 +8,6 @@
 
 import { useState, useEffect } from 'react';
 import { BaseModal, GradientButton, SecondaryButton, CitySearchInput, Alert } from '../../ui';
-import { TrashIcon } from '../../icons';
 
 const SECTION_CONFIG = {
   education: {
@@ -17,9 +16,9 @@ const SECTION_CONFIG = {
       { name: 'institution', label: 'Institution', placeholder: 'e.g. MIT', required: true },
       { name: 'degree', label: 'Degree', placeholder: 'e.g. B.S. Computer Science', required: true },
       { name: 'field_of_study', label: 'Field of Study', placeholder: 'e.g. Artificial Intelligence' },
-      { name: 'start_date', label: 'Start Date', type: 'month', required: true },
-      { name: 'end_date', label: 'End Date', type: 'month', hasCurrentToggle: true, currentLabel: 'I currently study here' },
-      { name: 'gpa', label: 'GPA', type: 'gpa', placeholder: 'e.g. 3.85' },
+      { name: 'start_date', label: 'Start Date', type: 'month' },
+      { name: 'end_date', label: 'End Date', type: 'month' },
+      { name: 'gpa', label: 'GPA', placeholder: 'e.g. 3.85' },
       { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Activities, societies, achievements...' },
     ],
   },
@@ -41,8 +40,6 @@ const SECTION_CONFIG = {
       { name: 'description', label: 'Description', type: 'textarea', placeholder: 'What does this project do?' },
       { name: 'url', label: 'Project URL', placeholder: 'https://github.com/...' },
       { name: 'technologies', label: 'Technologies', placeholder: 'e.g. Python, PyTorch, React (comma-separated)', type: 'tags' },
-      { name: 'start_date', label: 'Start Date', type: 'month' },
-      { name: 'end_date', label: 'End Date', type: 'month', hasCurrentToggle: true, currentLabel: 'Ongoing project' },
     ],
   },
 };
@@ -86,8 +83,6 @@ export default function ProfileSectionModal({
         vals[f.name] = isoToMonth(entry[f.name]);
       } else if (f.type === 'tags') {
         vals[f.name] = Array.isArray(entry[f.name]) ? entry[f.name].join(', ') : '';
-      } else if (f.type === 'gpa') {
-        vals[f.name] = entry[f.name] != null ? String(entry[f.name]) : '';
       } else {
         vals[f.name] = entry[f.name] || '';
       }
@@ -127,16 +122,6 @@ export default function ProfileSectionModal({
       }
     }
 
-    // GPA validation
-    const gpaField = config.fields.find((f) => f.type === 'gpa');
-    if (gpaField && formData[gpaField.name] !== '') {
-      const gpaNum = parseFloat(formData[gpaField.name]);
-      if (isNaN(gpaNum) || gpaNum < 0 || gpaNum > 5) {
-        setValidationError('GPA must be a number between 0.0 and 5.0');
-        return;
-      }
-    }
-
     const payload = {};
     config.fields.forEach((f) => {
       if (f.type === 'month') {
@@ -149,9 +134,6 @@ export default function ProfileSectionModal({
         payload[f.name] = formData[f.name]
           ? formData[f.name].split(',').map((t) => t.trim()).filter(Boolean)
           : [];
-      } else if (f.type === 'gpa') {
-        const val = formData[f.name];
-        payload[f.name] = val !== '' ? parseFloat(val) : null;
       } else {
         payload[f.name] = formData[f.name] || null;
       }
@@ -194,7 +176,7 @@ export default function ProfileSectionModal({
                   onChange={(e) => handleChange(field.name, e.target.value)}
                   disabled={disabled}
                   required={field.required && !disabled}
-                  className="w-full px-4 py-3 bg-muted border border-border rounded-lg
+                  className="w-full px-4 py-3 bg-background border border-border rounded-lg
                              focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
                              text-foreground disabled:opacity-50"
                 />
@@ -224,7 +206,7 @@ export default function ProfileSectionModal({
                   onChange={(e) => handleChange(field.name, e.target.value)}
                   placeholder={field.placeholder}
                   rows={3}
-                  className="w-full px-4 py-3 bg-muted border border-border rounded-lg
+                  className="w-full px-4 py-3 bg-background border border-border rounded-lg
                              focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
                              text-foreground placeholder-muted-foreground resize-none"
                 />
@@ -248,28 +230,6 @@ export default function ProfileSectionModal({
             );
           }
 
-          if (field.type === 'gpa') {
-            return (
-              <div key={field.name}>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  {field.label}
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="5"
-                  value={formData[field.name]}
-                  onChange={(e) => handleChange(field.name, e.target.value)}
-                  placeholder={field.placeholder}
-                  className="w-full px-4 py-3 bg-muted border border-border rounded-lg
-                             focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
-                             text-foreground placeholder-muted-foreground"
-                />
-              </div>
-            );
-          }
-
           return (
             <div key={field.name}>
               <label className="block text-sm font-medium text-foreground mb-1.5">
@@ -282,7 +242,7 @@ export default function ProfileSectionModal({
                 onChange={(e) => handleChange(field.name, e.target.value)}
                 placeholder={field.placeholder}
                 required={field.required}
-                className="w-full px-4 py-3 bg-muted border border-border rounded-lg
+                className="w-full px-4 py-3 bg-background border border-border rounded-lg
                            focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
                            text-foreground placeholder-muted-foreground"
               />
@@ -303,19 +263,7 @@ export default function ProfileSectionModal({
         })}
 
         {/* Actions */}
-        <div className="flex items-center justify-between pt-2">
-          <div>
-            {isEditing && onDelete && (
-              <SecondaryButton
-                variant="dangerOutline"
-                size="sm"
-                icon={<TrashIcon className="h-4 w-4" />}
-                onClick={() => onDelete(entry.id)}
-              >
-                Delete
-              </SecondaryButton>
-            )}
-          </div>
+        <div className="flex items-center justify-end pt-2">
           <div className="flex gap-3">
             <SecondaryButton variant="outline" onClick={onClose}>
               Cancel

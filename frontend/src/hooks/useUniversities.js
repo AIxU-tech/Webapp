@@ -329,6 +329,24 @@ export function useCreateUniversity() {
   });
 }
 
+// =============================================================================
+// Image Upload Helpers
+// =============================================================================
+
+/**
+ * Snapshot a university detail query for optimistic rollback.
+ */
+async function _snapshotUniversityDetail(queryClient, universityId) {
+  await queryClient.cancelQueries({ queryKey: universityKeys.detail(universityId) });
+  return queryClient.getQueryData(universityKeys.detail(universityId));
+}
+
+function _rollbackUniversityDetail(queryClient, universityId, previousData) {
+  if (previousData) {
+    queryClient.setQueryData(universityKeys.detail(universityId), previousData);
+  }
+}
+
 /**
  * useUploadUniversityLogo Hook
  *
@@ -350,13 +368,9 @@ export function useUploadUniversityLogo() {
   return useMutation({
     mutationFn: ({ universityId, file }) => uploadUniversityLogo(universityId, file),
 
-    // Optimistic update: set hasLogo to true immediately
     onMutate: async ({ universityId }) => {
-      await queryClient.cancelQueries({ queryKey: universityKeys.detail(universityId) });
+      const previousUniversity = await _snapshotUniversityDetail(queryClient, universityId);
 
-      const previousUniversity = queryClient.getQueryData(universityKeys.detail(universityId));
-
-      // Optimistically update hasLogo
       if (previousUniversity) {
         queryClient.setQueryData(universityKeys.detail(universityId), {
           ...previousUniversity,
@@ -367,17 +381,23 @@ export function useUploadUniversityLogo() {
       return { previousUniversity, universityId };
     },
 
-    onError: (err, variables, context) => {
-      if (context?.previousUniversity) {
-        queryClient.setQueryData(
-          universityKeys.detail(context.universityId),
-          context.previousUniversity
-        );
+    onError: (_err, _vars, ctx) => {
+      _rollbackUniversityDetail(queryClient, ctx?.universityId, ctx?.previousUniversity);
+    },
+
+    onSuccess: (data, { universityId }) => {
+      if (data?.hasLogo) {
+        const currentData = queryClient.getQueryData(universityKeys.detail(universityId));
+        if (currentData) {
+          queryClient.setQueryData(universityKeys.detail(universityId), {
+            ...currentData,
+            hasLogo: true,
+          });
+        }
       }
     },
 
     onSettled: (_, __, { universityId }) => {
-      // Invalidate to refetch with new logo URL (cache-busted)
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
     },
   });
@@ -405,13 +425,9 @@ export function useUploadUniversityBanner() {
   return useMutation({
     mutationFn: ({ universityId, file }) => uploadUniversityBanner(universityId, file),
 
-    // Optimistic update: set hasBanner to true immediately
     onMutate: async ({ universityId }) => {
-      await queryClient.cancelQueries({ queryKey: universityKeys.detail(universityId) });
+      const previousUniversity = await _snapshotUniversityDetail(queryClient, universityId);
 
-      const previousUniversity = queryClient.getQueryData(universityKeys.detail(universityId));
-
-      // Optimistically update hasBanner
       if (previousUniversity) {
         queryClient.setQueryData(universityKeys.detail(universityId), {
           ...previousUniversity,
@@ -422,7 +438,10 @@ export function useUploadUniversityBanner() {
       return { previousUniversity, universityId };
     },
 
-    // Update cache with new bannerUrl immediately on success (before invalidating)
+    onError: (_err, _vars, ctx) => {
+      _rollbackUniversityDetail(queryClient, ctx?.universityId, ctx?.previousUniversity);
+    },
+
     onSuccess: (data, { universityId }) => {
       if (data?.bannerUrl) {
         const currentData = queryClient.getQueryData(universityKeys.detail(universityId));
@@ -436,17 +455,7 @@ export function useUploadUniversityBanner() {
       }
     },
 
-    onError: (err, variables, context) => {
-      if (context?.previousUniversity) {
-        queryClient.setQueryData(
-          universityKeys.detail(context.universityId),
-          context.previousUniversity
-        );
-      }
-    },
-
     onSettled: (_, __, { universityId }) => {
-      // Invalidate to refetch full data (ensures consistency)
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
     },
   });

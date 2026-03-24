@@ -16,3 +16,4 @@ export { default as CitySearchInput } from './CitySearchInput';
 export { default as FileUpload, FilePreview, FileTypeIcon, formatSize as formatFileSize } from './FileUpload';
 export { default as DatePicker } from './DatePicker';
 export { default as TimePicker } from './TimePicker';
+export { default as ChatInput } from './ChatInput';

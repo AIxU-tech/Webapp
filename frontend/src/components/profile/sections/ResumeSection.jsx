@@ -141,7 +141,7 @@ export default function ResumeSection({
         {!isAuthenticated && !isOwnProfile ? (
           /* Unauthenticated visitor */
           <div className="flex flex-col items-center py-8 text-center">
-            <FileTextIcon className="h-8 w-8 text-muted-foreground/50 mb-3" />
+            <span className="text-muted-foreground/50 mb-3"><FileTextIcon size="xl" /></span>
             <p className="text-sm text-muted-foreground mb-3">
               Sign in to view this user&apos;s resume
             </p>
@@ -164,7 +164,7 @@ export default function ResumeSection({
             }}
           >
             <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center relative">
-              <FileTextIcon className="h-5 w-5 text-primary" />
+              <span className="text-primary"><FileTextIcon size="md" /></span>
               {resume.isOptimistic && (
                 <div className="absolute inset-0 flex items-center justify-center bg-primary/10 rounded-lg">
                   <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -222,7 +222,7 @@ export default function ResumeSection({
                 }
               `}
             >
-              <UploadIcon className="h-8 w-8 text-muted-foreground/50 mb-3" />
+              <span className="text-muted-foreground/50 mb-3"><UploadIcon size="xl" /></span>
               <p className="text-sm font-medium text-foreground">Upload your resume</p>
               <p className="text-xs text-muted-foreground mt-1">PDF or Word, up to 5 MB</p>
             </div>
@@ -230,7 +230,7 @@ export default function ResumeSection({
         ) : (
           /* Non-owner, no resume */
           <div className="flex flex-col items-center py-8 text-center">
-            <FileTextIcon className="h-8 w-8 text-muted-foreground/50 mb-3" />
+            <span className="text-muted-foreground/50 mb-3"><FileTextIcon size="xl" /></span>
             <p className="text-sm text-muted-foreground">
               This user hasn&apos;t uploaded a resume yet.
             </p>

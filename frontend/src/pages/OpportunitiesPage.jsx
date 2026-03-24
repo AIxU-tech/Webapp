@@ -374,7 +374,7 @@ export default function OpportunitiesPage() {
               onClick={clearFilters}
               className="cursor-pointer flex items-center text-sm text-primary hover:text-primary/80 transition-colors ml-auto"
             >
-              <XIcon className="h-4 w-4 mr-1" />
+              <span className="mr-1"><XIcon size="sm" /></span>
               Clear filters
             </button>
           )}
@@ -408,7 +408,7 @@ export default function OpportunitiesPage() {
               `}
               aria-label={bookmarkedFilter ? 'Show all opportunities' : 'Show bookmarked opportunities'}
             >
-              <BookmarkIcon className="h-5 w-5" filled={bookmarkedFilter} />
+              <BookmarkIcon size="md" filled={bookmarkedFilter} />
               <span>Bookmarked</span>
             </button>
           )}

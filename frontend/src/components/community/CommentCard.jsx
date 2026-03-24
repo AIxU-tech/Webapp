@@ -172,7 +172,7 @@ export default function CommentCard({
             </button>
             <button
               onClick={handleCancelEdit}
-              className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
               <XIcon className="w-3 h-3" />
               <span>Cancel</span>

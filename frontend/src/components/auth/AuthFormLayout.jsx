@@ -64,7 +64,7 @@ export default function AuthFormLayout({
             to="/"
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors -mt-2 mb-4"
           >
-            <ArrowLeftIcon className="h-4 w-4" />
+            <ArrowLeftIcon size="sm" />
             Home
           </Link>
 
@@ -73,7 +73,7 @@ export default function AuthFormLayout({
             <div className="text-center mb-8">
               <div className="flex items-center justify-center mb-6">
                 <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mr-3">
-                  <BrainCircuitIcon className="h-6 w-6 text-white" />
+                  <span className="text-white"><BrainCircuitIcon size="lg" /></span>
                 </div>
                 <span className="text-2xl font-bold text-foreground">AIxU</span>
               </div>

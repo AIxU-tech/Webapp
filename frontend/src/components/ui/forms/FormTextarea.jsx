@@ -15,7 +15,7 @@ export default function FormTextarea({
 }) {
   const baseClasses = `
     w-full px-4 py-3
-    bg-muted border border-border rounded-lg
+    bg-background border border-border rounded-lg
     focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
     text-foreground placeholder-muted-foreground
     disabled:opacity-50

@@ -46,7 +46,7 @@ export default function NotesFilter({
             `}
             aria-label={isBookmarked ? 'Show all notes' : 'Show bookmarked notes'}
           >
-            <BookmarkIcon className="h-5 w-5" filled={isBookmarked} />
+            <BookmarkIcon size="md" filled={isBookmarked} />
             <span>Bookmarked</span>
           </button>
         )}

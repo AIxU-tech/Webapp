@@ -48,7 +48,7 @@ export default function UnsavedChangesModal({
           <div className="flex items-start gap-3">
             {/* Warning Icon */}
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-              <AlertTriangleIcon className="h-5 w-5 text-amber-600" />
+              <span className="text-amber-600"><AlertTriangleIcon size="md" /></span>
             </div>
 
             {/* Title */}
@@ -82,7 +82,7 @@ export default function UnsavedChangesModal({
           <button
             type="button"
             onClick={onDiscard}
-            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground border border-border bg-background rounded-lg hover:bg-accent transition-colors font-medium cursor-pointer"
+            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground border border-border bg-background rounded-lg hover:bg-muted transition-colors font-medium cursor-pointer"
           >
             Discard
           </button>

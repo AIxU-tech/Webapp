@@ -68,7 +68,7 @@ export default function FeedPageLayout({
             </p>
             <button
               onClick={handleClearSearch}
-              className="inline-flex items-center text-primary hover:text-primary/80 text-sm font-medium transition-colors mb-6"
+              className="inline-flex items-center text-primary hover:text-primary/80 text-sm font-medium transition-colors mb-6 cursor-pointer"
             >
               <XIcon />
               <span className="ml-1">Clear filter</span>

@@ -60,7 +60,7 @@ export default function BannerImage({
           className="absolute bottom-4 right-4 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors cursor-pointer z-20"
           aria-label="Edit banner image"
         >
-          <CameraIcon className="h-5 w-5" />
+          <CameraIcon size="md" />
         </button>
       )}
     </div>

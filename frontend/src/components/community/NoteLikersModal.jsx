@@ -71,7 +71,7 @@ export default function NoteLikersModal({
             </p>
             <button
               onClick={() => refetch()}
-              className="text-sm text-primary hover:underline"
+              className="text-sm text-primary hover:underline cursor-pointer"
             >
               Try again
             </button>
