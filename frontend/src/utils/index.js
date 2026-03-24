@@ -9,7 +9,7 @@
  * import { getUserBannerUrl, getUniversityLogoUrl } from '../utils';
  */
 
-export { getTimeAgo, formatFullDate, formatDateRange } from './time';
+export { getTimeAgo, formatFullDate, formatDateTime, formatDateRange } from './time';
 
 export {
   IMAGE_CONFIG,

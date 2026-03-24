@@ -1,6 +1,7 @@
 export { default as AuthFormLayout } from './AuthFormLayout';
 export { default as AuthRoute } from './AuthRoute';
 export { default as ProtectedRoute } from './ProtectedRoute';
+export { default as ExecutivePortalRoute } from './ExecutivePortalRoute';
 export { default as LoginModal } from './LoginModal';
 export { default as LoginFormContent } from './LoginFormContent';
 export { default as RegisterModal } from './RegisterModal';

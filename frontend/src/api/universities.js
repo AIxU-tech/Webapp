@@ -138,6 +138,20 @@ export async function removeMember(universityId, userId) {
   return api.delete(`/universities/${universityId}/members/${userId}`);
 }
 
+/**
+ * Get a member's event attendance history at a university
+ *
+ * Returns events the member checked into (via QR code) at this university.
+ *
+ * @param {number} universityId - University ID
+ * @param {number} userId - User ID of the member
+ * @returns {Promise<object>} { events: [{ eventId, eventTitle, eventStartTime, checkedInAt }] }
+ * @throws {ApiError} If not authorized (403) or member not found (404)
+ */
+export async function getMemberAttendance(universityId, userId) {
+  return api.get(`/universities/${universityId}/members/${userId}/attendance`);
+}
+
 // =============================================================================
 // Role Management API Functions
 // =============================================================================

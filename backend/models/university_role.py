@@ -47,6 +47,7 @@ class UniversityRole(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
     university_id = db.Column(db.Integer, db.ForeignKey('universities.id', ondelete='CASCADE'), nullable=False)
     role = db.Column(db.Integer, default=UniversityRoles.MEMBER, nullable=False)
+    events_attended_count = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     updated_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
