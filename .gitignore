@@ -34,6 +34,9 @@ static/app/
 .env
 __pycache__
 
+# Claude Code
+.claude/worktrees
+
 # Testing
 .pytest_cache/
 .coverage

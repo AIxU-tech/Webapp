@@ -92,13 +92,13 @@ export function getTimeAgo(dateInput, options = {}) {
 }
 
 /**
- * Format a date as a full readable string
+ * Format a date as a short date-time string (e.g., "Dec 20, 2025, 3:30 PM")
  *
- * @param {string|Date} dateInput - ISO date string or Date object
- * @returns {string} Formatted date string (e.g., "December 20, 2025")
+ * @param {string|Date} isoString - ISO date string or Date object
+ * @returns {string} Formatted date-time string
  *
  * @example
- * formatFullDate('2025-12-20T10:30:00Z') // "December 20, 2025"
+ * formatDateTime('2025-12-20T15:30:00Z') // "Dec 20, 2025, 3:30 PM"
  */
 export function formatDateTime(isoString) {
   if (!isoString) return '—';
@@ -136,6 +136,15 @@ export function formatDateRange(startDate, endDate) {
   return start ? `${start} — ${end}` : null;
 }
 
+/**
+ * Format a date as a full readable string
+ *
+ * @param {string|Date} dateInput - ISO date string or Date object
+ * @returns {string} Formatted date string (e.g., "December 20, 2025")
+ *
+ * @example
+ * formatFullDate('2025-12-20T10:30:00Z') // "December 20, 2025"
+ */
 export function formatFullDate(dateInput) {
   if (!dateInput) return 'Unknown';
 

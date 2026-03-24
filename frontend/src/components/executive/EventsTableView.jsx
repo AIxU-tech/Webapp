@@ -48,7 +48,7 @@ export default function EventsTableView({
       <ExecutiveSectionCard
         title="All Events"
         subtitle="View RSVPs and attendance for each event"
-        count={!isLoading && events?.length != null ? `${events.length} event${events.length !== 1 ? 's' : ''}` : undefined}
+        count={!isLoading && events?.length !== null ? `${events.length} event${events.length !== 1 ? 's' : ''}` : undefined}
         isEmpty={isEmpty}
         emptyIcon={CalendarIcon}
         emptyTitle="No events yet"

@@ -13,7 +13,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   useUniversity,
-  useUniversityEvents,
   useMemberAttendance,
   useRemoveMember,
   useUpdateMemberRole,
@@ -31,7 +30,6 @@ export default function ExecutivePortalPage() {
   const currentUserId = currentUser?.id;
 
   const { data: university, isLoading, error } = useUniversity(universityId);
-  useUniversityEvents(universityId, { upcoming: false, limit: 100 });
   const { data: attendanceData, isLoading: attendanceLoading } = useMemberAttendance(
     universityId,
     userId
@@ -124,7 +122,7 @@ export default function ExecutivePortalPage() {
           await updateRoleMutation.mutateAsync({
             universityId,
             userId: memberId,
-            role: 2,
+            role: 2, // PRESIDENT
           });
           setConfirmModal((c) => ({ ...c, isOpen: false }));
           setOpenPopoverId(null);

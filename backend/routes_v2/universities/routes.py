@@ -31,6 +31,7 @@ import hashlib
 import json
 from backend.extensions import db
 from backend.models import University, User, UniversityRole, Event, EventAttendance
+from backend.models.event import _datetime_to_iso_utc
 from backend.constants import UniversityRoles
 from backend.utils.permissions import (
     can_manage_university_members,
@@ -230,7 +231,7 @@ def get_university(university_id: int):
             'postCount': m.post_count or 0,
             'role': role.role,
             'roleName': role.role_name,
-            'eventsAttendedCount': getattr(role, 'events_attended_count', None) or 0,
+            'eventsAttendedCount': role.events_attended_count or 0,
         })
 
     # Check if current user is a member (for UI display purposes)
@@ -383,12 +384,6 @@ def get_member_attendance(university_id: int, user_id: int):
     if not uni.is_member(user_id):
         return jsonify({'error': 'Member not found in this university'}), 404
 
-    def _dt_iso(dt):
-        if dt is None:
-            return None
-        s = dt.isoformat()
-        return s + 'Z' if (getattr(dt, 'tzinfo', None) is None) else s
-
     records = (
         db.session.query(EventAttendance, Event)
         .join(Event, EventAttendance.event_id == Event.id)
@@ -404,8 +399,8 @@ def get_member_attendance(university_id: int, user_id: int):
         {
             'eventId': evt.id,
             'eventTitle': evt.title,
-            'eventStartTime': _dt_iso(evt.start_time),
-            'checkedInAt': _dt_iso(att.checked_in_at),
+            'eventStartTime': _datetime_to_iso_utc(evt.start_time),
+            'checkedInAt': _datetime_to_iso_utc(att.checked_in_at),
         }
         for att, evt in records
     ]
