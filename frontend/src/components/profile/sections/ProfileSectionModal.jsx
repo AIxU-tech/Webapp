@@ -110,6 +110,16 @@ export default function ProfileSectionModal({
     e.preventDefault();
     setValidationError(null);
 
+    // GPA validation (must be a valid decimal if provided)
+    const gpaField = config.fields.find((f) => f.name === 'gpa');
+    if (gpaField && formData.gpa && formData.gpa.trim()) {
+      const gpaVal = formData.gpa.trim();
+      if (isNaN(gpaVal) || isNaN(parseFloat(gpaVal))) {
+        setValidationError('GPA must be a valid number (e.g. 3.85)');
+        return;
+      }
+    }
+
     // Date range validation
     const startField = config.fields.find((f) => f.name === 'start_date');
     const endField = config.fields.find((f) => f.hasCurrentToggle);

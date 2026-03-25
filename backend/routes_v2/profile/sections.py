@@ -83,6 +83,17 @@ def _validate_date_range(start, end):
 
 
 
+def _validate_gpa(value):
+    """Return error string if GPA is not a valid decimal, else None."""
+    if not value or not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        float(value.strip())
+    except ValueError:
+        return 'GPA must be a valid number'
+    return None
+
+
 def _clamp_display_order(value):
     """Clamp display_order to [0, 999]."""
     try:
@@ -102,6 +113,11 @@ def _create_section_entry(config, data):
         val = data.get(field)
         if not val or (isinstance(val, str) and not val.strip()):
             return {'error': config['required_error']}, 400
+
+    if 'gpa' in config['string_fields']:
+        gpa_err = _validate_gpa(data.get('gpa'))
+        if gpa_err:
+            return {'error': gpa_err}, 400
 
     start = _parse_date(data.get('start_date'))
     if config['require_start_date'] and not start:
@@ -142,6 +158,11 @@ def _update_section_entry(config, entry_id, data):
     entry = db.session.get(config['model'], entry_id)
     if not entry or entry.user_id != current_user.id:
         return {'error': 'Not found'}, 404
+
+    if 'gpa' in config['string_fields'] and 'gpa' in data:
+        gpa_err = _validate_gpa(data['gpa'])
+        if gpa_err:
+            return {'error': gpa_err}, 400
 
     for field in config['string_fields']:
         if field in data:
