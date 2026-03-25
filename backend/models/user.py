@@ -30,6 +30,7 @@ class User(UserMixin, db.Model):
     following_count = db.Column(db.Integer, default=0)
 
     # Profile content
+    headline = db.Column(db.String(200), nullable=True)
     about_section = db.Column(db.Text, nullable=True)
     avatar_url = db.Column(db.String(200), nullable=True)
     location = db.Column(db.String(100), nullable=True)
@@ -172,6 +173,7 @@ class User(UserMixin, db.Model):
             'post_count': self.post_count,
             'follower_count': self.follower_count,
             'following_count': self.following_count,
+            'headline': self.headline,
             'about_section': self.about_section,
             'avatar_url': self.avatar_url,
             'profile_picture_url': self.get_profile_picture_url(),

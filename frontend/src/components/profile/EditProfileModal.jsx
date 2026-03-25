@@ -10,10 +10,9 @@
  * @param {boolean} isOpen - Whether the modal is open
  * @param {Function} onClose - Callback to close the modal
  * @param {Object} updateProfileMutation - React Query mutation for updating profile
- * @param {Object} uploadPictureMutation - React Query mutation for uploading profile picture
  * @param {Function} onSave - Callback called when save succeeds, receives (response) => void
- * @param {Function} onUploadPicture - Callback for profile picture upload
- * @param {Function} onPictureError - Callback for profile picture upload errors
+ * @param {Function} onUploadPicture - Callback for profile picture upload (called on save with blob)
+ * @param {Function} onPictureError - Callback for profile picture validation errors
  *
  * @example
  * <EditProfileModal
@@ -21,7 +20,6 @@
  *   isOpen={showEditModal}
  *   onClose={() => setShowEditModal(false)}
  *   updateProfileMutation={updateProfileMutation}
- *   uploadPictureMutation={uploadPictureMutation}
  *   onSave={(response) => {
  *     // Update AuthContext
  *     setCurrentUser({ ...currentUser, ...response.user });
@@ -32,7 +30,7 @@
  * />
  */
 
-import { useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from '../../hooks';
 
 // UI Components
@@ -47,6 +45,7 @@ import { ProfilePictureSection } from './';
 const getInitialFormValues = (userData) => ({
   first_name: userData?.first_name || '',
   last_name: userData?.last_name || '',
+  headline: userData?.headline || '',
   location: userData?.location || '',
   socialLinks: userData?.socialLinks || [],
 });
@@ -56,11 +55,29 @@ export default function EditProfileModal({
   isOpen,
   onClose,
   updateProfileMutation,
-  uploadPictureMutation,
   onSave,
   onUploadPicture,
   onPictureError,
 }) {
+  const [pendingPictureBlob, setPendingPictureBlob] = useState(null);
+  const [picturePreviewUrl, setPicturePreviewUrl] = useState(null);
+  const previewUrlRef = useRef(null);
+
+  const handleFileSelect = useCallback((blob) => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    const url = URL.createObjectURL(blob);
+    previewUrlRef.current = url;
+    setPendingPictureBlob(blob);
+    setPicturePreviewUrl(url);
+  }, []);
+
+  const clearPendingPicture = useCallback(() => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = null;
+    setPendingPictureBlob(null);
+    setPicturePreviewUrl(null);
+  }, []);
+
   const {
     formData,
     setFormData,
@@ -72,6 +89,11 @@ export default function EditProfileModal({
   } = useForm({
     initialValues: getInitialFormValues(user),
     onSubmit: async (data) => {
+      // Upload pending picture if one was selected
+      if (pendingPictureBlob) {
+        await onUploadPicture(pendingPictureBlob);
+        clearPendingPicture();
+      }
       const response = await updateProfileMutation.mutateAsync(data);
       // Call onSave callback to update AuthContext and show feedback
       onSave?.(response);
@@ -89,12 +111,13 @@ export default function EditProfileModal({
     }
   }, [isOpen, user, setFormData, setInitialValues]);
 
-  // Reset form on close - now safe because reset is stable (empty deps)
+  // Reset form and pending picture on close
   useEffect(() => {
     if (!isOpen) {
       reset();
+      clearPendingPicture();
     }
-  }, [isOpen, reset]);
+  }, [isOpen, reset, clearPendingPicture]);
 
   return (
     <BaseModal isOpen={isOpen} onClose={onClose} title="Edit Profile" size="2xl">
@@ -102,9 +125,9 @@ export default function EditProfileModal({
         {/* Profile Picture Section */}
         <ProfilePictureSection
           user={user}
-          onUpload={onUploadPicture}
+          previewUrl={picturePreviewUrl}
+          onFileSelect={handleFileSelect}
           onError={onPictureError}
-          isUploading={uploadPictureMutation?.isPending}
         />
 
         {/* Profile Form */}
@@ -140,6 +163,19 @@ export default function EditProfileModal({
                 placeholder="Last name"
               />
             </div>
+          </div>
+
+          {/* Headline */}
+          <div>
+            <label className="block text-sm text-muted-foreground mb-1">
+              Headline
+            </label>
+            <FormInput
+              name="headline"
+              value={formData.headline || ''}
+              onChange={handleChange}
+              placeholder="e.g. CS Student at MIT"
+            />
           </div>
 
           {/* Location */}

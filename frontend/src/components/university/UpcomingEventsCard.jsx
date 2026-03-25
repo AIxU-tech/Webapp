@@ -34,7 +34,7 @@ export default function UpcomingEventsCard({ universityId, onViewAll }) {
       <Card padding="md">
         <h3 className="font-semibold text-foreground mb-4">Upcoming Events</h3>
         <div className="flex items-center justify-center py-6">
-          <SpinnerIcon className="h-5 w-5 text-muted-foreground" />
+          <span className="text-muted-foreground"><SpinnerIcon size="md" /></span>
         </div>
       </Card>
     );

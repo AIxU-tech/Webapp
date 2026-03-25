@@ -155,7 +155,7 @@ export default function MemberActionsPopover({
             className={`w-full text-left px-3 py-2 text-sm transition-colors cursor-pointer ${
               action.danger
                 ? 'text-red-500 hover:bg-red-500/10'
-                : 'text-foreground hover:bg-accent'
+                : 'text-foreground hover:bg-muted'
             }`}
             role="menuitem"
           >

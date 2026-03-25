@@ -59,17 +59,17 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }) {
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 hover:bg-accent rounded-md transition-colors z-10"
+          className="absolute top-4 right-4 p-2 hover:bg-muted rounded-md transition-colors z-10 cursor-pointer"
           aria-label="Close modal"
         >
-          <XIcon className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+          <span className="text-muted-foreground hover:text-foreground"><XIcon size="md" /></span>
         </button>
 
         {/* Logo and header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-6">
             <div className="w-12 h-12 bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] rounded-xl flex items-center justify-center mr-3">
-              <BrainCircuitIcon className="h-6 w-6 text-white" />
+              <span className="text-white"><BrainCircuitIcon size="lg" /></span>
             </div>
             <span className="text-2xl font-bold text-foreground">AIxU</span>
           </div>
@@ -99,7 +99,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }) {
               <button
                 type="button"
                 onClick={onSwitchToRegister}
-                className="text-primary hover:underline font-medium"
+                className="text-primary hover:underline font-medium cursor-pointer"
               >
                 Sign up
               </button>

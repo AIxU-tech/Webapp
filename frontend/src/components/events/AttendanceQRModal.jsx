@@ -74,7 +74,7 @@ export default function AttendanceQRModal({
       <div className="p-6 space-y-6">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <SpinnerIcon className="h-8 w-8 text-primary" />
+            <span className="text-primary"><SpinnerIcon size="xl" /></span>
             <p className="text-sm text-muted-foreground">Loading QR code...</p>
           </div>
         ) : isError ? (
@@ -99,7 +99,7 @@ export default function AttendanceQRModal({
             {/* Action buttons */}
             <div className="flex gap-3">
               <GradientButton
-                icon={isCopied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
+                icon={isCopied ? <CheckIcon size="sm" /> : <CopyIcon size="sm" />}
                 onClick={handleCopyLink}
                 size="sm"
                 className="flex-1"
@@ -108,7 +108,7 @@ export default function AttendanceQRModal({
               </GradientButton>
 
               <SecondaryButton
-                icon={<DownloadIcon className="h-4 w-4" />}
+                icon={<DownloadIcon size="sm" />}
                 onClick={handleDownloadQR}
                 size="sm"
                 className="flex-1"

@@ -50,7 +50,7 @@ export default function UniversityDetectionStatus({
       <button
         type="button"
         onClick={onRequestUniversity}
-        className="font-medium underline text-amber-600 hover:text-amber-700"
+        className="font-medium underline text-amber-600 hover:text-amber-700 cursor-pointer"
       >
         Request to add your university
       </button>

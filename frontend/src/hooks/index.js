@@ -247,6 +247,8 @@ export {
   useResume,
   useUploadResume,
   useDeleteResume,
+  useStartResumeParse,
+  useResumeParseStatus,
   resumeKeys,
 } from './useResume';
 

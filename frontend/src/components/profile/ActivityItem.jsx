@@ -67,7 +67,7 @@ function ActivityContent({ activity }) {
             {activity.title}
           </h3>
           <div className="flex items-center text-sm text-muted-foreground gap-1">
-            <HeartIcon className="h-4 w-4" />
+            <HeartIcon size="sm" />
             <span>{activity.likes} likes</span>
           </div>
         </>
@@ -108,7 +108,7 @@ export default function ActivityItem({ activity }) {
       {/* Activity Type Icon */}
       <div className="flex-shrink-0">
         <div className={`w-10 h-10 ${bgColor} rounded-full flex items-center justify-center`}>
-          <Icon className="h-5 w-5" />
+          <Icon size="md" />
         </div>
       </div>
 

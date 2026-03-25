@@ -85,7 +85,7 @@ const GradientButton = forwardRef(function GradientButton(
     <>
       {/* Loading spinner or left icon */}
       {loading ? (
-        <SpinnerIcon className="h-4 w-4" />
+        <SpinnerIcon size="sm" />
       ) : (
         icon && iconPosition === 'left' && icon
       )}

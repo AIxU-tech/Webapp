@@ -275,12 +275,12 @@ export default function DatePicker({
           text-left
           focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
           disabled:opacity-50 disabled:cursor-not-allowed
-          transition-colors
+          transition-colors cursor-pointer
           ${value ? 'text-foreground' : 'text-muted-foreground'}
         `}
       >
         <span>{value ? formatDateDisplay(value) : placeholder}</span>
-        <CalendarIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+        <span className="text-muted-foreground flex-shrink-0"><CalendarIcon size="md" /></span>
       </button>
 
       {/* Calendar Dropdown - portaled to body so it escapes modal overflow */}
@@ -298,18 +298,18 @@ export default function DatePicker({
               type="button"
               onClick={() => navigateMonth(-1)}
               aria-label="Previous month"
-              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
             >
-              <ChevronLeftIcon className="h-4 w-4" />
+              <ChevronLeftIcon size="sm" />
             </button>
             <span className="text-sm font-semibold text-foreground">{monthLabel}</span>
             <button
               type="button"
               onClick={() => navigateMonth(1)}
               aria-label="Next month"
-              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
             >
-              <ChevronRightIcon className="h-4 w-4" />
+              <ChevronRightIcon size="sm" />
             </button>
           </div>
 
@@ -345,7 +345,7 @@ export default function DatePicker({
                   disabled={isDisabled}
                   onClick={() => selectDate(cell.date)}
                   className={`
-                    h-9 w-full text-sm rounded-lg transition-colors
+                    h-9 w-full text-sm rounded-lg transition-colors cursor-pointer
                     focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset
                     ${isSelected
                       ? 'bg-primary text-primary-foreground font-semibold'

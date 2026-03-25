@@ -362,7 +362,7 @@ function FilePreview({ file, onRemove, uploadProgress }) {
         <button
           type="button"
           onClick={onRemove}
-          className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
+          className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors cursor-pointer"
           aria-label={`Remove ${file.name}`}
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

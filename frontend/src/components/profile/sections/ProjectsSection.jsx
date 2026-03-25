@@ -9,17 +9,15 @@ import ProfileSection from './ProfileSection';
 import ProfileSectionModal from './ProfileSectionModal';
 import useProfileSectionState from './useProfileSectionState';
 import { EmptyState, SecondaryButton, ConfirmationModal, ExpandableText } from '../../ui';
-import { PlusIcon, EditIcon, TrashIcon, CodeIcon, ExternalLinkIcon, CalendarIcon } from '../../icons';
-import { formatDateRange } from '../../../utils';
+import { PlusIcon, EditIcon, TrashIcon, CodeIcon, ExternalLinkIcon } from '../../icons';
 
 function ProjectItem({ entry, isOwnProfile, onEdit, onDelete }) {
-  const dateRange = formatDateRange(entry.start_date, entry.end_date);
   const hasTech = entry.technologies && entry.technologies.length > 0;
 
   return (
     <div className="group relative flex gap-4 py-4 first:pt-0 last:pb-0">
       <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
-        <CodeIcon className="h-5 w-5 text-primary" />
+        <span className="text-primary"><CodeIcon size="md" /></span>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
@@ -34,7 +32,7 @@ function ProjectItem({ entry, isOwnProfile, onEdit, onDelete }) {
                   className="text-primary hover:text-primary/80 transition-colors"
                   aria-label="Open project link"
                 >
-                  <ExternalLinkIcon className="h-3.5 w-3.5" />
+                  <ExternalLinkIcon size="sm" />
                 </a>
               )}
             </div>
@@ -46,24 +44,18 @@ function ProjectItem({ entry, isOwnProfile, onEdit, onDelete }) {
                 className="p-1.5 rounded-md hover:bg-muted transition-colors cursor-pointer"
                 aria-label="Edit project"
               >
-                <EditIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground"><EditIcon size="sm" /></span>
               </button>
               <button
                 onClick={() => onDelete(entry.id)}
                 className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors cursor-pointer"
                 aria-label="Delete project"
               >
-                <TrashIcon className="h-3.5 w-3.5 text-destructive" />
+                <span className="text-destructive"><TrashIcon size="sm" /></span>
               </button>
             </div>
           )}
         </div>
-        {dateRange && (
-          <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-            <CalendarIcon className="h-3 w-3" />
-            {dateRange}
-          </div>
-        )}
         {entry.description && (
           <ExpandableText
             text={entry.description}
@@ -104,11 +96,14 @@ export default function ProjectsSection({
 
   const hasProjects = projects && projects.length > 0;
 
+  // Hide empty sections on other users' profiles
+  if (!isOwnProfile && !hasProjects) return null;
+
   const addAction = isOwnProfile && (
     <SecondaryButton
       variant="outline"
       onClick={handleAdd}
-      icon={<PlusIcon className="h-4 w-4" />}
+      icon={<PlusIcon size="sm" />}
       size="sm"
       className="rounded-full"
     >
@@ -144,7 +139,7 @@ export default function ProjectsSection({
               <SecondaryButton
                 variant="outline"
                 onClick={handleAdd}
-                icon={<PlusIcon className="h-4 w-4" />}
+                icon={<PlusIcon size="sm" />}
                 size="sm"
                 className="rounded-full"
               >

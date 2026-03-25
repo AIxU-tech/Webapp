@@ -54,16 +54,14 @@ export default function BannerImage({
       {/* Buttons outside overflow-hidden container so click area isn't clipped */}
       {/* z-20 ensures button is above overlapping elements like UniversityIdentityBar (z-10) */}
       {canEdit && (
-        <div className="absolute bottom-4 right-4 flex items-center gap-2 z-20">
-          <button
-            type="button"
-            onClick={onEdit}
-            className="p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors cursor-pointer"
-            aria-label="Edit banner image"
-          >
-            <CameraIcon className="h-5 w-5" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="absolute bottom-4 right-4 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors cursor-pointer z-20"
+          aria-label="Edit banner image"
+        >
+          <CameraIcon size="md" />
+        </button>
       )}
     </div>
   );

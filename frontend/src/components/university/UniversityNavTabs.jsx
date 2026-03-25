@@ -69,7 +69,7 @@ export default function UniversityNavTabs({ activeTab, onTabChange, className = 
                   ${isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}
                 `}
               >
-                <Icon className="h-4 w-4" />
+                <Icon size="sm" />
                 {label}
               </button>
             );
