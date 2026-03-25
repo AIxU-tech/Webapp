@@ -1,131 +1,132 @@
 /**
  * ProfilePictureSection Component
  *
- * Handles profile picture display and upload with automatic center-cropping.
- * When a user uploads an image, it's automatically cropped to a square from
- * the center to prevent distortion in the circular avatar display.
- *
- * @component
- *
- * @param {Object} props
- * @param {Object} props.user - User object with profile picture info
- * @param {Function} props.onUpload - Callback when image is ready to upload (receives blob)
- * @param {Function} [props.onError] - Callback for validation/processing errors (receives message)
- * @param {boolean} [props.isUploading=false] - Whether upload is in progress
- *
- * @example
- * <ProfilePictureSection
- *   user={user}
- *   onUpload={handleUpload}
- *   onError={handleError}
- *   isUploading={isUploading}
- * />
+ * Handles profile picture display and selection with automatic center-cropping.
+ * Supports both click-to-upload and drag-and-drop.
+ * Does NOT upload immediately — stores a local preview and passes the blob
+ * to the parent via onFileSelect so it can be uploaded on form submit.
  */
 
-import { useRef, useState } from 'react';
-import { CameraIcon, UploadIcon } from '../icons';
-import { GradientButton, Avatar } from '../ui';
+import { useRef, useState, useCallback } from 'react';
+import { CameraIcon } from '../icons';
+import { Avatar } from '../ui';
 import { IMAGE_CONFIG, cropImageToSquare, validateImageFile } from '../../utils';
 
 export default function ProfilePictureSection({
   user,
-  onUpload,
+  previewUrl,
+  onFileSelect,
   onError,
-  isUploading = false,
 }) {
   const fileInputRef = useRef(null);
-
-  // Key to force file input remount after each upload attempt
   const [inputKey, setInputKey] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
-  /**
-   * Trigger file input click
-   */
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
 
   /**
-   * Handle file selection, validate, crop, and upload
+   * Process a file: validate, crop, and pass blob to parent
    */
-  const handleFileSelect = async (e) => {
-    const file = e.target.files?.[0];
+  const processFile = useCallback(async (file) => {
     if (!file) return;
 
-    // Validate file
     const validation = validateImageFile(file);
     if (!validation.valid) {
       onError?.(validation.error);
-      setInputKey((k) => k + 1);
       return;
     }
 
     try {
-      // Auto-crop to square and upload
       const croppedBlob = await cropImageToSquare(file);
-      await onUpload(croppedBlob);
+      onFileSelect?.(croppedBlob);
     } catch (error) {
       console.error('Error processing image:', error);
       onError?.('Failed to process image. Please try again.');
-    } finally {
-      // Always reset input to allow selecting the same file again
-      setInputKey((k) => k + 1);
     }
+  }, [onFileSelect, onError]);
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    await processFile(file);
+    setInputKey((k) => k + 1);
   };
 
-  return (
-    <div className="mb-6 p-4 bg-muted/30 rounded-lg">
-      <h4 className="text-md font-semibold text-foreground mb-3">
-        Profile Picture
-      </h4>
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
 
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    await processFile(file);
+  }, [processFile]);
+
+  return (
+    <div
+      onClick={handleUploadClick}
+      className={`mb-6 p-4 rounded-lg border-2 border-dashed cursor-pointer transition-colors duration-200 ${
+        isDragging
+          ? 'border-primary bg-primary/5'
+          : 'border-border hover:border-primary/50 hover:bg-muted/50'
+      }`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div className="flex items-center gap-4">
         {/* Avatar with hover overlay */}
         <div className="relative group">
           <Avatar
             user={user}
+            src={previewUrl}
             size="xl"
-            className="border-2 border-border"
           />
-          <button
-            type="button"
-            onClick={handleUploadClick}
-            disabled={isUploading}
-            className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-            aria-label="Change profile picture"
+          <div
+            className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
           >
-            <CameraIcon className="h-6 w-6 text-white" />
-          </button>
+            <span className="text-white"><CameraIcon size="lg" /></span>
+          </div>
         </div>
 
-        {/* Upload controls */}
-        <div className="flex-1">
-          <p className="text-sm text-foreground font-medium mb-1">
-            Upload a new photo
-          </p>
-          <p className="text-xs text-muted-foreground mb-3">
-            JPG, PNG or GIF. Max size 5MB. Image will be cropped to square.
-          </p>
-
-          <GradientButton
-            size="sm"
-            icon={<UploadIcon />}
-            onClick={handleUploadClick}
-            loading={isUploading}
-            loadingText="Uploading..."
+        {/* Upload text */}
+        <div className="text-center flex-1">
+          <svg
+            className="w-8 h-8 mx-auto mb-2 text-muted-foreground"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
           >
-            Choose File
-          </GradientButton>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          <p className="text-sm text-foreground mb-1">
+            {isDragging ? 'Drop photo here' : 'Drag photo here or click to browse'}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            JPG, PNG or GIF. Max 5MB
+          </p>
         </div>
       </div>
 
-      {/* Hidden file input - key forces remount to reset state */}
+      {/* Hidden file input */}
       <input
         key={inputKey}
         ref={fileInputRef}
         type="file"
         accept={IMAGE_CONFIG.acceptedTypes}
         onChange={handleFileSelect}
+        onClick={(e) => e.stopPropagation()}
         className="hidden"
         aria-hidden="true"
       />

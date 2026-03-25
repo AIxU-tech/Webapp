@@ -57,9 +57,9 @@ function CopyButton({ text, onCopied }) {
       aria-label={copied ? 'Copied' : `Copy ${text}`}
     >
       {copied ? (
-        <CheckIcon className="h-3.5 w-3.5 text-green-500" />
+        <span className="text-green-500"><CheckIcon size="sm" /></span>
       ) : (
-        <CopyIcon className="h-3.5 w-3.5" />
+        <CopyIcon size="sm" />
       )}
     </button>
   );
@@ -97,7 +97,7 @@ export default function SpeakerCard({ speaker, currentUserId, isSiteAdmin, onEdi
                 title="Edit speaker"
                 aria-label="Edit speaker"
               >
-                <PencilIcon className="h-4 w-4" />
+                <PencilIcon size="sm" />
               </button>
               <button
                 onClick={() => onDelete?.(speaker)}
@@ -105,7 +105,7 @@ export default function SpeakerCard({ speaker, currentUserId, isSiteAdmin, onEdi
                 title="Delete speaker"
                 aria-label="Delete speaker"
               >
-                <TrashIcon className="h-4 w-4" />
+                <TrashIcon size="sm" />
               </button>
             </div>
           )}
@@ -121,7 +121,7 @@ export default function SpeakerCard({ speaker, currentUserId, isSiteAdmin, onEdi
       <div className="space-y-1.5 mt-3">
         {speaker.email && (
           <div className="flex items-center text-sm text-muted-foreground">
-            <MailIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+            <span className="mr-2 flex-shrink-0"><MailIcon size="sm" /></span>
             <a href={`mailto:${speaker.email}`} className="hover:text-primary transition-colors truncate">
               {speaker.email}
             </a>
@@ -131,7 +131,7 @@ export default function SpeakerCard({ speaker, currentUserId, isSiteAdmin, onEdi
 
         {speaker.phone && (
           <div className="flex items-center text-sm text-muted-foreground">
-            <PhoneIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+            <span className="mr-2 flex-shrink-0"><PhoneIcon /></span>
             <button
               onClick={() => { copyToClipboard(speaker.phone); handleCopied(speaker.phone); }}
               className="hover:text-primary transition-colors cursor-pointer bg-transparent border-none p-0 text-sm text-muted-foreground"
@@ -145,7 +145,7 @@ export default function SpeakerCard({ speaker, currentUserId, isSiteAdmin, onEdi
 
         {speaker.linkedinUrl && (
           <div className="flex items-center text-sm text-muted-foreground">
-            <LinkedInIcon className="h-4 w-4 mr-2 flex-shrink-0 text-[#0077b5]" />
+            <span className="mr-2 flex-shrink-0 text-[#0077b5]"><LinkedInIcon size="sm" /></span>
             <a href={speaker.linkedinUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors truncate">
               {speaker.linkedinUrl.replace(/^https?:\/\/(www\.)?/, '')}
             </a>

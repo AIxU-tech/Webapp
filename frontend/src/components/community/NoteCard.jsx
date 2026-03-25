@@ -30,6 +30,7 @@ export default function NoteCard({
   isAuthenticated = false,
   isAdmin = false,
   initialCommentsExpanded = false,
+  highlightCommentId = null,
 }) {
   const { openAuthModal } = useAuthModal();
   const queryClient = useQueryClient();
@@ -65,7 +66,7 @@ export default function NoteCard({
 
   const headerBadges = note.universityOnly ? (
     <span className="flex items-center text-xs text-muted-foreground bg-muted px-2 py-1 rounded" title="Only visible to your university">
-      <BuildingIcon className="h-3 w-3 mr-1" />
+      <span className="mr-1"><BuildingIcon size="xs" /></span>
       University Only
     </span>
   ) : null;
@@ -129,7 +130,7 @@ export default function NoteCard({
         tags={note.tags || []}
         headerBadges={headerBadges}
         primaryActions={primaryActions}
-        expandableContent={<CommentSection noteId={note.id} isExpanded={isCommentsExpanded} />}
+        expandableContent={<CommentSection noteId={note.id} isExpanded={isCommentsExpanded} highlightCommentId={highlightCommentId} />}
       >
         <h3 className="text-xl font-bold text-foreground mb-2">{note.title}</h3>
         <div className="mb-4">

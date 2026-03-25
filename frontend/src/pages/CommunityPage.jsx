@@ -23,11 +23,12 @@
  * @component
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { clearResumeParseStatus } from '../api/resume';
 import {
   useInfiniteNotes,
   useCreateNote,
@@ -38,6 +39,11 @@ import {
   usePageTitle,
   useInfiniteScroll,
   prefetchInfiniteNotes,
+  useResume,
+  useUploadResume,
+  useStartResumeParse,
+  useResumeParseStatus,
+  resumeKeys,
 } from '../hooks';
 
 // UI Components
@@ -48,6 +54,7 @@ import {
   Toast,
 } from '../components/ui';
 import { NoteCard, NotesFilter, CreateNoteModal, EditNoteModal, NotesLoadingSkeleton } from '../components/community';
+import { ResumeAutoFillModal, ResumeParsingBanner } from '../components/profile';
 
 // Icons
 import {
@@ -170,10 +177,70 @@ export default function CommunityPage() {
    */
   const [errorToast, setErrorToast] = useState(null);
 
+  // ---------------------------------------------------------------------------
+  // Resume Auto-Fill Prompt (shown to new users after signup)
+  // ---------------------------------------------------------------------------
+
+  const { data: resume } = useResume(isAuthenticated ? user?.id : null);
+  const uploadResumeMutation = useUploadResume(user?.id);
+  const startParseMutation = useStartResumeParse();
+  // Poll parse status for authenticated users. The initial request returns null
+  // and stops polling (refetchInterval returns false), so the overhead for users
+  // without active parsing is a single lightweight request.
+  const { data: parseStatusData } = useResumeParseStatus(isAuthenticated);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+
+  /**
+   * Success toast for resume parsing completion
+   */
+  const [successToast, setSuccessToast] = useState(null);
+  const prevParseStatus = useRef(parseStatusData?.status);
+  useEffect(() => {
+    if (prevParseStatus.current === 'parsing' && parseStatusData?.status === 'complete') {
+      setSuccessToast('Resume parsed successfully! Your profile has been updated.');
+    }
+    prevParseStatus.current = parseStatusData?.status;
+  }, [parseStatusData?.status]);
+
   /**
    * Delete Confirmation Modal State
    */
   const [noteToDelete, setNoteToDelete] = useState(null);
+
+  // Show the modal once for users who don't have a resume yet
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+    // resume is undefined while loading, null when confirmed absent
+    if (resume !== null) return;
+
+    const storageKey = `aixu_resume_prompt_dismissed_${user.id}`;
+    if (localStorage.getItem(storageKey)) return;
+
+    setShowResumeModal(true);
+  }, [isAuthenticated, user?.id, resume]);
+
+  const handleResumeModalClose = () => {
+    setShowResumeModal(false);
+    if (user?.id) {
+      localStorage.setItem(`aixu_resume_prompt_dismissed_${user.id}`, 'true');
+    }
+  };
+
+  const handleResumeAutoFillUpload = (file) => {
+    // Mark as dismissed so it doesn't show again
+    if (user?.id) {
+      localStorage.setItem(`aixu_resume_prompt_dismissed_${user.id}`, 'true');
+    }
+    // Upload resume, then trigger parsing on success
+    uploadResumeMutation.mutate(
+      { file },
+      {
+        onSuccess: () => {
+          startParseMutation.mutate();
+        },
+      }
+    );
+  };
 
   // Set page title
   usePageTitle('Community Notes');
@@ -432,6 +499,20 @@ export default function CommunityPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Resume parsing status banner */}
+      {parseStatusData?.status && parseStatusData.status !== 'complete' && (
+        <div className="mb-6">
+          <ResumeParsingBanner
+            status={parseStatusData.status}
+            error={parseStatusData.error}
+            onDismiss={() => {
+              clearResumeParseStatus().catch(() => {});
+              queryClient.setQueryData(resumeKeys.parseStatus, { status: null });
+            }}
+          />
+        </div>
+      )}
+
       {/*
         Page Header
 
@@ -451,7 +532,7 @@ export default function CommunityPage() {
             </p>
             <button
               onClick={clearFilters}
-              className="inline-flex items-center text-primary hover:text-primary/80 text-sm font-medium transition-colors mb-6"
+              className="inline-flex items-center text-primary hover:text-primary/80 text-sm font-medium transition-colors mb-6 cursor-pointer"
             >
               <XIcon />
               <span className="ml-1">Clear filter and show all posts</span>
@@ -464,7 +545,7 @@ export default function CommunityPage() {
             </p>
             <button
               onClick={clearFilters}
-              className="inline-flex items-center text-primary hover:text-primary/80 text-sm font-medium transition-colors mb-6"
+              className="inline-flex items-center text-primary hover:text-primary/80 text-sm font-medium transition-colors mb-6 cursor-pointer"
             >
               <XIcon />
               <span className="ml-1">Clear search</span>
@@ -610,6 +691,21 @@ export default function CommunityPage() {
         isVisible={!!errorToast}
         onDismiss={() => setErrorToast(null)}
         variant="error"
+      />
+
+      {/* Success Toast for resume parsing completion */}
+      <Toast
+        message={successToast}
+        isVisible={!!successToast}
+        onDismiss={() => setSuccessToast(null)}
+        variant="success"
+      />
+
+      {/* Resume Auto-Fill Modal (shown once to new users) */}
+      <ResumeAutoFillModal
+        isOpen={showResumeModal}
+        onClose={handleResumeModalClose}
+        onUpload={handleResumeAutoFillUpload}
       />
     </div>
   );

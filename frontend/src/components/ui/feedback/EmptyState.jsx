@@ -55,7 +55,7 @@ export default function EmptyState({
         <button
           type="button"
           onClick={action.onClick}
-          className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
+          className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors cursor-pointer"
         >
           {action.icon}
           {action.label}

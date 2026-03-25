@@ -131,15 +131,28 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: updateProfile,
 
-    onSuccess: (data) => {
-      // Invalidate user queries to refetch updated data
-      queryClient.invalidateQueries({ queryKey: userKeys.all });
+    onMutate: async (updates) => {
+      const previousQueries = await _snapshotUserQueries(queryClient);
+      // Merge partial updates into all cached user objects
+      queryClient.setQueriesData({ queryKey: userKeys.all }, (old) => {
+        if (old && typeof old === 'object' && !Array.isArray(old) && old.id) {
+          return { ...old, ...updates };
+        }
+        return old;
+      });
+      return { previousQueries };
+    },
 
+    onError: (_err, _vars, ctx) => _rollback(queryClient, ctx?.previousQueries),
+
+    onSuccess: (data) => {
       // If we have the user ID in the response, update that specific cache
       if (data?.user?.id) {
         queryClient.setQueryData(userKeys.detail(data.user.id), data.user);
       }
     },
+
+    onSettled: () => queryClient.invalidateQueries({ queryKey: userKeys.all }),
   });
 }
 
@@ -174,8 +187,38 @@ export function useUploadProfilePicture() {
       return response.json();
     },
 
-    onSuccess: () => {
-      // Invalidate user queries to refetch with new picture
+    onMutate: async (file) => {
+      const previousQueries = await _snapshotUserQueries(queryClient);
+      // Create a local blob URL for optimistic display
+      const previewUrl = URL.createObjectURL(file);
+      queryClient.setQueriesData({ queryKey: userKeys.all }, (oldData) => {
+        if (oldData && typeof oldData === 'object' && !Array.isArray(oldData) && oldData.id) {
+          return { ...oldData, profile_picture_url: previewUrl };
+        }
+        return oldData;
+      });
+      return { previousQueries, previewUrl };
+    },
+
+    onError: (_err, _vars, ctx) => {
+      _rollback(queryClient, ctx?.previousQueries);
+      if (ctx?.previewUrl) URL.revokeObjectURL(ctx.previewUrl);
+    },
+
+    onSuccess: (data, _vars, ctx) => {
+      // Replace blob URL with server URL in cache
+      if (data?.profile_picture_url) {
+        queryClient.setQueriesData({ queryKey: userKeys.all }, (oldData) => {
+          if (oldData && typeof oldData === 'object' && !Array.isArray(oldData) && oldData.id) {
+            return { ...oldData, profile_picture_url: data.profile_picture_url };
+          }
+          return oldData;
+        });
+      }
+      if (ctx?.previewUrl) URL.revokeObjectURL(ctx.previewUrl);
+    },
+
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
   });
@@ -250,12 +293,23 @@ export function useUploadProfileBanner() {
       return response.json();
     },
 
-    // Update cache with new banner URL immediately on success (prevents flash)
+    onMutate: async () => {
+      const previousQueries = await _snapshotUserQueries(queryClient);
+      queryClient.setQueriesData({ queryKey: userKeys.all }, (oldData) => {
+        if (oldData && typeof oldData === 'object' && !Array.isArray(oldData) && oldData.id) {
+          return { ...oldData, hasBanner: true };
+        }
+        return oldData;
+      });
+      return { previousQueries };
+    },
+
+    onError: (_err, _vars, ctx) => _rollback(queryClient, ctx?.previousQueries),
+
     onSuccess: (data) => {
       if (data?.banner_image_url) {
-        // Update all user detail queries that might have this user
         queryClient.setQueriesData({ queryKey: userKeys.all }, (oldData) => {
-          if (oldData && typeof oldData === 'object') {
+          if (oldData && typeof oldData === 'object' && !Array.isArray(oldData) && oldData.id) {
             return {
               ...oldData,
               banner_image_url: data.banner_image_url,
@@ -265,7 +319,9 @@ export function useUploadProfileBanner() {
           return oldData;
         });
       }
-      // Then invalidate to ensure full consistency
+    },
+
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
   });

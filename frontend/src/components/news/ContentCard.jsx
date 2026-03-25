@@ -15,8 +15,9 @@
  * @component
  */
 
-import { useState, useCallback, useRef } from 'react';
-import { ExternalLinkIcon, ArrowLeftIcon, MessageCircleIcon, SendIcon, SparklesIcon } from '../icons';
+import { useState, useCallback } from 'react';
+import { ExternalLinkIcon, ArrowLeftIcon } from '../icons';
+import { ChatInput } from '../ui/forms';
 import { useStoryChatMutation, usePaperChatMutation } from '../../hooks/useNews';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
@@ -126,27 +127,9 @@ function LoadingDots() {
  * Chat interface component
  * Fixed height layout with scrollable messages and input pinned at bottom
  */
-function ChatInterface({ messages, isLoading, onSendMessage }) {
-  const [inputValue, setInputValue] = useState('');
-  const inputRef = useRef(null);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (inputValue.trim()) {
-      onSendMessage(inputValue.trim());
-      setInputValue('');
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
-    }
-  };
-
+function ChatInterface({ messages, isLoading, onSendMessage, placeholder }) {
   return (
-    <div className="flex flex-col h-[300px]">
+    <div className="flex flex-col h-full">
       {/* Scrollable messages area */}
       <div className="flex-1 overflow-y-auto py-2 min-h-0">
         {messages.map((msg, idx) => (
@@ -156,28 +139,14 @@ function ChatInterface({ messages, isLoading, onSendMessage }) {
       </div>
 
       {/* Input pinned at bottom */}
-      <form onSubmit={handleSubmit} className="flex gap-2 pt-3 border-t border-border mt-auto">
-        <div className="flex-1 flex gap-2 items-end">
-          <textarea
-            ref={inputRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask a question..."
-            rows={1}
-            className="flex-1 resize-none rounded-xl border border-border bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-            style={{ maxHeight: '120px' }}
-          />
-          <button
-            type="submit"
-            disabled={!inputValue.trim()}
-            className="flex-shrink-0 p-2.5 rounded-xl bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white hover:shadow-lg hover:shadow-[hsl(220,85%,60%)]/30 transition-all duration-200 disabled:opacity-50 disabled:shadow-none"
-            aria-label="Send message"
-          >
-            <SendIcon />
-          </button>
-        </div>
-      </form>
+      <div className="pt-3 border-t border-border mt-auto">
+        <ChatInput
+          onSend={onSendMessage}
+          disabled={isLoading}
+          placeholder={placeholder}
+          autoFocus
+        />
+      </div>
     </div>
   );
 }
@@ -282,7 +251,6 @@ export default function ContentCard({
   const [isChatMode, setIsChatMode] = useState(false);
   const [messages, setMessages] = useState([]);
   const [sessionId, setSessionId] = useState(null);
-  const [summaryInput, setSummaryInput] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Use appropriate chat mutation based on type
@@ -323,54 +291,9 @@ export default function ContentCard({
     [mutation, item.id, sessionId, config.idField, isAuthenticated, openAuthModal]
   );
 
-  // Handle starting a chat from summary view
-  const handleStartChat = useCallback(
-    (e) => {
-      e.preventDefault();
-      if (!isAuthenticated) {
-        openAuthModal();
-        return;
-      }
-      const message = summaryInput.trim();
-      if (message) {
-        const newSessionId = generateSessionId();
-        setSessionId(newSessionId);
-        setMessages([{ role: 'user', content: message }]);
-        setIsChatMode(true);
-        setSummaryInput('');
-
-        const payload = { message, sessionId: newSessionId };
-        payload[config.idField] = item.id;
-        mutation.mutate(payload, {
-          onSuccess: (data) => {
-            setMessages((prev) => [...prev, { role: 'assistant', content: data.response }]);
-            if (data.sessionId) setSessionId(data.sessionId);
-          },
-          onError: (error) => {
-            setMessages((prev) => [
-              ...prev,
-              { role: 'assistant', content: `Sorry, I encountered an error: ${error.message || 'Please try again.'}` }
-            ]);
-          }
-        });
-      }
-    },
-    [summaryInput, mutation, item.id, config.idField, isAuthenticated, openAuthModal]
-  );
-
   const handleBackToSummary = useCallback(() => {
     setIsChatMode(false);
   }, []);
-
-  const handleSummaryInputKeyDown = useCallback(
-    (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleStartChat(e);
-      }
-    },
-    [handleStartChat]
-  );
 
   return (
     <article className="bg-card border border-border rounded-xl overflow-hidden shadow-card hover:shadow-hover transition-all duration-200 flex flex-col">
@@ -383,7 +306,7 @@ export default function ContentCard({
             {isChatMode && (
               <button
                 onClick={handleBackToSummary}
-                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
                 aria-label="Back to summary"
               >
                 <ArrowLeftIcon />
@@ -421,8 +344,8 @@ export default function ContentCard({
           </div>
         </div>
 
-        {/* Hero Image — stories only */}
-        {type === 'story' && (
+        {/* Hero Image — stories only, hidden in chat mode */}
+        {type === 'story' && !isChatMode && (
           <div className="mb-3">
             <HeroImage imageUrl={item.imageUrl} emoji={item.emoji} type={type} />
           </div>
@@ -439,7 +362,7 @@ export default function ContentCard({
               {cleanSummary && cleanSummary.length > 150 && (
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
-                  className="text-sm text-primary hover:text-primary/80 font-medium mt-1 transition-colors"
+                  className="text-sm text-primary hover:text-primary/80 font-medium mt-1 transition-colors cursor-pointer"
                 >
                   {isExpanded ? 'Show less' : 'Read more'}
                 </button>
@@ -459,7 +382,7 @@ export default function ContentCard({
                         rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors group"
                       >
-                        <ExternalLinkIcon className="h-3.5 w-3.5 flex-shrink-0 opacity-60 group-hover:opacity-100" />
+                        <span className="flex-shrink-0 opacity-60 group-hover:opacity-100"><ExternalLinkIcon size="sm" /></span>
                         <span className="font-medium truncate">{source.sourceName || 'Source'}</span>
                       </a>
                     </li>
@@ -479,22 +402,32 @@ export default function ContentCard({
             <div className="flex-1" />
 
             {/* Chat Input */}
-            <form onSubmit={handleStartChat} className="mt-4 pt-3 border-t border-border">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <MessageCircleIcon className="h-4 w-4" />
-                </div>
-                <input
-                  type="text"
-                  value={summaryInput}
-                  onChange={(e) => setSummaryInput(e.target.value)}
-                  onKeyDown={handleSummaryInputKeyDown}
-                  placeholder={config.placeholder}
-                  className="flex-1 bg-transparent border-none text-sm placeholder:text-muted-foreground focus:outline-none min-w-0"
-                />
-                <SparklesIcon className="h-4 w-4 text-primary/60 flex-shrink-0" />
-              </div>
-            </form>
+            <div className="mt-4 pt-3 border-t border-border">
+              <ChatInput
+                onSend={(msg) => {
+                  if (!isAuthenticated) { openAuthModal(); return; }
+                  const newSessionId = generateSessionId();
+                  setSessionId(newSessionId);
+                  setMessages([{ role: 'user', content: msg }]);
+                  setIsChatMode(true);
+                  const payload = { message: msg, sessionId: newSessionId };
+                  payload[config.idField] = item.id;
+                  mutation.mutate(payload, {
+                    onSuccess: (data) => {
+                      setMessages((prev) => [...prev, { role: 'assistant', content: data.response }]);
+                      if (data.sessionId) setSessionId(data.sessionId);
+                    },
+                    onError: (error) => {
+                      setMessages((prev) => [
+                        ...prev,
+                        { role: 'assistant', content: `Sorry, I encountered an error: ${error.message || 'Please try again.'}` }
+                      ]);
+                    }
+                  });
+                }}
+                placeholder={config.placeholder}
+              />
+            </div>
           </div>
         ) : (
           // Chat Mode
@@ -503,6 +436,7 @@ export default function ContentCard({
               messages={messages}
               isLoading={mutation.isPending}
               onSendMessage={handleSendMessage}
+              placeholder={config.placeholder}
             />
           </div>
         )}

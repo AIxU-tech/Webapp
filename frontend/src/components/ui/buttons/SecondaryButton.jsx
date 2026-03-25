@@ -49,7 +49,7 @@ const SIZE_CLASSES = {
  */
 const VARIANT_CLASSES = {
   // Default solid secondary button
-  default: 'bg-muted text-foreground border border-border hover:bg-accent hover:text-accent-foreground',
+  default: 'bg-muted text-foreground border border-border hover:bg-muted-foreground/10',
 
   // Outline button with transparent background
   outline: 'bg-transparent text-foreground border border-border hover:bg-muted',
@@ -111,7 +111,7 @@ const SecondaryButton = forwardRef(function SecondaryButton(
     <>
       {/* Loading spinner or left icon */}
       {loading ? (
-        <SpinnerIcon className="h-4 w-4" />
+        <SpinnerIcon size="sm" />
       ) : (
         icon && iconPosition === 'left' && icon
       )}

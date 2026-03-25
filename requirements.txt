@@ -43,3 +43,6 @@ better-profanity>=0.7.0
 
 # Google Cloud Storage (for file uploads)
 google-cloud-storage>=2.14.0
+
+# Document parsing (Word documents for resume parsing)
+python-docx>=1.1.0

@@ -313,6 +313,65 @@ class TestSocialLinks:
             assert data['success'] is False
 
 
+class TestEducationGpaValidation:
+    """Tests for GPA validation on education entries"""
+
+    def test_create_education_with_invalid_gpa_rejected(self, authenticated_client, app):
+        """Test that nonsense GPA string is rejected on create"""
+        response = authenticated_client.post('/api/profile/education', json={
+            'institution': 'MIT',
+            'degree': 'B.S. Computer Science',
+            'gpa': 'ksdfjlsdjs',
+        })
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+        assert 'gpa' in data['error'].lower()
+
+    def test_create_education_with_valid_gpa_accepted(self, authenticated_client, app):
+        """Test that a valid decimal GPA is accepted on create"""
+        response = authenticated_client.post('/api/profile/education', json={
+            'institution': 'MIT',
+            'degree': 'B.S. Computer Science',
+            'gpa': '3.85',
+        })
+
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['entry']['gpa'] == '3.85'
+
+    def test_create_education_with_empty_gpa_accepted(self, authenticated_client, app):
+        """Test that omitting GPA is fine (it's optional)"""
+        response = authenticated_client.post('/api/profile/education', json={
+            'institution': 'MIT',
+            'degree': 'B.S. Computer Science',
+        })
+
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data['success'] is True
+
+    def test_update_education_with_invalid_gpa_rejected(self, authenticated_client, app):
+        """Test that nonsense GPA string is rejected on update"""
+        create_resp = authenticated_client.post('/api/profile/education', json={
+            'institution': 'MIT',
+            'degree': 'B.S. Computer Science',
+            'gpa': '3.9',
+        })
+        entry_id = create_resp.get_json()['entry']['id']
+
+        response = authenticated_client.put(f'/api/profile/education/{entry_id}', json={
+            'gpa': 'not_a_number',
+        })
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+        assert 'gpa' in data['error'].lower()
+
+
 class TestProfilePictures:
     """Tests for profile picture upload/delete"""
 

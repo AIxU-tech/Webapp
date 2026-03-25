@@ -79,7 +79,7 @@ export default function UniversityLogoSection({
             className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
             aria-label="Change club logo"
           >
-            <CameraIcon className="h-6 w-6 text-white" />
+            <span className="text-white"><CameraIcon size="lg" /></span>
           </button>
         </div>
 

@@ -16,7 +16,7 @@ function EducationItem({ entry, isOwnProfile, onEdit, onDelete }) {
   return (
     <div className="group relative flex gap-4 py-4 first:pt-0 last:pb-0">
       <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
-        <AcademicCapIcon className="h-5 w-5 text-primary" />
+        <span className="text-primary"><AcademicCapIcon size="md" /></span>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
@@ -34,25 +34,27 @@ function EducationItem({ entry, isOwnProfile, onEdit, onDelete }) {
                 className="p-1.5 rounded-md hover:bg-muted transition-colors cursor-pointer"
                 aria-label="Edit education"
               >
-                <EditIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground"><EditIcon size="sm" /></span>
               </button>
               <button
                 onClick={() => onDelete(entry.id)}
                 className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors cursor-pointer"
                 aria-label="Delete education"
               >
-                <TrashIcon className="h-3.5 w-3.5 text-destructive" />
+                <span className="text-destructive"><TrashIcon size="sm" /></span>
               </button>
             </div>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <CalendarIcon className="h-3 w-3" />
-            {formatDateRange(entry.start_date, entry.end_date)}
-          </span>
+          {(entry.start_date || entry.end_date) && (
+            <span className="flex items-center gap-1">
+              <CalendarIcon size="xs" />
+              {formatDateRange(entry.start_date, entry.end_date)}
+            </span>
+          )}
           {entry.gpa != null && (
-            <span>GPA: {entry.gpa.toFixed(2)}</span>
+            <span>GPA: {entry.gpa}</span>
           )}
         </div>
         {entry.description && (
@@ -83,11 +85,14 @@ export default function EducationSection({
 
   const hasEducation = education && education.length > 0;
 
+  // Hide empty sections on other users' profiles
+  if (!isOwnProfile && !hasEducation) return null;
+
   const addAction = isOwnProfile && (
     <SecondaryButton
       variant="outline"
       onClick={handleAdd}
-      icon={<PlusIcon className="h-4 w-4" />}
+      icon={<PlusIcon size="sm" />}
       size="sm"
     >
       Add
@@ -118,7 +123,7 @@ export default function EducationSection({
               <SecondaryButton
                 variant="outline"
                 onClick={handleAdd}
-                icon={<PlusIcon className="h-4 w-4" />}
+                icon={<PlusIcon size="sm" />}
                 size="sm"
               >
                 Add education

@@ -146,9 +146,9 @@ export default function MessagesPage() {
             <button
               type="button"
               onClick={handleBack}
-              className="md:hidden flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:text-foreground border-b border-border"
+              className="md:hidden flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:text-foreground border-b border-border cursor-pointer"
             >
-              <ArrowLeftIcon className="h-4 w-4" />
+              <ArrowLeftIcon size="sm" />
               Back
             </button>
           )}

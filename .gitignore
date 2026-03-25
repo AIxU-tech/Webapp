@@ -49,6 +49,9 @@ coverage.xml
 test.db
 instance/test.db
 
+# Claude Code
+.claude/worktrees/
+
 # GCS / Terraform
 flask-sa-key.json
 *.tfstate

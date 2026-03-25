@@ -40,7 +40,7 @@ export default function ErrorState({
       {/* Icon */}
       <div className="flex justify-center mb-4">
         <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
-          <AlertCircleIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
+          <span className="text-red-600 dark:text-red-400"><AlertCircleIcon size="lg" /></span>
         </div>
       </div>
 
@@ -55,7 +55,7 @@ export default function ErrorState({
           <button
             type="button"
             onClick={onRetry}
-            className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
+            className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors cursor-pointer"
           >
             Try Again
           </button>

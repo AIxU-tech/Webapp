@@ -40,3 +40,31 @@ export async function getUserResume(userId) {
 export async function deleteResume() {
   return api.delete('/profile/resume');
 }
+
+/**
+ * Start AI-powered resume parsing.
+ * Triggers background parsing of the user's uploaded resume.
+ *
+ * @returns {Promise<Object>} Response with parsing status
+ */
+export async function startResumeParse() {
+  return api.post('/profile/resume/parse');
+}
+
+/**
+ * Check the current resume parsing status.
+ *
+ * @returns {Promise<Object>} Response with status: null | 'parsing' | 'complete' | 'error'
+ */
+export async function getResumeParseStatus() {
+  return api.get('/profile/resume/parse-status');
+}
+
+/**
+ * Clear the resume parsing status.
+ *
+ * @returns {Promise<Object>} Response with success status
+ */
+export async function clearResumeParseStatus() {
+  return api.delete('/profile/resume/parse-status');
+}

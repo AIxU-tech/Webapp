@@ -65,7 +65,7 @@ function groupCommentsByParent(comments) {
  * @param {number} props.noteId - The note ID to show comments for
  * @param {boolean} props.isExpanded - Whether the section is expanded
  */
-export default function CommentSection({ noteId, isExpanded }) {
+export default function CommentSection({ noteId, isExpanded, highlightCommentId = null }) {
   const { user, isAuthenticated } = useAuth();
   const isAdmin = user?.permissionLevel >= 1;
   const { openAuthModal } = useAuthModal();
@@ -85,6 +85,23 @@ export default function CommentSection({ noteId, isExpanded }) {
     () => groupCommentsByParent(comments),
     [comments]
   );
+
+  // Reorder threads to put the highlighted comment's thread first
+  const orderedComments = useMemo(() => {
+    if (!highlightCommentId || groupedComments.length === 0) return groupedComments;
+
+    const highlightIndex = groupedComments.findIndex(({ comment, replies }) =>
+      comment.id === highlightCommentId ||
+      replies.some(r => r.id === highlightCommentId)
+    );
+
+    if (highlightIndex <= 0) return groupedComments;
+
+    const reordered = [...groupedComments];
+    const [highlighted] = reordered.splice(highlightIndex, 1);
+    reordered.unshift(highlighted);
+    return reordered;
+  }, [groupedComments, highlightCommentId]);
 
   // Mutations
   const createMutation = useCreateComment();
@@ -206,7 +223,7 @@ export default function CommentSection({ noteId, isExpanded }) {
       {/* Comments List - Threaded */}
       {!isLoading && !error && (
         <div className="space-y-1">
-          {groupedComments.map(({ comment, replies }) => (
+          {orderedComments.map(({ comment, replies }) => (
             <div key={comment.id}>
               {/* Top-level comment */}
               <CommentCard

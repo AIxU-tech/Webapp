@@ -319,7 +319,7 @@ export default function SkillsCard({ skills = [], isOwnProfile, onSave }) {
                       type="button"
                       onClick={() => removeSkill(skill)}
                       className="p-0.5 rounded-full hover:bg-foreground/10
-                                 transition-colors"
+                                 transition-colors cursor-pointer"
                       aria-label={`Remove ${skill}`}
                     >
                       <XIcon className="w-3 h-3" />
@@ -342,7 +342,7 @@ export default function SkillsCard({ skills = [], isOwnProfile, onSave }) {
                 onKeyDown={handleKeyDown}
                 placeholder="Type a skill..."
                 maxLength={MAX_SKILL_LENGTH}
-                className="flex-1 px-3 py-2 bg-muted border border-border rounded-lg
+                className="flex-1 px-3 py-2 bg-background border border-border rounded-lg
                            focus:outline-none focus:ring-2 focus:ring-ring
                            focus:border-transparent text-sm placeholder-muted-foreground
                            transition-all"
@@ -358,7 +358,7 @@ export default function SkillsCard({ skills = [], isOwnProfile, onSave }) {
                 disabled={!inputValue.trim()}
                 className={`flex-shrink-0 p-2 rounded-lg transition-all ${
                   inputValue.trim()
-                    ? 'bg-primary text-white hover:bg-primary/90 active:scale-95'
+                    ? 'bg-primary text-white hover:bg-primary/90 active:scale-95 cursor-pointer'
                     : 'bg-muted text-muted-foreground cursor-not-allowed'
                 }`}
                 aria-label="Add skill"
@@ -380,7 +380,7 @@ export default function SkillsCard({ skills = [], isOwnProfile, onSave }) {
               <button
                 type="button"
                 onClick={saveAndExit}
-                className="md:hidden text-xs font-medium text-primary hover:text-primary/80 transition-colors px-2 py-1"
+                className="md:hidden text-xs font-medium text-primary hover:text-primary/80 transition-colors px-2 py-1 cursor-pointer"
               >
                 Done
               </button>
@@ -407,7 +407,7 @@ export default function SkillsCard({ skills = [], isOwnProfile, onSave }) {
            * DISPLAY MODE - Empty State
            * ═══════════════════════════════════════════════════════════════════ */
           <EmptyState
-            icon={<CodeIcon className="h-8 w-8" />}
+            icon={<CodeIcon size="xl" />}
             title={isOwnProfile ? 'Add your skills' : 'No skills listed'}
             description={
               isOwnProfile ? 'Showcase your technical abilities.' : undefined

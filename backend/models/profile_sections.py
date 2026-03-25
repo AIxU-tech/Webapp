@@ -18,9 +18,9 @@ class Education(db.Model):
     institution = db.Column(db.String(200), nullable=False)
     degree = db.Column(db.String(200), nullable=False)
     field_of_study = db.Column(db.String(200), nullable=True)
-    start_date = db.Column(db.Date, nullable=False)
+    start_date = db.Column(db.Date, nullable=True)
     end_date = db.Column(db.Date, nullable=True)
-    gpa = db.Column(db.Float, nullable=True)
+    gpa = db.Column(db.String(20), nullable=True)
     description = db.Column(db.Text, nullable=True)
     display_order = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -106,7 +106,7 @@ class Project(db.Model):
 
     user = db.relationship('User', backref=db.backref(
         'project_entries', cascade='all, delete-orphan', passive_deletes=True,
-        order_by='Project.display_order, Project.start_date.desc()',
+        order_by='Project.display_order',
         lazy='selectin'
     ))
 
@@ -124,8 +124,6 @@ class Project(db.Model):
             'title': self.title,
             'description': self.description,
             'url': self.url,
-            'start_date': self.start_date.isoformat() if self.start_date else None,
-            'end_date': self.end_date.isoformat() if self.end_date else None,
             'technologies': techs,
             'display_order': self.display_order,
         }

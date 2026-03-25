@@ -1,7 +1,7 @@
 /**
  * AIClubsCard
  *
- * Displays the user's AI club membership with university icon.
+ * Displays the user's AI club membership with university logo.
  * Links to the university/club page when an ID is available.
  */
 
@@ -10,22 +10,30 @@ import { Card, EmptyState } from '../../ui';
 import { RoleBadge } from '../../university';
 import { UniversitiesIcon, ExternalLinkIcon } from '../../icons';
 
-// Club icon with gradient background
+// Fallback club icon when no logo is available
 function ClubIcon() {
   return (
     <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center flex-shrink-0">
-      <UniversitiesIcon className="w-5 h-5 text-primary" />
+      <span className="text-primary"><UniversitiesIcon size="md" /></span>
     </div>
   );
 }
 
-export default function AIClubsCard({ universityName, universityId, role }) {
+export default function AIClubsCard({ universityName, universityId, universityLogoUrl, role }) {
   const hasClub = universityName && universityName.trim().length > 0;
 
   // Content to display for the club
   const clubContent = (
     <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors group">
-      <ClubIcon />
+      {universityLogoUrl ? (
+        <img
+          src={universityLogoUrl}
+          alt={`${universityName} logo`}
+          className="w-9 h-9 rounded-lg object-cover flex-shrink-0"
+        />
+      ) : (
+        <ClubIcon />
+      )}
 
       <div className="flex-1 min-w-0">
         <p className="font-medium text-foreground truncate group-hover:text-primary transition-colors">{universityName}</p>
@@ -56,7 +64,7 @@ export default function AIClubsCard({ universityName, universityId, role }) {
         )
       ) : (
         <EmptyState
-          icon={<UniversitiesIcon className="h-8 w-8" />}
+          icon={<UniversitiesIcon size="xl" />}
           title="No club membership"
           className="py-6"
         />

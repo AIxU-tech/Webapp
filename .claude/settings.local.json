@@ -1,9 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(wc:*)",
-      "Bash(done)",
-      "Bash(npm run build:*)"
+      "Bash(pip list:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)"
     ]
   }
 }

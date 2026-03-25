@@ -87,15 +87,15 @@ export default function SharePopover({
             onClick={handleCopy}
             className={`flex items-center justify-center w-9 h-9 rounded-md transition-colors cursor-pointer ${isCopied
               ? 'bg-green-500/10 text-green-600'
-              : 'bg-accent text-foreground hover:bg-accent/80'
+              : 'bg-muted text-foreground hover:bg-muted-foreground/10'
               }`}
             aria-label={isCopied ? 'Copied!' : 'Copy link'}
             title={isCopied ? 'Copied!' : 'Copy link'}
           >
             {isCopied ? (
-              <CheckIcon className="h-4 w-4" />
+              <CheckIcon size="sm" />
             ) : (
-              <CopyIcon className="h-4 w-4" />
+              <CopyIcon size="sm" />
             )}
           </button>
         </div>

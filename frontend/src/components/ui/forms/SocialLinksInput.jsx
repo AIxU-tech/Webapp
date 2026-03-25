@@ -149,7 +149,7 @@ export default function SocialLinksInput({
                   type="button"
                   onClick={() => removeLink(link.url)}
                   className="p-0.5 rounded-full hover:text-red-500 hover:bg-red-50
-                             dark:hover:bg-red-900/20 transition-colors ml-0.5"
+                             dark:hover:bg-red-900/20 transition-colors ml-0.5 cursor-pointer"
                   aria-label={`Remove ${getPlatformDisplayName(link.type)} link`}
                 >
                   <XIcon className="w-3 h-3" />
