@@ -30,7 +30,8 @@ from flask_login import login_required, current_user
 import hashlib
 import json
 from backend.extensions import db
-from backend.models import University, User, UniversityRole
+from backend.models import University, User, UniversityRole, Event, EventAttendance
+from backend.models.event import _datetime_to_iso_utc
 from backend.constants import UniversityRoles
 from backend.utils.permissions import (
     can_manage_university_members,
@@ -230,6 +231,7 @@ def get_university(university_id: int):
             'postCount': m.post_count or 0,
             'role': role.role,
             'roleName': role.role_name,
+            'eventsAttendedCount': role.events_attended_count or 0,
         })
 
     # Check if current user is a member (for UI display purposes)
@@ -353,6 +355,57 @@ def remove_member(university_id: int, user_id: int):
 
     db.session.commit()
     return jsonify({'success': True, 'message': 'Member removed successfully'})
+
+
+@universities_bp.route('/api/universities/<int:university_id>/members/<int:user_id>/attendance', methods=['GET'])
+@login_required
+def get_member_attendance(university_id: int, user_id: int):
+    """
+    Get a member's event attendance history at this university.
+
+    Returns events the user checked into (via QR code) at this university's events,
+    with event details and check-in times.
+
+    Authorization:
+        - Executive+ at this university, or site admin
+
+    Returns:
+        200: { events: [{ eventId, eventTitle, eventStartTime, checkedInAt }] }
+        403: Not authorized
+        404: University or member not found
+    """
+    uni = University.query.get(university_id)
+    if not uni:
+        return jsonify({'error': 'University not found'}), 404
+
+    if not can_manage_university_members(current_user, university_id):
+        return jsonify({'error': 'Executive or higher permission required'}), 403
+
+    if not uni.is_member(user_id):
+        return jsonify({'error': 'Member not found in this university'}), 404
+
+    records = (
+        db.session.query(EventAttendance, Event)
+        .join(Event, EventAttendance.event_id == Event.id)
+        .filter(
+            EventAttendance.user_id == user_id,
+            Event.university_id == university_id,
+        )
+        .order_by(EventAttendance.checked_in_at.desc())
+        .all()
+    )
+
+    events_data = [
+        {
+            'eventId': evt.id,
+            'eventTitle': evt.title,
+            'eventStartTime': _datetime_to_iso_utc(evt.start_time),
+            'checkedInAt': _datetime_to_iso_utc(att.checked_in_at),
+        }
+        for att, evt in records
+    ]
+
+    return jsonify({'events': events_data})
 
 
 # =============================================================================

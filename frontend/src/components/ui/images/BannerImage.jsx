@@ -51,7 +51,7 @@ export default function BannerImage({
         )}
       </div>
 
-      {/* Edit button outside overflow-hidden container so click area isn't clipped */}
+      {/* Buttons outside overflow-hidden container so click area isn't clipped */}
       {/* z-20 ensures button is above overlapping elements like UniversityIdentityBar (z-10) */}
       {canEdit && (
         <button

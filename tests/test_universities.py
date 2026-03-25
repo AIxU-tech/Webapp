@@ -365,3 +365,96 @@ class TestUniversityDeletion:
 
             # Should redirect to login or return 401
             assert response.status_code in [302, 401]
+
+
+class TestMemberAttendance:
+    """Tests for GET /api/universities/<id>/members/<user_id>/attendance"""
+
+    def test_executive_can_get_member_attendance(
+        self, authenticated_executive_client, test_university, member_user, test_event, app
+    ):
+        """Test that executive can get a member's attendance history"""
+        with app.app_context():
+            from backend.models.event_attendance import EventAttendance
+
+            university = db.session.get(University, test_university.id)
+            member = db.session.get(User, member_user.id)
+
+            # Create an attendance record for the member
+            record = EventAttendance(
+                event_id=test_event.id,
+                name=member.get_full_name(),
+                email=member.email,
+                user_id=member.id,
+                checked_in_via='qr_scan',
+            )
+            db.session.add(record)
+            db.session.commit()
+
+            response = authenticated_executive_client.get(
+                f'/api/universities/{university.id}/members/{member.id}/attendance'
+            )
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert 'events' in data
+            assert len(data['events']) == 1
+            assert data['events'][0]['eventId'] == test_event.id
+            assert data['events'][0]['eventTitle'] == 'Test Event'
+            assert 'checkedInAt' in data['events'][0]
+            assert 'eventStartTime' in data['events'][0]
+
+    def test_member_attendance_empty_for_no_checkins(
+        self, authenticated_executive_client, test_university, member_user, app
+    ):
+        """Test that member with no attendance returns empty list"""
+        with app.app_context():
+            university = db.session.get(University, test_university.id)
+            member = db.session.get(User, member_user.id)
+
+            response = authenticated_executive_client.get(
+                f'/api/universities/{university.id}/members/{member.id}/attendance'
+            )
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['events'] == []
+
+    def test_member_attendance_requires_executive(
+        self, authenticated_member_client, test_university, member_user, app
+    ):
+        """Test that regular member cannot get attendance history"""
+        with app.app_context():
+            university = db.session.get(University, test_university.id)
+            member = db.session.get(User, member_user.id)
+
+            response = authenticated_member_client.get(
+                f'/api/universities/{university.id}/members/{member.id}/attendance'
+            )
+
+            assert response.status_code == 403
+
+    def test_member_attendance_unauthenticated(self, client, test_university, member_user, app):
+        """Test that unauthenticated user cannot get attendance"""
+        with app.app_context():
+            university = db.session.get(University, test_university.id)
+            member = db.session.get(User, member_user.id)
+
+            response = client.get(
+                f'/api/universities/{university.id}/members/{member.id}/attendance'
+            )
+
+            assert response.status_code == 401
+
+    def test_member_attendance_member_not_in_university(
+        self, authenticated_executive_client, test_university, second_user, app
+    ):
+        """Test that requesting attendance for non-member returns 404"""
+        with app.app_context():
+            university = db.session.get(University, test_university.id)
+
+            response = authenticated_executive_client.get(
+                f'/api/universities/{university.id}/members/{second_user.id}/attendance'
+            )
+
+            assert response.status_code == 404

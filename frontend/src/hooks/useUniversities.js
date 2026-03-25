@@ -24,6 +24,7 @@ import {
   updateUniversity,
   uploadUniversityLogo,
   uploadUniversityBanner,
+  getMemberAttendance,
 } from '../api/universities';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
 
@@ -42,6 +43,15 @@ export const universityKeys = {
 
   // Key for a specific university's details
   detail: (id) => [...universityKeys.all, 'detail', id],
+
+  // Key for a member's attendance history at a university
+  memberAttendance: (universityId, userId) => [
+    ...universityKeys.all,
+    'detail',
+    universityId,
+    'memberAttendance',
+    userId,
+  ],
 };
 
 // =============================================================================
@@ -141,6 +151,26 @@ export function useUniversity(id) {
       }
       return undefined;
     },
+  });
+}
+
+/**
+ * useMemberAttendance Hook
+ *
+ * Fetches a member's event attendance history at a university.
+ * Used on the executive portal member detail view.
+ *
+ * @param {number|string} universityId - University ID
+ * @param {number|string} userId - Member's user ID
+ * @returns {object} React Query result with { events: [...] }
+ */
+export function useMemberAttendance(universityId, userId) {
+  return useQuery({
+    queryKey: universityKeys.memberAttendance(universityId, userId),
+    queryFn: () => getMemberAttendance(universityId, userId),
+    enabled: !!universityId && !!userId,
+    staleTime: STALE_TIMES.UNIVERSITIES,
+    gcTime: GC_TIMES.UNIVERSITIES,
   });
 }
 
