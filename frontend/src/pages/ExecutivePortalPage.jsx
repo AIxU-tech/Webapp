@@ -17,17 +17,25 @@ import {
   useRemoveMember,
   useUpdateMemberRole,
   usePageTitle,
+  eventKeys,
 } from '../hooks';
 import { SecondaryButton, BaseModal, ConfirmationModal } from '../components/ui';
 import { MemberDetailView, MemberTableView, ExecutivePortalSkeleton } from '../components/executive';
 import { useAuth } from '../contexts/AuthContext';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { fetchUniversityEvents } from '../api/events';
+import { STALE_TIMES, GC_TIMES } from '../config/cache';
+
+const EXECUTIVE_EVENTS_PREFETCH_OPTIONS = { upcoming: false, limit: 100 };
 
 export default function ExecutivePortalPage() {
   const { universityId, userId } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isAuthenticated } = useAuth();
   const currentUserId = currentUser?.id;
+
+  const queryClient = useQueryClient();
 
   const { data: university, isLoading, error } = useUniversity(universityId);
   const { data: attendanceData, isLoading: attendanceLoading } = useMemberAttendance(
@@ -51,6 +59,8 @@ export default function ExecutivePortalPage() {
     message: '',
   });
 
+  const [hasPrefetchedEvents, setHasPrefetchedEvents] = useState(false);
+
   usePageTitle(
     university?.name
       ? userId
@@ -66,6 +76,27 @@ export default function ExecutivePortalPage() {
 
   const selectedMember = userId ? members.find((m) => String(m.id) === String(userId)) : null;
   const events = attendanceData?.events ?? [];
+
+  useEffect(() => {
+    if (hasPrefetchedEvents) return;
+    if (!isAuthenticated || !universityId || !currentUserId) return;
+
+    // Prefetch events so switching tabs doesn't wait on the network.
+    void queryClient
+      .prefetchQuery({
+        queryKey: [...eventKeys.university(universityId), EXECUTIVE_EVENTS_PREFETCH_OPTIONS],
+        queryFn: () => fetchUniversityEvents(universityId, EXECUTIVE_EVENTS_PREFETCH_OPTIONS),
+        staleTime: STALE_TIMES.EVENTS,
+        gcTime: GC_TIMES.EVENTS,
+      })
+      .finally(() => setHasPrefetchedEvents(true));
+  }, [
+    hasPrefetchedEvents,
+    isAuthenticated,
+    universityId,
+    currentUserId,
+    queryClient,
+  ]);
 
   const handleRoleChange = async (memberId, newRole) => {
     try {

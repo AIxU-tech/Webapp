@@ -15,7 +15,7 @@ import {
   MemberActionsPopover,
   SecondaryButton,
 } from '../ui';
-import { PencilIcon, ArrowLeftIcon, ClockIcon } from '../icons';
+import { PencilIcon, ArrowLeftIcon, ClockIcon, ExternalLinkIcon } from '../icons';
 import RoleBadge from '../university/RoleBadge';
 
 function AttendanceHistorySkeleton({ rows = 4 }) {
@@ -61,10 +61,10 @@ export default function MemberDetailView({
         <SecondaryButton
           variant="ghost"
           size="sm"
+          icon={<ArrowLeftIcon className="h-4 w-4" />}
           onClick={() => navigate(`/executive/${universityId}`)}
           className="mb-6 -ml-2"
         >
-          <ArrowLeftIcon className="h-4 w-4 mr-1" />
           Back to Members
         </SecondaryButton>
 
@@ -83,26 +83,36 @@ export default function MemberDetailView({
                 {member.eventsAttendedCount ?? 0} event
                 {(member.eventsAttendedCount ?? 0) !== 1 ? 's' : ''} attended
               </p>
-              {showEditButton && (
-                <div className="relative mt-4">
-                  <IconButton
-                    icon={PencilIcon}
-                    onClick={() => onPopoverToggle(member.id)}
-                    label={`Manage ${member.name}`}
-                    size="sm"
-                    variant="subtle"
-                  />
-                  <MemberActionsPopover
-                    isOpen={openPopoverId === member.id}
-                    onClose={onClosePopover}
-                    member={member}
-                    permissions={permissions}
-                    onRoleChange={onRoleChange}
-                    onRemove={onRemove}
-                    onMakePresident={onMakePresident}
-                  />
-                </div>
-              )}
+              <div className="flex items-center gap-2 mt-4">
+                <SecondaryButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<ExternalLinkIcon size="sm" />}
+                  onClick={() => navigate(`/users/${member.id}`)}
+                >
+                  View Profile
+                </SecondaryButton>
+                {showEditButton && (
+                  <div className="relative">
+                    <IconButton
+                      icon={PencilIcon}
+                      onClick={() => onPopoverToggle(member.id)}
+                      label={`Manage ${member.name}`}
+                      size="sm"
+                      variant="subtle"
+                    />
+                    <MemberActionsPopover
+                      isOpen={openPopoverId === member.id}
+                      onClose={onClosePopover}
+                      member={member}
+                      permissions={permissions}
+                      onRoleChange={onRoleChange}
+                      onRemove={onRemove}
+                      onMakePresident={onMakePresident}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </Card>
@@ -122,7 +132,16 @@ export default function MemberDetailView({
               {events.map((evt) => (
                 <li
                   key={evt.eventId}
-                  className="flex items-center justify-between py-3 border-b border-border last:border-0"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`View event ${evt.eventTitle}`}
+                  onClick={() => navigate(`/executive/${universityId}/events/${evt.eventId}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      navigate(`/executive/${universityId}/events/${evt.eventId}`);
+                    }
+                  }}
+                  className="flex items-center justify-between py-3 border-b border-border last:border-0 cursor-pointer hover:bg-muted/40 transition-colors rounded-md px-2"
                 >
                   <div>
                     <p className="font-medium text-foreground">{evt.eventTitle}</p>
