@@ -56,6 +56,7 @@ export {
   SparklesIcon,
   QRCodeIcon,
   DownloadIcon,
+  PhoneIcon,
 } from './ui';
 
 // =============================================================================

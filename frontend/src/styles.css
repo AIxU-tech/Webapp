@@ -381,6 +381,11 @@
    ======================================== */
 
 @layer utilities {
+  /* Override bg-primary to use the brand gradient instead of a flat color */
+  .bg-primary {
+    background: var(--gradient-primary);
+  }
+
   .content-width {
     width: min(100% - 2rem, 70ch);
     margin-inline: auto;
