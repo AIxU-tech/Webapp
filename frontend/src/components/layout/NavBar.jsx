@@ -18,11 +18,10 @@
  * @component
  */
 
-import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
-import { useUnreadCount, useUniversities } from '../../hooks';
+import { useUnreadCount } from '../../hooks';
 import NotificationDropdown from '../notifications/NotificationDropdown';
 import {
   BrainCircuitIcon,
@@ -52,11 +51,13 @@ import {
  * @param {string} props.currentPath - The current route path for active detection
  * @returns {JSX.Element} A styled Link component
  */
-function NavLink({ to, children, currentPath }) {
+function NavLink({ to, children, currentPath, activePrefix }) {
   // Determine if this link matches the current route
   // Handles both exact matches and nested routes (e.g., /community/123)
-  const isActive = currentPath === to ||
-    (to !== '/' && currentPath.startsWith(to));
+  // activePrefix allows overriding the prefix used for matching (e.g., /universities for any university page)
+  const matchPath = activePrefix || to;
+  const isActive = currentPath === matchPath ||
+    (matchPath !== '/' && currentPath.startsWith(matchPath));
 
   return (
     <Link
@@ -128,9 +129,10 @@ function MessagesNavLink({ currentPath }) {
  * @param {string} props.currentPath - Current route for active detection
  * @returns {JSX.Element}
  */
-function BottomNavLink({ to, icon, label, currentPath }) {
-  const isActive = currentPath === to ||
-    (to !== '/' && currentPath.startsWith(to));
+function BottomNavLink({ to, icon, label, currentPath, activePrefix }) {
+  const matchPath = activePrefix || to;
+  const isActive = currentPath === matchPath ||
+    (matchPath !== '/' && currentPath.startsWith(matchPath));
 
   return (
     <Link
@@ -218,14 +220,8 @@ export default function NavBar() {
   // Check if user is an admin (permission level >= 1)
   const isAdmin = user && user.permissionLevel >= ADMIN_PERMISSION_LEVEL;
 
-  // Determine the current user's primary university (by matching name).
-  // Falls back to universities list route if no exact match is found.
-  const { data: universities = [] } = useUniversities();
-  const primaryUniversityId = useMemo(() => {
-    if (!isAuthenticated || !user?.university || !universities?.length) return null;
-    const match = universities.find((u) => u.name === user.university);
-    return match ? match.id : null;
-  }, [isAuthenticated, user, universities]);
+  // Get the current user's primary university ID directly from user data.
+  const primaryUniversityId = isAuthenticated ? user?.university_id : null;
 
   // Logo behavior:
   // - Authenticated + known university: go directly to that university page
@@ -274,9 +270,9 @@ export default function NavBar() {
             <span>Community</span>
           </NavLink>
 
-          <NavLink to="/universities" currentPath={currentPath}>
+          <NavLink to={primaryUniversityId ? `/universities/${primaryUniversityId}` : '/universities'} currentPath={currentPath} activePrefix="/universities">
             <UniversitiesIcon />
-            <span>Universities</span>
+            <span>University</span>
           </NavLink>
 
           <NavLink to="/opportunities" currentPath={currentPath}>
@@ -359,7 +355,7 @@ export default function NavBar() {
     >
       <div className="flex items-center justify-around">
         <BottomNavLink to="/community" icon={<CommunityIcon />} label="Community" currentPath={currentPath} />
-        <BottomNavLink to="/universities" icon={<UniversitiesIcon />} label="Universities" currentPath={currentPath} />
+        <BottomNavLink to={primaryUniversityId ? `/universities/${primaryUniversityId}` : '/universities'} icon={<UniversitiesIcon />} label="University" currentPath={currentPath} activePrefix="/universities" />
         <BottomNavLink to="/opportunities" icon={<OpportunitiesIcon />} label="Opportunities" currentPath={currentPath} />
         {isAuthenticated && (
           <BottomMessagesNavLink currentPath={currentPath} />

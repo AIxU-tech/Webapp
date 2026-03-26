@@ -15,7 +15,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteUniversity } from '../api/universities';
@@ -516,6 +516,17 @@ export default function UniversityDetailPage() {
 
       {university && (
         <div className="min-h-screen bg-background">
+          {/* Fixed floating "View All Universities" pill */}
+          <Link
+            to="/universities"
+            className="fixed top-[72px] left-4 z-40 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-foreground/80 hover:text-foreground bg-white/90 backdrop-blur-md border border-border/50 shadow-sm hover:shadow-md hover:bg-white transition-all duration-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            All Universities
+          </Link>
+
           {/* Hero Banner */}
           <UniversityHeroBanner
             university={university}
