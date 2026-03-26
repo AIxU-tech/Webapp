@@ -145,6 +145,17 @@
     @apply border-border;
   }
 
+  /* Ensure all interactive elements show pointer cursor.
+     Tailwind Preflight sets cursor:default on buttons —
+     this restores expected UX for all clickable controls. */
+  button:not(:disabled),
+  [type="button"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -152,6 +163,7 @@
     -moz-osx-font-smoothing: grayscale;
     overscroll-behavior: none;
     overflow-x: hidden;
+    scrollbar-gutter: stable;
   }
 
   /* Modern grey scrollbar - subtle and unobtrusive */

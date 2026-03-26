@@ -17,12 +17,10 @@ import {
 import { getProfileBannerUrl } from '../../../api/users';
 import { getPlatformDisplayName, PLATFORM_ICON_COLORS } from '../../../utils/socialLinks';
 
-// Import default banner image
-import defaultBannerImage from './images/default-profile-banner.jpg';
-
 export default function ProfileHeader({
   user,
   universityLocation,
+  universityBannerUrl,
   isOwnProfile,
   onEditProfile,
   onLogout,
@@ -47,7 +45,7 @@ export default function ProfileHeader({
       {/* Banner image with edit overlay */}
       <BannerImage
         imageUrl={bannerUrl}
-        defaultImage={defaultBannerImage}
+        defaultImage={universityBannerUrl}
         canEdit={isOwnProfile}
         onEdit={onEditBanner}
         height="h-32 sm:h-40"

@@ -68,6 +68,51 @@ export const userKeys = {
  *   return <ProfileDisplay user={user} />;
  * }
  */
+/**
+ * Map a university member object to the user profile schema so it can
+ * safely serve as placeholderData while the full profile fetches.
+ *
+ * Member schema (from GET /api/universities/:id):
+ *   {id, name, email, avatar, about, location, skills, postCount, role, roleName, eventsAttendedCount}
+ *
+ * Profile schema (from GET /api/users/:id):
+ *   {id, full_name, first_name, last_name, email, profile_picture_url, about_section, location, skills, ...}
+ */
+function memberToUserPlaceholder(member) {
+  if (!member) return undefined;
+
+  const nameParts = (member.name || '').trim().split(/\s+/);
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+  return {
+    id: member.id,
+    email: member.email,
+    first_name: firstName,
+    last_name: lastName,
+    full_name: member.name || '',
+    profile_picture_url: member.avatar || null,
+    about_section: member.about || '',
+    location: member.location || '',
+    skills: member.skills || [],
+    post_count: member.postCount || 0,
+    // Fields unavailable from member data — safe defaults
+    university: undefined,
+    headline: undefined,
+    hasBanner: false,
+    hasResume: false,
+    socialLinks: [],
+    education: [],
+    experience: [],
+    projects: [],
+    recent_activity: [],
+    follower_count: 0,
+    following_count: 0,
+    permissionLevel: 0,
+    isExecutiveAnywhere: false,
+  };
+}
+
 export function useUser(userId) {
   const queryClient = useQueryClient();
 
@@ -82,7 +127,7 @@ export function useUser(userId) {
     staleTime: STALE_TIMES.USERS,
     gcTime: GC_TIMES.USERS,
 
-    // Seed from university member lists in cache
+    // Seed from university member lists in cache (mapped to profile schema)
     placeholderData: () => {
       const uniQueries = queryClient.getQueriesData({
         queryKey: ['universities', 'detail'],
@@ -90,7 +135,7 @@ export function useUser(userId) {
       for (const [, data] of uniQueries) {
         if (!data?.members) continue;
         const match = data.members.find((m) => String(m.id) === String(userId));
-        if (match) return match;
+        if (match) return memberToUserPlaceholder(match);
       }
       return undefined;
     },

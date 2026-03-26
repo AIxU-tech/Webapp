@@ -143,11 +143,13 @@ export function useUniversity(id) {
     // Keep in cache to survive navigation
     gcTime: GC_TIMES.UNIVERSITIES,
 
-    // Seed from list cache to avoid loading spinner while detail fetches
+    // Seed from list cache to avoid loading spinner while detail fetches.
+    // List items lack detail-only fields (members, permissions, etc.) so add safe defaults.
     placeholderData: () => {
       const universities = queryClient.getQueryData(universityKeys.list());
       if (Array.isArray(universities)) {
-        return universities.find((uni) => String(uni.id) === String(id));
+        const match = universities.find((uni) => String(uni.id) === String(id));
+        if (match) return { ...match, members: [], permissions: {}, isMember: false };
       }
       return undefined;
     },

@@ -18,6 +18,8 @@
 import { useState } from 'react';
 import { CameraIcon } from '../../icons';
 
+const DEFAULT_BANNER = 'https://images.unsplash.com/photo-1562774053-701939374585?w=1920&q=80';
+
 export default function BannerImage({
   imageUrl,
   defaultImage,
@@ -33,18 +35,22 @@ export default function BannerImage({
 
   // Use custom banner if available and no error, otherwise use default
   const showCustomBanner = imageUrl && !imgError;
-  const displayUrl = showCustomBanner ? imageUrl : defaultImage;
+  const displayUrl = showCustomBanner ? imageUrl : (defaultImage || DEFAULT_BANNER);
 
   return (
     <div className={`relative ${height} ${className}`}>
       {/* Image container with overflow-hidden for clipping to rounded corners */}
       <div className={`absolute inset-0 ${rounded} overflow-hidden`}>
-        <img
-          src={displayUrl}
-          alt={altText}
-          className="w-full h-full object-cover"
-          onError={() => setImgError(true)}
-        />
+        {displayUrl ? (
+          <img
+            src={displayUrl}
+            alt={altText}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)]" />
+        )}
 
         {hasOverlay && (
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/25 to-black/10" />

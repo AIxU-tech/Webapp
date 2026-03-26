@@ -24,6 +24,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useMessageTarget } from '../contexts/MessageTargetContext';
 import { logout } from '../api/auth';
 import { clearResumeParseStatus } from '../api/resume';
+import { getUniversityBannerUrl } from '../api/universities';
 import {
   useUser,
   usePageTitle,
@@ -45,7 +46,7 @@ import {
   useStartResumeParse,
   useResumeParseStatus,
   resumeKeys,
-  useUniversities,
+  useUniversity,
 } from '../hooks';
 
 // UI Components
@@ -94,11 +95,8 @@ export default function ProfilePage() {
 
   const error = fetchError?.message || null;
 
-  // Look up the user's university from the cached universities list
-  const { data: universities = [] } = useUniversities();
-  const userUniversity = user?.university
-    ? universities.find((u) => u.name === user.university)
-    : null;
+  // Fetch only the user's university instead of the full list
+  const { data: userUniversity = null } = useUniversity(user?.university_id);
 
   // ---------------------------------------------------------------------------
   // Mutations
@@ -345,6 +343,7 @@ export default function ProfilePage() {
             <ProfileHeader
               user={user}
               universityLocation={userUniversity?.location}
+              universityBannerUrl={userUniversity?.hasBanner ? getUniversityBannerUrl(userUniversity.id) : null}
               isOwnProfile={isOwnProfile}
               onEditProfile={openEditModal}
               onLogout={() => setShowLogoutModal(true)}
