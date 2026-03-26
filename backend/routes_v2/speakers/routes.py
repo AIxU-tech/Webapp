@@ -19,8 +19,9 @@ from flask_login import login_required, current_user
 import json
 from backend.extensions import db
 from backend.models import Speaker, UniversityRole, University
-from backend.constants import UniversityRoles
+from backend.constants import UniversityRoles, MAX_SPEAKER_IMAGE_SIZE_BYTES, ALLOWED_SPEAKER_IMAGE_TYPES
 from backend.services.content_moderator import moderate_content
+from backend.services.storage import generate_download_url, is_gcs_configured, delete_file
 from backend.utils.validation import validate_email_format, validate_phone_format
 
 speakers_bp = Blueprint('speakers', __name__)
@@ -104,6 +105,46 @@ def _get_user_executive_universities(user):
     return [{'id': u.id, 'name': u.name} for u in universities]
 
 
+def _generate_speaker_image_url(speaker):
+    """Generate a signed download URL for a speaker's image, if it exists."""
+    if speaker.image_gcs_path and is_gcs_configured():
+        try:
+            return generate_download_url(speaker.image_gcs_path)
+        except Exception:
+            return None
+    return None
+
+
+def _validate_image_fields(data):
+    """
+    Validate image-related fields from request data.
+
+    Returns:
+        (is_valid: bool, error_message: str | None)
+    """
+    gcs_path = data.get('imageGcsPath')
+
+    # If explicitly null (removal) or not provided, skip validation
+    if gcs_path is None or 'imageGcsPath' not in data:
+        return True, None
+
+    content_type = data.get('imageContentType')
+    size_bytes = data.get('imageSizeBytes')
+
+    if content_type and content_type not in ALLOWED_SPEAKER_IMAGE_TYPES:
+        return False, f'Image type "{content_type}" is not allowed. Use JPEG, PNG, GIF, or WebP.'
+
+    if size_bytes is not None:
+        try:
+            size_bytes = int(size_bytes)
+        except (TypeError, ValueError):
+            return False, 'Image size must be a number'
+        if size_bytes > MAX_SPEAKER_IMAGE_SIZE_BYTES:
+            return False, f'Image must be under {MAX_SPEAKER_IMAGE_SIZE_BYTES // (1024 * 1024)}MB'
+
+    return True, None
+
+
 # =============================================================================
 # List Speakers
 # =============================================================================
@@ -125,7 +166,7 @@ def list_speakers():
     user_universities = _get_user_executive_universities(current_user)
 
     return jsonify({
-        'speakers': [s.to_dict() for s in speakers],
+        'speakers': [s.to_dict(image_url=_generate_speaker_image_url(s)) for s in speakers],
         'userUniversities': user_universities,
     })
 
@@ -221,6 +262,11 @@ def create_speaker():
     if notes and not moderate_content(notes):
         return jsonify({'error': 'Notes contain inappropriate content'}), 400
 
+    # Validate optional image fields
+    image_valid, image_error = _validate_image_fields(data)
+    if not image_valid:
+        return jsonify({'error': image_error}), 400
+
     # Determine university from current user's executive membership (use first)
     user_universities = _get_user_executive_universities(current_user)
     if not user_universities:
@@ -240,10 +286,17 @@ def create_speaker():
         added_by_id=current_user.id,
     )
 
+    # Set image fields if provided
+    if data.get('imageGcsPath'):
+        speaker.image_gcs_path = data['imageGcsPath']
+        speaker.image_filename = data.get('imageFilename')
+        speaker.image_content_type = data.get('imageContentType')
+        speaker.image_size_bytes = data.get('imageSizeBytes')
+
     db.session.add(speaker)
     db.session.commit()
 
-    return jsonify(speaker.to_dict()), 201
+    return jsonify(speaker.to_dict(image_url=_generate_speaker_image_url(speaker))), 201
 
 
 # =============================================================================
@@ -336,6 +389,32 @@ def update_speaker(speaker_id):
     if notes and not moderate_content(notes):
         return jsonify({'error': 'Notes contain inappropriate content'}), 400
 
+    # Validate optional image fields
+    image_valid, image_error = _validate_image_fields(data)
+    if not image_valid:
+        return jsonify({'error': image_error}), 400
+
+    # Track old GCS path for cleanup after commit
+    old_gcs_path = None
+
+    # Handle image update: new image, removal, or no change
+    if 'imageGcsPath' in data:
+        new_gcs_path = data.get('imageGcsPath')
+        if new_gcs_path is None:
+            # Explicit removal
+            old_gcs_path = speaker.image_gcs_path
+            speaker.image_gcs_path = None
+            speaker.image_filename = None
+            speaker.image_content_type = None
+            speaker.image_size_bytes = None
+        elif new_gcs_path != speaker.image_gcs_path:
+            # New image uploaded
+            old_gcs_path = speaker.image_gcs_path
+            speaker.image_gcs_path = new_gcs_path
+            speaker.image_filename = data.get('imageFilename')
+            speaker.image_content_type = data.get('imageContentType')
+            speaker.image_size_bytes = data.get('imageSizeBytes')
+
     # Update fields
     speaker.name = name
     speaker.position = position
@@ -349,7 +428,14 @@ def update_speaker(speaker_id):
 
     db.session.commit()
 
-    return jsonify(speaker.to_dict()), 200
+    # Clean up old GCS file after successful commit
+    if old_gcs_path and is_gcs_configured():
+        try:
+            delete_file(old_gcs_path)
+        except Exception:
+            current_app.logger.warning(f'Failed to delete old speaker image: {old_gcs_path}')
+
+    return jsonify(speaker.to_dict(image_url=_generate_speaker_image_url(speaker))), 200
 
 
 # =============================================================================
@@ -381,7 +467,17 @@ def delete_speaker(speaker_id):
     if speaker.added_by_id != current_user.id and not current_user.is_site_admin():
         return jsonify({'error': 'Only the person who added this speaker can delete it'}), 403
 
+    # Track GCS path for cleanup after commit
+    gcs_path_to_delete = speaker.image_gcs_path
+
     db.session.delete(speaker)
     db.session.commit()
+
+    # Clean up GCS file after successful commit
+    if gcs_path_to_delete and is_gcs_configured():
+        try:
+            delete_file(gcs_path_to_delete)
+        except Exception:
+            current_app.logger.warning(f'Failed to delete speaker image: {gcs_path_to_delete}')
 
     return jsonify({'success': True, 'message': 'Speaker deleted successfully'})

@@ -215,3 +215,17 @@ class UniversityRoles:
     def is_valid(cls, role: int) -> bool:
         """Check if a role value is valid."""
         return role in cls.ROLE_NAMES
+
+
+# =============================================================================
+# Speaker Image Constants
+# =============================================================================
+
+MAX_SPEAKER_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+ALLOWED_SPEAKER_IMAGE_TYPES = {
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+}

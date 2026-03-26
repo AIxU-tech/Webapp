@@ -3,6 +3,7 @@
  *
  * Displays a grid of guest speaker contacts shared across university AI clubs.
  * Only accessible to users who are executives (or higher) at any university, or site admins.
+ * Clicking a card opens a detailed contact modal with edit/delete actions.
  */
 
 import { useState, useMemo } from 'react';
@@ -11,6 +12,7 @@ import { useSpeakers, useDeleteSpeaker, usePageTitle } from '../hooks';
 import { EmptyState, ErrorState, GradientButton, ConfirmationModal, CardSkeleton, ToggleTag, TagGroup } from '../components/ui';
 import { SearchIcon, PlusIcon, SpeakersIcon } from '../components/icons';
 import SpeakerCard from '../components/speakers/SpeakerCard';
+import SpeakerContactModal from '../components/speakers/SpeakerContactModal';
 import CreateSpeakerModal from '../components/speakers/CreateSpeakerModal';
 import { SPEAKER_TAGS } from '../constants/speakerTags';
 
@@ -57,6 +59,7 @@ export default function SpeakersPage() {
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [speakerToDelete, setSpeakerToDelete] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [selectedSpeaker, setSelectedSpeaker] = useState(null);
 
   // Client-side search + tag filtering
   const filteredSpeakers = useMemo(() => {
@@ -159,10 +162,11 @@ export default function SpeakersPage() {
             <SpeakerCard
               key={speaker.id}
               speaker={speaker}
-              currentUserId={user?.id}
-              isSiteAdmin={isAdmin}
+              onContact={setSelectedSpeaker}
               onEdit={setEditingSpeaker}
               onDelete={setSpeakerToDelete}
+              currentUserId={user?.id}
+              isSiteAdmin={isAdmin}
             />
           ))}
         </div>
@@ -182,6 +186,17 @@ export default function SpeakersPage() {
           }
         />
       )}
+
+      {/* Speaker Contact Detail Modal */}
+      <SpeakerContactModal
+        isOpen={!!selectedSpeaker}
+        onClose={() => setSelectedSpeaker(null)}
+        speaker={selectedSpeaker}
+        currentUserId={user?.id}
+        isSiteAdmin={isAdmin}
+        onEdit={setEditingSpeaker}
+        onDelete={setSpeakerToDelete}
+      />
 
       {/* Create/Edit Modal */}
       <CreateSpeakerModal

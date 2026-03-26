@@ -52,6 +52,12 @@ class Speaker(db.Model):
     # Example: ["academic_research", "industry_ml_engineer"]
     tags = db.Column(db.Text, nullable=True)
 
+    # Speaker image (stored in GCS)
+    image_gcs_path = db.Column(db.String(500), nullable=True)
+    image_filename = db.Column(db.String(255), nullable=True)
+    image_content_type = db.Column(db.String(100), nullable=True)
+    image_size_bytes = db.Column(db.Integer, nullable=True)
+
     # Associations
     university_id = db.Column(
         db.Integer,
@@ -72,7 +78,7 @@ class Speaker(db.Model):
     university = db.relationship('University', backref='speakers')
     added_by = db.relationship('User', backref='added_speakers', passive_deletes=True)
 
-    def to_dict(self):
+    def to_dict(self, image_url=None):
         """Serialize speaker to dictionary for API responses."""
         # Safely decode tags JSON into a list of strings
         tags: list[str] = []
@@ -84,7 +90,7 @@ class Speaker(db.Model):
             except Exception:
                 tags = []
 
-        return {
+        result = {
             'id': self.id,
             'name': self.name,
             'position': self.position,
@@ -99,9 +105,13 @@ class Speaker(db.Model):
             'addedById': self.added_by_id,
             'addedByName': self.added_by.get_full_name() if self.added_by else None,
             'addedByAvatar': self.added_by.get_profile_picture_url() if self.added_by else None,
+            'imageFilename': self.image_filename,
             'createdAt': self.created_at.isoformat() + 'Z' if self.created_at else None,
             'updatedAt': self.updated_at.isoformat() + 'Z' if self.updated_at else None,
         }
+        if image_url:
+            result['imageUrl'] = image_url
+        return result
 
     def __repr__(self):
         return f'<Speaker {self.id}: {self.name[:30]}>'
