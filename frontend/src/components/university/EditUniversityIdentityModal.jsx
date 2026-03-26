@@ -7,9 +7,8 @@
  * @component
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { BaseModal, GradientButton, SecondaryButton, Alert, SocialLinksInput, UnsavedChangesModal } from '../ui';
-import UniversityLogoSection from './UniversityLogoSection';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { BaseModal, GradientButton, SecondaryButton, Alert, SocialLinksInput, UnsavedChangesModal, ImageUploadZone, UniversityLogo } from '../ui';
 
 export default function EditUniversityIdentityModal({
   isOpen,
@@ -29,12 +28,33 @@ export default function EditUniversityIdentityModal({
   const [error, setError] = useState(null);
   const [logoError, setLogoError] = useState(null);
 
+  // Deferred logo upload state
+  const [pendingLogoBlob, setPendingLogoBlob] = useState(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState(null);
+  const logoPreviewUrlRef = useRef(null);
+
   // Track initial values for unsaved changes detection
   const [initialClubName, setInitialClubName] = useState('');
   const [initialSocialLinks, setInitialSocialLinks] = useState([]);
 
   // Unsaved changes modal state
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+
+  const handleLogoFileSelect = useCallback((blob) => {
+    if (logoPreviewUrlRef.current) URL.revokeObjectURL(logoPreviewUrlRef.current);
+    const url = URL.createObjectURL(blob);
+    logoPreviewUrlRef.current = url;
+    setPendingLogoBlob(blob);
+    setLogoPreviewUrl(url);
+    setLogoError(null);
+  }, []);
+
+  const clearPendingLogo = useCallback(() => {
+    if (logoPreviewUrlRef.current) URL.revokeObjectURL(logoPreviewUrlRef.current);
+    logoPreviewUrlRef.current = null;
+    setPendingLogoBlob(null);
+    setLogoPreviewUrl(null);
+  }, []);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -51,12 +71,20 @@ export default function EditUniversityIdentityModal({
     }
   }, [isOpen, university]);
 
+  // Clean up pending logo on modal close
+  useEffect(() => {
+    if (!isOpen) {
+      clearPendingLogo();
+    }
+  }, [isOpen, clearPendingLogo]);
+
   // Check if there are unsaved changes
   const hasUnsavedChanges = useMemo(() => {
+    if (pendingLogoBlob) return true;
     if (clubName !== initialClubName) return true;
     if (JSON.stringify(socialLinks) !== JSON.stringify(initialSocialLinks)) return true;
     return false;
-  }, [clubName, socialLinks, initialClubName, initialSocialLinks]);
+  }, [pendingLogoBlob, clubName, socialLinks, initialClubName, initialSocialLinks]);
 
   // Handle close with unsaved changes check
   const handleClose = useCallback(() => {
@@ -72,6 +100,11 @@ export default function EditUniversityIdentityModal({
     setError(null);
 
     try {
+      // Upload pending logo if one was selected
+      if (pendingLogoBlob) {
+        await onUploadLogo(pendingLogoBlob);
+        clearPendingLogo();
+      }
       await onSave({
         clubName: clubName.trim(),
         socialLinks: socialLinks,
@@ -79,15 +112,6 @@ export default function EditUniversityIdentityModal({
       onClose();
     } catch (err) {
       setError(err.message || 'Failed to save changes');
-    }
-  };
-
-  const handleLogoUpload = async (blob) => {
-    setLogoError(null);
-    try {
-      await onUploadLogo(blob);
-    } catch (err) {
-      setLogoError(err.message || 'Failed to upload logo');
     }
   };
 
@@ -122,11 +146,17 @@ export default function EditUniversityIdentityModal({
     >
       <div className="p-6">
         {/* Logo Upload Section */}
-        <UniversityLogoSection
-          university={university}
-          onUpload={handleLogoUpload}
+        <ImageUploadZone
+          preview={
+            <UniversityLogo
+              university={university}
+              size="lg"
+              shape="circle"
+              src={logoPreviewUrl}
+            />
+          }
+          onFileSelect={handleLogoFileSelect}
           onError={handleLogoError}
-          isUploading={isUploadingLogo}
         />
 
         {logoError && (
@@ -189,7 +219,7 @@ export default function EditUniversityIdentityModal({
           <div className="flex justify-end pt-4">
             <GradientButton
               type="submit"
-              loading={isLoading}
+              loading={isLoading || isUploadingLogo}
               loadingText="Saving..."
             >
               Save Changes

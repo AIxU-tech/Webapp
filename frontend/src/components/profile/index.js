@@ -11,7 +11,6 @@
 // Existing components
 export { default as ProfileCard } from './ProfileCard';
 export { default as ActivityItem } from './ActivityItem';
-export { default as ProfilePictureSection } from './ProfilePictureSection';
 export { default as EditProfileModal } from './EditProfileModal';
 export { default as ProfilePageSkeleton } from './ProfilePageSkeleton';
 export { default as ResumeParsingBanner } from './ResumeParsingBanner';

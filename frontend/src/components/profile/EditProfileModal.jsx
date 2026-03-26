@@ -34,10 +34,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from '../../hooks';
 
 // UI Components
-import { BaseModal, Alert, GradientButton, SecondaryButton, FormInput, SocialLinksInput } from '../ui';
-
-// Profile Components
-import { ProfilePictureSection } from './';
+import { BaseModal, Alert, GradientButton, SecondaryButton, FormInput, SocialLinksInput, ImageUploadZone, Avatar } from '../ui';
 
 /**
  * Get initial form values from user object
@@ -123,9 +120,8 @@ export default function EditProfileModal({
     <BaseModal isOpen={isOpen} onClose={onClose} title="Edit Profile" size="2xl">
       <div className="p-6">
         {/* Profile Picture Section */}
-        <ProfilePictureSection
-          user={user}
-          previewUrl={picturePreviewUrl}
+        <ImageUploadZone
+          preview={<Avatar user={user} src={picturePreviewUrl} size="xl" />}
           onFileSelect={handleFileSelect}
           onError={onPictureError}
         />

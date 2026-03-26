@@ -46,11 +46,12 @@ export default function UniversityLogo({
   shape = 'rounded',
   className = '',
   cacheKey,
+  src,
 }) {
   const [imgError, setImgError] = useState(false);
 
   const { id, hasLogo, name, clubName } = university || {};
-  const imageUrl = hasLogo ? getUniversityLogoUrl(id, cacheKey) : null;
+  const imageUrl = src || (hasLogo ? getUniversityLogoUrl(id, cacheKey) : null);
 
   // Reset error state when image URL changes
   useEffect(() => {
