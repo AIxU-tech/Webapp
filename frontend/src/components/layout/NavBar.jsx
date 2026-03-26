@@ -12,12 +12,13 @@
  * - Fixed positioning at the top of the viewport
  * - Glassomorphic styling with backdrop blur
  * - Responsive layout with centered navigation
- * - Hover effects with grey background on nav items
+ * - Sliding pill indicator for active route
  * - Active state highlighting for current route
  *
  * @component
  */
 
+import { useRef, useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
@@ -36,25 +37,199 @@ import {
 } from '../icons';
 
 // =============================================================================
-// NAVIGATION LINK COMPONENT
+// CENTER NAV ITEMS CONFIG
 // =============================================================================
 
-/**
- * NavLink Component
- *
- * A styled navigation link with active state detection.
- * Highlights the current route and provides hover feedback.
- *
- * @param {Object} props - Component props
- * @param {string} props.to - The route path to navigate to
- * @param {React.ReactNode} props.children - The link content (icon + text)
- * @param {string} props.currentPath - The current route path for active detection
- * @returns {JSX.Element} A styled Link component
- */
+const CENTER_NAV_ITEMS = [
+  { id: 'community', path: '/community', label: 'Community', Icon: CommunityIcon },
+  { id: 'university', path: '/universities', label: 'University', Icon: UniversitiesIcon, activePrefix: '/universities' },
+  { id: 'opportunities', path: '/opportunities', label: 'Opportunities', Icon: OpportunitiesIcon },
+  { id: 'messages', path: '/messages', label: 'Messages', Icon: MessagesIcon, requiresAuth: true },
+  { id: 'news', path: '/news', label: 'News', Icon: NewsIcon },
+  { id: 'speakers', path: '/speakers', label: 'Speakers', Icon: SpeakersIcon, requiresExecutive: true },
+];
+
+// =============================================================================
+// MESSAGES ICON WITH UNREAD BADGE
+// =============================================================================
+
+function MessagesIconWithBadge() {
+  const unreadCount = useUnreadCount();
+  return (
+    <span className="relative">
+      <MessagesIcon />
+      {unreadCount > 0 && (
+        <span
+          className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full ring-2 ring-white"
+          aria-label="Unread messages"
+        />
+      )}
+    </span>
+  );
+}
+
+function BottomMessagesIconWithBadge() {
+  const unreadCount = useUnreadCount();
+  return (
+    <span className="relative inline-flex">
+      <MessagesIcon />
+      {unreadCount > 0 && (
+        <span
+          className="absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-primary rounded-full ring-2 ring-white"
+          aria-label="Unread messages"
+        />
+      )}
+    </span>
+  );
+}
+
+// =============================================================================
+// SLIDING NAV INDICATOR HOOK
+// =============================================================================
+
+function useSlidingIndicator(activeId, itemsLength) {
+  const tabRefs = useRef({});
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0, visible: false });
+
+  useEffect(() => {
+    if (!activeId) {
+      setIndicatorStyle(prev => ({ ...prev, visible: false }));
+      return;
+    }
+    const activeEl = tabRefs.current[activeId];
+    if (activeEl) {
+      setIndicatorStyle({
+        left: activeEl.offsetLeft,
+        width: activeEl.offsetWidth,
+        visible: true,
+      });
+    }
+  }, [activeId, itemsLength]);
+
+  useEffect(() => {
+    const recalc = () => {
+      if (!activeId) return;
+      const activeEl = tabRefs.current[activeId];
+      if (activeEl) {
+        setIndicatorStyle({
+          left: activeEl.offsetLeft,
+          width: activeEl.offsetWidth,
+          visible: true,
+        });
+      }
+    };
+    window.addEventListener('resize', recalc);
+    return () => window.removeEventListener('resize', recalc);
+  }, [activeId]);
+
+  return { tabRefs, indicatorStyle };
+}
+
+function getActiveId(items, currentPath) {
+  return items.find(item => {
+    const matchPath = item.activePrefix || item.path;
+    return currentPath === matchPath ||
+      (matchPath !== '/' && currentPath.startsWith(matchPath));
+  })?.id || null;
+}
+
+// =============================================================================
+// SLIDING NAV LINKS COMPONENT (Desktop)
+// =============================================================================
+
+function SlidingNavLinks({ items, currentPath }) {
+  const activeId = getActiveId(items, currentPath);
+  const { tabRefs, indicatorStyle } = useSlidingIndicator(activeId, items.length);
+
+  return (
+    <nav
+      className="relative flex items-center bg-muted rounded-full px-2 py-1"
+    >
+      {indicatorStyle.visible && (
+        <div
+          className="absolute inset-y-1 bg-white dark:bg-white/15 rounded-full ring-[0.75px] ring-black/15 shadow-sm transition-[left,width] duration-300 ease-out"
+          style={{
+            left: indicatorStyle.left,
+            width: indicatorStyle.width,
+          }}
+        />
+      )}
+
+      {items.map(item => (
+        <div key={item.id} ref={el => (tabRefs.current[item.id] = el)}>
+          <Link
+            to={item.path}
+            className={`
+              relative z-10 px-3 py-2 text-sm font-medium transition-colors rounded-md
+              flex items-center gap-2 whitespace-nowrap
+              ${activeId === item.id
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+              }
+            `}
+          >
+            {item.renderIcon ? item.renderIcon() : <item.Icon />}
+            <span>{item.label}</span>
+          </Link>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+// =============================================================================
+// SLIDING BOTTOM NAV COMPONENT (Mobile)
+// =============================================================================
+
+function SlidingBottomNav({ items, currentPath }) {
+  const activeId = getActiveId(items, currentPath);
+  const { tabRefs, indicatorStyle } = useSlidingIndicator(activeId, items.length);
+
+  return (
+    <nav
+      className="relative flex items-center bg-muted rounded-full p-1"
+      role="navigation"
+      aria-label="Mobile navigation"
+    >
+      {indicatorStyle.visible && (
+        <div
+          className="absolute inset-y-1 bg-white dark:bg-white/15 rounded-full ring-[0.75px] ring-black/15 shadow-sm transition-[left,width] duration-300 ease-out"
+          style={{
+            left: indicatorStyle.left,
+            width: indicatorStyle.width,
+          }}
+        />
+      )}
+
+      {items.map(item => (
+        <div key={item.id} ref={el => (tabRefs.current[item.id] = el)} className="flex-1 min-w-0">
+          <Link
+            to={item.path}
+            className={`
+              relative z-10 flex flex-col items-center justify-center py-2 px-2 rounded-full
+              text-xs font-medium transition-colors min-h-[48px]
+              ${activeId === item.id
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+              }
+            `}
+          >
+            <span className="mb-0.5 sm:mb-1 [&>svg]:h-6 [&>svg]:w-6">
+              {item.renderIcon ? item.renderIcon() : <item.Icon />}
+            </span>
+            <span className="truncate max-w-full hidden sm:block">{item.label}</span>
+          </Link>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+// =============================================================================
+// NAVIGATION LINK COMPONENT (used for right-side items: Admin, Profile)
+// =============================================================================
+
 function NavLink({ to, children, currentPath, activePrefix }) {
-  // Determine if this link matches the current route
-  // Handles both exact matches and nested routes (e.g., /community/123)
-  // activePrefix allows overriding the prefix used for matching (e.g., /universities for any university page)
   const matchPath = activePrefix || to;
   const isActive = currentPath === matchPath ||
     (matchPath !== '/' && currentPath.startsWith(matchPath));
@@ -78,158 +253,47 @@ function NavLink({ to, children, currentPath, activePrefix }) {
 }
 
 // =============================================================================
-// MESSAGES NAV LINK WITH UNREAD BADGE
-// =============================================================================
-
-/**
- * MessagesNavLink Component
- *
- * Wraps the Messages NavLink with a real-time unread indicator dot.
- * Uses the useUnreadCount hook which listens for WebSocket events,
- * so the badge updates instantly when a new message arrives.
- *
- * @param {Object} props - Component props
- * @param {string} props.currentPath - The current route path for active detection
- * @returns {JSX.Element} Messages link with optional unread dot
- */
-function MessagesNavLink({ currentPath }) {
-  const unreadCount = useUnreadCount();
-  const hasUnread = unreadCount > 0;
-
-  return (
-    <NavLink to="/messages" currentPath={currentPath}>
-      <span className="relative">
-        <MessagesIcon />
-        {hasUnread && (
-          <span
-            className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full ring-2 ring-white"
-            aria-label="Unread messages"
-          />
-        )}
-      </span>
-      <span>Messages</span>
-    </NavLink>
-  );
-}
-
-// =============================================================================
-// BOTTOM NAV LINK COMPONENT (Mobile)
-// =============================================================================
-
-/**
- * BottomNavLink Component
- *
- * A navigation link for the mobile bottom bar.
- * Displays an icon above a small text label, styled like a native mobile tab bar.
- *
- * @param {Object} props
- * @param {string} props.to - Route path
- * @param {React.ReactNode} props.icon - Icon element
- * @param {string} props.label - Text label
- * @param {string} props.currentPath - Current route for active detection
- * @returns {JSX.Element}
- */
-function BottomNavLink({ to, icon, label, currentPath, activePrefix }) {
-  const matchPath = activePrefix || to;
-  const isActive = currentPath === matchPath ||
-    (matchPath !== '/' && currentPath.startsWith(matchPath));
-
-  return (
-    <Link
-      to={to}
-      className={`
-        flex flex-col items-center justify-center py-2 px-2 rounded-lg
-        text-xs font-medium transition-all duration-150 min-w-0 flex-1
-        min-h-[48px]
-        ${isActive
-          ? 'text-primary'
-          : 'text-gray-400 hover:text-foreground'
-        }
-      `}
-    >
-      <span className="mb-0.5 sm:mb-1 [&>svg]:h-6 [&>svg]:w-6">{icon}</span>
-      <span className="truncate max-w-full hidden sm:block">{label}</span>
-    </Link>
-  );
-}
-
-// =============================================================================
-// BOTTOM MESSAGES NAV LINK WITH UNREAD BADGE (Mobile)
-// =============================================================================
-
-/**
- * BottomMessagesNavLink Component
- *
- * Mobile bottom nav version of the Messages link with unread indicator dot.
- *
- * @param {Object} props
- * @param {string} props.currentPath - Current route for active detection
- * @returns {JSX.Element}
- */
-function BottomMessagesNavLink({ currentPath }) {
-  const unreadCount = useUnreadCount();
-  const hasUnread = unreadCount > 0;
-
-  return (
-    <BottomNavLink
-      to="/messages"
-      icon={
-        <span className="relative inline-flex">
-          <MessagesIcon />
-          {hasUnread && (
-            <span
-              className="absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-primary rounded-full ring-2 ring-white"
-              aria-label="Unread messages"
-            />
-          )}
-        </span>
-      }
-      label="Messages"
-      currentPath={currentPath}
-    />
-  );
-}
-
-// =============================================================================
 // MAIN NAVBAR COMPONENT
 // =============================================================================
 
-/**
- * NavBar Component
- *
- * The main navigation bar component that adapts based on authentication state.
- * Uses a three-column layout:
- * - Left: Brand logo with icon
- * - Center: Navigation links (authenticated only)
- * - Right: Profile link (authenticated) or Join button (unauthenticated)
- *
- * @returns {JSX.Element} The navigation bar
- */
-// Permission level constant for admin check
 const ADMIN_PERMISSION_LEVEL = 1;
 
 export default function NavBar() {
-  // Get current route for active link highlighting
   const location = useLocation();
   const currentPath = location.pathname;
 
-  // Get authentication state and user from context
   const { isAuthenticated, isReturningUser, user } = useAuth();
   const { openAuthModal } = useAuthModal();
 
-  // Check if user is an admin (permission level >= 1)
   const isAdmin = user && user.permissionLevel >= ADMIN_PERMISSION_LEVEL;
-
-  // Get the current user's primary university ID directly from user data.
   const primaryUniversityId = isAuthenticated ? user?.university_id : null;
 
-  // Logo behavior:
-  // - Authenticated + known university: go directly to that university page
-  // - Authenticated + unknown university: go to universities list
-  // - Not authenticated: go to landing page (/)
   const logoHref = isAuthenticated
     ? (primaryUniversityId ? `/universities/${primaryUniversityId}` : '/universities')
     : '/';
+
+  const filteredNavItems = CENTER_NAV_ITEMS
+    .filter(item => {
+      if (item.requiresAuth && !isAuthenticated) return false;
+      if (item.requiresExecutive && !user?.isExecutiveAnywhere) return false;
+      return true;
+    })
+    .map(item => {
+      if (item.id === 'university') {
+        return { ...item, path: primaryUniversityId ? `/universities/${primaryUniversityId}` : '/universities' };
+      }
+      return item;
+    });
+
+  const centerNavItems = filteredNavItems.map(item => {
+    if (item.id === 'messages') return { ...item, renderIcon: () => <MessagesIconWithBadge /> };
+    return item;
+  });
+
+  const bottomNavItems = filteredNavItems.map(item => {
+    if (item.id === 'messages') return { ...item, renderIcon: () => <BottomMessagesIconWithBadge /> };
+    return item;
+  });
 
   return (
     <>
@@ -239,76 +303,25 @@ export default function NavBar() {
       aria-label="Main navigation"
     >
       <div className="flex items-center justify-between">
-        {/* =================================================================
-            BRAND SECTION (Left)
-
-            Contains the AIxU logo icon and brand name.
-            Links to home page (/) for all users.
-            ================================================================= */}
+        {/* Brand (Left) */}
         <Link
           to={logoHref}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
-          {/* Logo icon with gradient background */}
           <div className="w-10 h-10 bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] rounded-lg flex items-center justify-center">
             <BrainCircuitIcon />
           </div>
-          {/* Brand text */}
           <span className="font-bold text-xl text-foreground">AIxU</span>
         </Link>
 
-        {/* =================================================================
-            NAVIGATION SECTION (Center) - Authenticated Users Only
-
-            Centered navigation links for main app sections.
-            Uses absolute positioning to achieve true center alignment
-            regardless of the widths of left/right sections.
-            ================================================================= */}
-        <div className="absolute left-1/2 transform -translate-x-1/2 hidden xl:flex items-center gap-1">
-          <NavLink to="/community" currentPath={currentPath}>
-            <CommunityIcon />
-            <span>Community</span>
-          </NavLink>
-
-          <NavLink to={primaryUniversityId ? `/universities/${primaryUniversityId}` : '/universities'} currentPath={currentPath} activePrefix="/universities">
-            <UniversitiesIcon />
-            <span>University</span>
-          </NavLink>
-
-          <NavLink to="/opportunities" currentPath={currentPath}>
-            <OpportunitiesIcon />
-            <span>Opportunities</span>
-          </NavLink>
-
-          {isAuthenticated && (
-            <MessagesNavLink currentPath={currentPath} />
-          )}
-
-          <NavLink to="/news" currentPath={currentPath}>
-            <NewsIcon />
-            <span>News</span>
-          </NavLink>
-
-          {user?.isExecutiveAnywhere && (
-            <NavLink to="/speakers" currentPath={currentPath}>
-              <SpeakersIcon />
-              <span>Speakers</span>
-            </NavLink>
-          )}
+        {/* Sliding Nav (Center) */}
+        <div className="absolute left-1/2 transform -translate-x-1/2 hidden xl:flex items-center">
+          <SlidingNavLinks items={centerNavItems} currentPath={currentPath} />
         </div>
 
-
-        {/* =================================================================
-            ACTION SECTION (Right)
-
-            Shows different content based on authentication:
-            - Authenticated: Admin link (if admin) + Profile navigation link
-            - Unauthenticated: "Join AIxU" call-to-action button
-            ================================================================= */}
+        {/* Actions (Right) */}
         {isAuthenticated ? (
-          // Links for authenticated users
           <div className="flex items-center gap-1">
-            {/* Admin link - only visible to admins */}
             {isAdmin && (
               <NavLink to="/admin/university-requests" currentPath={currentPath}>
                 <AdminIcon />
@@ -318,16 +331,13 @@ export default function NavBar() {
 
             <NotificationDropdown />
 
-            {/* Profile link for all authenticated users */}
             <NavLink to="/profile" currentPath={currentPath}>
               <ProfileIcon />
               <span>Profile</span>
             </NavLink>
           </div>
         ) : (
-          // Links for unauthenticated users
           <div className="flex items-center gap-4">
-            {/* Add Your School link */}
             <Link
               to="/add-university"
               className="text-sm font-medium text-gray-700 hover:text-foreground transition-colors duration-150"
@@ -335,7 +345,6 @@ export default function NavBar() {
               Add Your School
             </Link>
 
-            {/* Join / Login button */}
             <Link
               to={isReturningUser ? '/login' : '/register'}
               className="bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)] text-white px-6 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-[hsl(220,85%,60%)]/30 transition-all duration-200 transform hover:-translate-y-0.5"
@@ -350,21 +359,8 @@ export default function NavBar() {
 
     <div
       className="fixed bottom-0 left-0 right-0 z-50 bg-white px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 xl:hidden border-t border-gray-200"
-      role="navigation"
-      aria-label="Mobile navigation"
     >
-      <div className="flex items-center justify-around">
-        <BottomNavLink to="/community" icon={<CommunityIcon />} label="Community" currentPath={currentPath} />
-        <BottomNavLink to={primaryUniversityId ? `/universities/${primaryUniversityId}` : '/universities'} icon={<UniversitiesIcon />} label="University" currentPath={currentPath} activePrefix="/universities" />
-        <BottomNavLink to="/opportunities" icon={<OpportunitiesIcon />} label="Opportunities" currentPath={currentPath} />
-        {isAuthenticated && (
-          <BottomMessagesNavLink currentPath={currentPath} />
-        )}
-        <BottomNavLink to="/news" icon={<NewsIcon />} label="News" currentPath={currentPath} />
-        {user?.isExecutiveAnywhere && (
-          <BottomNavLink to="/speakers" icon={<SpeakersIcon />} label="Speakers" currentPath={currentPath} />
-        )}
-      </div>
+      <SlidingBottomNav items={bottomNavItems} currentPath={currentPath} />
     </div>
     </>
   );
