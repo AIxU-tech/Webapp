@@ -168,6 +168,7 @@ class User(UserMixin, db.Model):
             'last_name': self.last_name,
             'full_name': self.get_full_name(),
             'university': self.university,
+            'university_id': self.university_roles[0].university_id if self.university_roles else None,
             'join_date': to_iso(self.join_date),
             'joined_formatted': format_join_date(self.join_date),
             'post_count': self.post_count,
