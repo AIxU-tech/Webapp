@@ -40,10 +40,10 @@ export default function SpeakerCard({ speaker, onContact, onEdit, onDelete, curr
             size="md"
           />
           <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+            <h3 className="text-lg font-semibold text-foreground break-words leading-snug group-hover:text-primary transition-colors">
               {speaker.name}
             </h3>
-            <p className="text-sm text-muted-foreground truncate mt-0.5">
+            <p className="text-sm text-muted-foreground mt-0.5 break-words leading-snug">
               {speaker.position}
               {speaker.organization && ` · ${speaker.organization}`}
             </p>

@@ -29,7 +29,7 @@ export default function SpeakerContactModal({
 
   return (
     <>
-      <BaseModal isOpen={isOpen} onClose={onClose} size="sm">
+      <BaseModal isOpen={isOpen} onClose={onClose} size="lg">
         <div className="p-6">
           {/* Speaker Image */}
           <div className="flex justify-center mb-4">

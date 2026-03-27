@@ -71,7 +71,7 @@ function AppLayout() {
         <>
           <Footer />
 
-          {/* Bottom nav spacer (mobile) — prevents content hiding behind fixed bottom nav */}
+          {/* Bottom nav spacer (mobile) — matches fixed bottom nav + labels */}
           <div className="h-16 xl:hidden" aria-hidden="true" />
         </>
       )}

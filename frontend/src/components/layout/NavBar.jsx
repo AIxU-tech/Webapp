@@ -134,20 +134,23 @@ function getActiveId(items, currentPath) {
 }
 
 // =============================================================================
-// SLIDING NAV LINKS COMPONENT (Desktop)
+// SLIDING PILL NAV — shared by desktop (top) and mobile (bottom)
+// Same bg-muted rounded-full track, white sliding pill, icon + label links.
 // =============================================================================
 
-function SlidingNavLinks({ items, currentPath }) {
+function SlidingPillNav({ items, currentPath, navClassName = '', ariaLabel }) {
   const activeId = getActiveId(items, currentPath);
   const { tabRefs, indicatorStyle } = useSlidingIndicator(activeId, items.length);
 
   return (
     <nav
-      className="relative flex items-center bg-muted rounded-full px-2 py-1"
+      className={`relative flex items-center bg-muted rounded-full px-2 py-1 ${navClassName}`}
+      role="navigation"
+      {...(ariaLabel ? { 'aria-label': ariaLabel } : {})}
     >
       {indicatorStyle.visible && (
         <div
-          className="absolute inset-y-1 bg-white dark:bg-white/15 rounded-full ring-[0.75px] ring-black/15 shadow-sm transition-[left,width] duration-300 ease-out"
+          className="absolute inset-y-1 bg-white dark:bg-white/15 rounded-full ring-[0.75px] ring-black/15 shadow-sm transition-[left,width] duration-300 ease-out pointer-events-none"
           style={{
             left: indicatorStyle.left,
             width: indicatorStyle.width,
@@ -155,8 +158,8 @@ function SlidingNavLinks({ items, currentPath }) {
         />
       )}
 
-      {items.map(item => (
-        <div key={item.id} ref={el => (tabRefs.current[item.id] = el)}>
+      {items.map((item) => (
+        <div key={item.id} ref={(el) => { tabRefs.current[item.id] = el; }}>
           <Link
             to={item.path}
             className={`
@@ -177,51 +180,18 @@ function SlidingNavLinks({ items, currentPath }) {
   );
 }
 
-// =============================================================================
-// SLIDING BOTTOM NAV COMPONENT (Mobile)
-// =============================================================================
+function SlidingNavLinks({ items, currentPath }) {
+  return <SlidingPillNav items={items} currentPath={currentPath} />;
+}
 
 function SlidingBottomNav({ items, currentPath }) {
-  const activeId = getActiveId(items, currentPath);
-  const { tabRefs, indicatorStyle } = useSlidingIndicator(activeId, items.length);
-
   return (
-    <nav
-      className="relative flex items-center bg-muted rounded-full p-1"
-      role="navigation"
-      aria-label="Mobile navigation"
-    >
-      {indicatorStyle.visible && (
-        <div
-          className="absolute inset-y-1 bg-white dark:bg-white/15 rounded-full ring-[0.75px] ring-black/15 shadow-sm transition-[left,width] duration-300 ease-out"
-          style={{
-            left: indicatorStyle.left,
-            width: indicatorStyle.width,
-          }}
-        />
-      )}
-
-      {items.map(item => (
-        <div key={item.id} ref={el => (tabRefs.current[item.id] = el)} className="flex-1 min-w-0">
-          <Link
-            to={item.path}
-            className={`
-              relative z-10 flex flex-col items-center justify-center py-2 px-2 rounded-full
-              text-xs font-medium transition-colors min-h-[48px]
-              ${activeId === item.id
-                ? 'text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-              }
-            `}
-          >
-            <span className="mb-0.5 sm:mb-1 [&>svg]:h-6 [&>svg]:w-6">
-              {item.renderIcon ? item.renderIcon() : <item.Icon />}
-            </span>
-            <span className="truncate max-w-full hidden sm:block">{item.label}</span>
-          </Link>
-        </div>
-      ))}
-    </nav>
+    <SlidingPillNav
+      items={items}
+      currentPath={currentPath}
+      navClassName="w-max"
+      ariaLabel="Mobile navigation"
+    />
   );
 }
 
@@ -358,7 +328,7 @@ export default function NavBar() {
     </nav>
 
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 xl:hidden border-t border-gray-200"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 xl:hidden border-t border-border overflow-x-auto no-scrollbar flex justify-center px-3"
     >
       <SlidingBottomNav items={bottomNavItems} currentPath={currentPath} />
     </div>
