@@ -71,9 +71,13 @@ class Config:
     GCS_PROJECT_ID = os.getenv('GCS_PROJECT_ID')  # Required when using ADC (e.g. Docker)
     GCS_CREDENTIALS_PATH = os.getenv('GCS_CREDENTIALS_PATH')
     
+    # GCS path prefix — isolates dev uploads from prod in the same bucket
+    GCS_PATH_PREFIX = 'dev' if DEV_MODE else ''
+
     # Signed URL expiration times (in seconds)
     GCS_UPLOAD_URL_EXPIRATION = 15 * 60  # 15 minutes for uploads
     GCS_DOWNLOAD_URL_EXPIRATION = 60 * 60  # 1 hour for downloads
+
 
 
 class TestConfig(Config):

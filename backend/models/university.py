@@ -101,6 +101,10 @@ class University(db.Model):
     banner_filename = db.Column(db.String(255), nullable=True)
     banner_mimetype = db.Column(db.String(100), nullable=True)
 
+    # GCS image storage (new -- replaces blob columns)
+    logo_gcs_path = db.Column(db.String(500), nullable=True)
+    banner_gcs_path = db.Column(db.String(500), nullable=True)
+
     # DEPRECATED: members column is no longer used. Membership is tracked via UniversityRole.
     # This column is kept for backwards compatibility during migration but should not be used.
     members = db.Column(db.Text, nullable=True)
@@ -303,11 +307,59 @@ class University(db.Model):
     # Banner Methods
     # -------------------------------------------------------------------------
 
+    def get_logo_url(self):
+        """Return logo image URL or None."""
+        if self.logo_gcs_path:
+            from backend.services.storage import get_public_image_url
+            return get_public_image_url(self.logo_gcs_path)
+        if self.logo:
+            return url_for('universities.get_university_logo', university_id=self.id)
+        return None
+
     def get_banner_url(self):
         """Return banner image URL or None (frontend handles fallback)."""
+        if self.banner_gcs_path:
+            from backend.services.storage import get_public_image_url
+            return get_public_image_url(self.banner_gcs_path)
         if self.banner:
             return url_for('universities.get_university_banner', university_id=self.id)
         return None
+
+    # -------------------------------------------------------------------------
+    # GCS Image Methods
+    # -------------------------------------------------------------------------
+
+    def set_logo_gcs(self, gcs_path: str):
+        """Set logo to a GCS path, clearing old blob data."""
+        self.logo_gcs_path = gcs_path
+        self.logo = None
+        self.logo_filename = None
+        self.logo_mimetype = None
+
+    def delete_logo_gcs(self):
+        """Remove logo GCS reference. Caller must delete from GCS separately."""
+        old_path = self.logo_gcs_path
+        self.logo_gcs_path = None
+        self.logo = None
+        self.logo_filename = None
+        self.logo_mimetype = None
+        return old_path
+
+    def set_banner_gcs(self, gcs_path: str):
+        """Set banner to a GCS path, clearing old blob data."""
+        self.banner_gcs_path = gcs_path
+        self.banner = None
+        self.banner_filename = None
+        self.banner_mimetype = None
+
+    def delete_banner_gcs(self):
+        """Remove banner GCS reference. Caller must delete from GCS separately."""
+        old_path = self.banner_gcs_path
+        self.banner_gcs_path = None
+        self.banner = None
+        self.banner_filename = None
+        self.banner_mimetype = None
+        return old_path
 
     def to_dict(self):
         """Serialize university to dictionary for API responses."""
@@ -321,8 +373,9 @@ class University(db.Model):
             'adminId': self.admin_id,
             'websiteUrl': self.website_url,
             'socialLinks': self.get_social_links_list(),
-            'hasLogo': self.logo is not None,
-            'hasBanner': self.banner is not None,
+            'hasLogo': self.logo_gcs_path is not None or self.logo is not None,
+            'logoUrl': self.get_logo_url(),
+            'hasBanner': self.banner_gcs_path is not None or self.banner is not None,
             'bannerUrl': self.get_banner_url(),
         }
 
