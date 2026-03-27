@@ -18,6 +18,7 @@ export default function ExecutiveSectionCard({
   emptyDescription,
   isLoading,
   skeleton,
+  action,
   children,
 }) {
   return (
@@ -29,9 +30,12 @@ export default function ExecutiveSectionCard({
             <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
           )}
         </div>
-        {count != null && !isLoading && (
-          <span className="text-sm text-muted-foreground">{count}</span>
-        )}
+        <div className="flex items-center gap-3">
+          {count != null && !isLoading && (
+            <span className="text-sm text-muted-foreground">{count}</span>
+          )}
+          {action}
+        </div>
       </div>
 
       {isLoading && skeleton ? (
