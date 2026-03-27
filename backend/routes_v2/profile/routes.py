@@ -296,9 +296,30 @@ def upload_profile_picture():
         # Compress image to reduce storage size
         compressed_data = compress_image(image_data)
 
-        # Set profile picture
-        current_user.set_profile_picture(compressed_data, filename, 'image/jpeg')
-        db.session.commit()
+        # Upload to GCS if configured, otherwise fall back to blob
+        from backend.services.storage import upload_image_bytes, generate_image_gcs_path, delete_file, is_gcs_configured
+        from backend.constants import IMAGE_GCS_PREFIXES
+
+        if is_gcs_configured():
+            old_gcs_path = current_user.profile_picture_gcs_path
+
+            gcs_path = generate_image_gcs_path(
+                IMAGE_GCS_PREFIXES['profile'], current_user.id, filename
+            )
+            upload_image_bytes(gcs_path, compressed_data, 'image/jpeg')
+            current_user.set_profile_picture_gcs(gcs_path)
+            db.session.commit()
+
+            # Clean up old GCS file after successful commit
+            if old_gcs_path:
+                try:
+                    delete_file(old_gcs_path)
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to delete old profile picture from GCS: {e}")
+        else:
+            # Fallback to blob storage (dev without GCS)
+            current_user.set_profile_picture(compressed_data, filename, 'image/jpeg')
+            db.session.commit()
 
         return jsonify({
             'success': True,
@@ -332,15 +353,23 @@ def delete_profile_picture():
         JSON object with success status and default profile picture URL
     """
     try:
-        current_user.delete_profile_picture()
+        from backend.services.storage import delete_file, is_gcs_configured
+
+        old_gcs_path = current_user.delete_profile_picture_gcs()
         db.session.commit()
+
+        if old_gcs_path and is_gcs_configured():
+            try:
+                delete_file(old_gcs_path)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete profile picture from GCS: {e}")
 
         return jsonify({
             'success': True,
             'message': 'Profile picture removed successfully',
             'profile_picture_url': current_user.get_profile_picture_url()
         })
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         return jsonify({
             'success': False,
@@ -424,9 +453,28 @@ def upload_banner_image():
         # Compress and crop to banner dimensions (1500x300, 5:1 ratio)
         compressed_data = compress_banner_image(image_data)
 
-        # Set banner image
-        current_user.set_banner_image(compressed_data, file.filename, 'image/jpeg')
-        db.session.commit()
+        # Upload to GCS if configured, otherwise fall back to blob
+        from backend.services.storage import upload_image_bytes, generate_image_gcs_path, delete_file, is_gcs_configured
+        from backend.constants import IMAGE_GCS_PREFIXES
+
+        if is_gcs_configured():
+            old_gcs_path = current_user.banner_image_gcs_path
+
+            gcs_path = generate_image_gcs_path(
+                IMAGE_GCS_PREFIXES['banner'], current_user.id, file.filename
+            )
+            upload_image_bytes(gcs_path, compressed_data, 'image/jpeg')
+            current_user.set_banner_image_gcs(gcs_path)
+            db.session.commit()
+
+            if old_gcs_path:
+                try:
+                    delete_file(old_gcs_path)
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to delete old banner from GCS: {e}")
+        else:
+            current_user.set_banner_image(compressed_data, file.filename, 'image/jpeg')
+            db.session.commit()
 
         return jsonify({
             'success': True,
@@ -445,6 +493,43 @@ def upload_banner_image():
         return jsonify({
             'success': False,
             'error': 'Error uploading banner image'
+        }), 500
+
+
+@profile_bp.route('/api/profile/banner', methods=['DELETE'])
+@login_required
+def delete_banner_image():
+    """
+    Delete current banner image.
+
+    Removes the user's uploaded banner image, reverting to the default banner.
+
+    Returns:
+        JSON object with success status
+    """
+    try:
+        from backend.services.storage import delete_file, is_gcs_configured
+
+        old_gcs_path = current_user.delete_banner_image_gcs()
+        current_user.delete_banner_image()
+        db.session.commit()
+
+        if old_gcs_path and is_gcs_configured():
+            try:
+                delete_file(old_gcs_path)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete banner from GCS: {e}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Banner image removed successfully',
+            'hasBanner': False,
+        })
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': 'Error deleting banner image'
         }), 500
 
 
@@ -555,6 +640,30 @@ def delete_account():
     user_id = current_user.id
 
     try:
+        # 0. Clean up GCS images before deleting user
+        from backend.services.storage import delete_file, delete_user_uploads, delete_user_images, is_gcs_configured
+
+        if is_gcs_configured():
+            user_to_clean = User.query.get(user_id)
+            paths_to_delete = [
+                user_to_clean.profile_picture_gcs_path,
+                user_to_clean.banner_image_gcs_path,
+            ]
+            for path in paths_to_delete:
+                if path:
+                    try:
+                        delete_file(path)
+                    except Exception as e:
+                        current_app.logger.warning(f"Failed to delete user image from GCS: {e}")
+            try:
+                delete_user_uploads(user_id)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete user uploads from GCS: {e}")
+            try:
+                delete_user_images(user_id)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete user images from GCS: {e}")
+
         # 1. Delete all notes created by the user
         Note.query.filter_by(author_id=user_id).delete()
 

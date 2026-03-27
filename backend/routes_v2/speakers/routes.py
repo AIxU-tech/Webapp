@@ -21,7 +21,7 @@ from backend.extensions import db
 from backend.models import Speaker, UniversityRole, University
 from backend.constants import UniversityRoles, MAX_SPEAKER_IMAGE_SIZE_BYTES, ALLOWED_SPEAKER_IMAGE_TYPES
 from backend.services.content_moderator import moderate_content
-from backend.services.storage import generate_download_url, is_gcs_configured, delete_file
+from backend.services.storage import get_public_image_url, is_gcs_configured, delete_file
 from backend.utils.validation import validate_email_format, validate_phone_format
 
 speakers_bp = Blueprint('speakers', __name__)
@@ -106,10 +106,10 @@ def _get_user_executive_universities(user):
 
 
 def _generate_speaker_image_url(speaker):
-    """Generate a signed download URL for a speaker's image, if it exists."""
+    """Generate a public GCS URL for a speaker's image, if it exists."""
     if speaker.image_gcs_path and is_gcs_configured():
         try:
-            return generate_download_url(speaker.image_gcs_path)
+            return get_public_image_url(speaker.image_gcs_path)
         except Exception:
             return None
     return None
@@ -267,11 +267,11 @@ def create_speaker():
     if not image_valid:
         return jsonify({'error': image_error}), 400
 
-    # Determine university from current user's executive membership (use first)
-    user_universities = _get_user_executive_universities(current_user)
-    if not user_universities:
+    # Determine university from the current user's own university
+    user_university = current_user.get_university()
+    if not user_university:
         return jsonify({'error': 'No university association found'}), 400
-    university_id = user_universities[0]['id']
+    university_id = user_university.id
 
     speaker = Speaker(
         name=name,

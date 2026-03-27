@@ -117,7 +117,8 @@ def get_event_by_token(token):
             'location': event.location,
             'universityName': university.name if university else None,
             'universityId': university.id if university else None,
-            'universityHasLogo': bool(university.logo) if university else False,
+            'universityHasLogo': bool(university.logo_gcs_path or university.logo) if university else False,
+            'universityLogoUrl': university.get_logo_url() if university else None,
             'isPast': _is_event_past(event),
         }
     }

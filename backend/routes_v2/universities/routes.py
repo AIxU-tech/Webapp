@@ -81,7 +81,9 @@ def list_universities():
             'emailDomain': uni.email_domain or '',
             'websiteUrl': uni.website_url or '',
             'socialLinks': uni.get_social_links_list(),
-            'hasLogo': uni.logo is not None,
+            'hasLogo': uni.logo_gcs_path is not None or uni.logo is not None,
+            'logoUrl': uni.get_logo_url(),
+            'bannerUrl': uni.get_banner_url(),
         })
 
     return jsonify({
@@ -259,8 +261,9 @@ def get_university(university_id: int):
         'permissions': user_permissions,
         'websiteUrl': uni.website_url or '',
         'socialLinks': uni.get_social_links_list(),
-        'hasLogo': uni.logo is not None,
-        'hasBanner': uni.banner is not None,
+        'hasLogo': uni.logo_gcs_path is not None or uni.logo is not None,
+        'logoUrl': uni.get_logo_url(),
+        'hasBanner': uni.banner_gcs_path is not None or uni.banner is not None,
         'bannerUrl': uni.get_banner_url(),
     }
     return jsonify(detail)
@@ -289,6 +292,17 @@ def delete_university(university_id: int):
     # Only site admin can delete universities
     if not current_user.is_site_admin():
         return jsonify({'error': 'You are not authorized to delete this university.'}), 403
+
+    # Clean up GCS images before deleting university
+    from backend.services.storage import delete_file, is_gcs_configured
+
+    if is_gcs_configured():
+        for path in [uni.logo_gcs_path, uni.banner_gcs_path]:
+            if path:
+                try:
+                    delete_file(path)
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to delete university image from GCS: {e}")
 
     # Explicitly delete all roles associated with this university
     # Cascade should handle this, but we do this for SQLite compatibility for our tests.
@@ -680,7 +694,10 @@ def update_university(university_id: int):
             'websiteUrl': uni.website_url or '',
             'socialLinks': uni.get_social_links_list(),
             'memberCount': uni.member_count or 0,
-            'hasLogo': uni.logo is not None,
+            'hasLogo': uni.logo_gcs_path is not None or uni.logo is not None,
+            'logoUrl': uni.get_logo_url(),
+            'hasBanner': uni.banner_gcs_path is not None or uni.banner is not None,
+            'bannerUrl': uni.get_banner_url(),
         }
     })
 
@@ -739,22 +756,40 @@ def upload_university_logo(university_id: int):
         # Compress and resize the image
         compressed_data = compress_image(file_data, max_size=(400, 400), quality=90)
 
-        # Sanitize filename to prevent path traversal or special character issues
-        import os
-        from urllib.parse import quote
-        safe_filename = quote(os.path.basename(file.filename), safe='.-_')
+        from backend.services.storage import upload_image_bytes, generate_image_gcs_path, delete_file, is_gcs_configured
+        from backend.constants import IMAGE_GCS_PREFIXES
 
-        # Update university logo
-        uni.logo = compressed_data
-        uni.logo_filename = safe_filename
-        uni.logo_mimetype = 'image/jpeg'  # compress_image converts to JPEG
+        if is_gcs_configured():
+            old_gcs_path = uni.logo_gcs_path
 
-        db.session.commit()
+            gcs_path = generate_image_gcs_path(
+                IMAGE_GCS_PREFIXES['university_logo'], uni.id, file.filename
+            )
+            upload_image_bytes(gcs_path, compressed_data, 'image/jpeg')
+            uni.set_logo_gcs(gcs_path)
+            db.session.commit()
+
+            if old_gcs_path:
+                try:
+                    delete_file(old_gcs_path)
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to delete old university logo from GCS: {e}")
+        else:
+            # Fallback to blob storage (dev without GCS)
+            import os
+            from urllib.parse import quote
+            safe_filename = quote(os.path.basename(file.filename), safe='.-_')
+
+            uni.logo = compressed_data
+            uni.logo_filename = safe_filename
+            uni.logo_mimetype = 'image/jpeg'
+            db.session.commit()
 
         return jsonify({
             'success': True,
             'message': 'Logo uploaded successfully',
             'hasLogo': True,
+            'logoUrl': uni.get_logo_url(),
         })
 
     except ValueError as e:
@@ -795,6 +830,47 @@ def get_university_logo(university_id: int):
             'ETag': f'"{etag}"',
         }
     )
+
+
+@universities_bp.route('/api/universities/<int:university_id>/logo', methods=['DELETE'])
+@login_required
+def delete_university_logo(university_id: int):
+    """
+    Delete university logo, reverting to the default.
+
+    Authorization:
+        - Executive+ at THIS university, or site admin
+    """
+    uni = University.query.get(university_id)
+    if not uni:
+        return jsonify({'error': 'University not found'}), 404
+
+    if not can_manage_university_members(current_user, university_id):
+        return jsonify({'error': 'Not authorized to update this university'}), 403
+
+    try:
+        from backend.services.storage import delete_file, is_gcs_configured
+
+        old_gcs_path = uni.delete_logo_gcs()
+        uni.logo = None
+        uni.logo_filename = None
+        uni.logo_mimetype = None
+        db.session.commit()
+
+        if old_gcs_path and is_gcs_configured():
+            try:
+                delete_file(old_gcs_path)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete university logo from GCS: {e}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Logo removed successfully',
+            'hasLogo': False,
+        })
+    except Exception:
+        db.session.rollback()
+        return jsonify({'error': 'Error deleting logo'}), 500
 
 
 # =============================================================================
@@ -846,17 +922,34 @@ def upload_university_banner(university_id: int):
         # Compress and crop to banner dimensions (1500x300, 5:1 ratio)
         compressed_data = compress_banner_image(file_data)
 
-        # Sanitize filename
-        import os
-        from urllib.parse import quote
-        safe_filename = quote(os.path.basename(file.filename), safe='.-_')
+        from backend.services.storage import upload_image_bytes, generate_image_gcs_path, delete_file, is_gcs_configured
+        from backend.constants import IMAGE_GCS_PREFIXES
 
-        # Update university banner
-        uni.banner = compressed_data
-        uni.banner_filename = safe_filename
-        uni.banner_mimetype = 'image/jpeg'
+        if is_gcs_configured():
+            old_gcs_path = uni.banner_gcs_path
 
-        db.session.commit()
+            gcs_path = generate_image_gcs_path(
+                IMAGE_GCS_PREFIXES['university_banner'], uni.id, file.filename
+            )
+            upload_image_bytes(gcs_path, compressed_data, 'image/jpeg')
+            uni.set_banner_gcs(gcs_path)
+            db.session.commit()
+
+            if old_gcs_path:
+                try:
+                    delete_file(old_gcs_path)
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to delete old university banner from GCS: {e}")
+        else:
+            # Fallback to blob storage (dev without GCS)
+            import os
+            from urllib.parse import quote
+            safe_filename = quote(os.path.basename(file.filename), safe='.-_')
+
+            uni.banner = compressed_data
+            uni.banner_filename = safe_filename
+            uni.banner_mimetype = 'image/jpeg'
+            db.session.commit()
 
         return jsonify({
             'success': True,
@@ -904,5 +997,45 @@ def get_university_banner(university_id: int):
         }
     )
 
+
+@universities_bp.route('/api/universities/<int:university_id>/banner', methods=['DELETE'])
+@login_required
+def delete_university_banner(university_id: int):
+    """
+    Delete university banner, reverting to the default.
+
+    Authorization:
+        - Executive+ at THIS university, or site admin
+    """
+    uni = University.query.get(university_id)
+    if not uni:
+        return jsonify({'error': 'University not found'}), 404
+
+    if not can_manage_university_members(current_user, university_id):
+        return jsonify({'error': 'Not authorized to update this university'}), 403
+
+    try:
+        from backend.services.storage import delete_file, is_gcs_configured
+
+        old_gcs_path = uni.delete_banner_gcs()
+        uni.banner = None
+        uni.banner_filename = None
+        uni.banner_mimetype = None
+        db.session.commit()
+
+        if old_gcs_path and is_gcs_configured():
+            try:
+                delete_file(old_gcs_path)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete university banner from GCS: {e}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Banner removed successfully',
+            'hasBanner': False,
+        })
+    except Exception:
+        db.session.rollback()
+        return jsonify({'error': 'Error deleting banner'}), 500
 
 
