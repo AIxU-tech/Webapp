@@ -182,12 +182,12 @@ class University(db.Model):
         # Insert the role. If the UNIQUE constraint on (user_id, university_id)
         # is hit, the insert will fail and we will not increment the counter.
         try:
-            db.session.add(new_role)
-            db.session.flush()  # triggers UNIQUE constraint
+            with db.session.begin_nested():
+                db.session.add(new_role)
+                db.session.flush()  # triggers UNIQUE constraint
         except IntegrityError:
             # Extremely rare: the membership row already exists concurrently.
-            # Roll back the failed INSERT so the session is usable again.
-            db.session.rollback()
+            # The SAVEPOINT is rolled back; the outer transaction stays intact.
             return False
 
         # Atomic counter increment avoids "lost updates" when multiple requests
