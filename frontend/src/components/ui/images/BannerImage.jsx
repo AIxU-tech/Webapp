@@ -18,8 +18,6 @@
 import { useState } from 'react';
 import { CameraIcon } from '../../icons';
 
-const DEFAULT_BANNER = 'https://images.unsplash.com/photo-1562774053-701939374585?w=1920&q=80';
-
 export default function BannerImage({
   imageUrl,
   defaultImage,
@@ -35,7 +33,7 @@ export default function BannerImage({
 
   // Use custom banner if available and no error, otherwise use default
   const showCustomBanner = imageUrl && !imgError;
-  const displayUrl = showCustomBanner ? imageUrl : (defaultImage || DEFAULT_BANNER);
+  const displayUrl = showCustomBanner ? imageUrl : defaultImage;
 
   return (
     <div className={`relative ${height} ${className}`}>
@@ -47,6 +45,8 @@ export default function BannerImage({
             alt={altText}
             className="w-full h-full object-cover"
             onError={() => setImgError(true)}
+            loading="eager"
+            fetchPriority="high"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)]" />

@@ -13,7 +13,7 @@
 
 import { useState, useRef } from 'react';
 import { BaseModal } from '../modals';
-import { GradientButton, SecondaryButton } from '../buttons';
+import { GradientButton, SecondaryButton, ResetButton } from '../buttons';
 import { validateImageFile, cropImageToBanner, BANNER_CONFIG } from '../../../utils/image';
 import { CameraIcon } from '../../icons';
 
@@ -21,7 +21,10 @@ export default function BannerUploadModal({
   isOpen,
   onClose,
   onUpload,
+  onReset,
+  hasExistingImage = false,
   isUploading = false,
+  isResetting = false,
   title = 'Update Banner Image',
 }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -91,6 +94,11 @@ export default function BannerUploadModal({
 
   const isLoading = isUploading || isProcessing;
 
+  const handleReset = () => {
+    handleClose();
+    onReset?.();
+  };
+
   return (
     <BaseModal
       isOpen={isOpen}
@@ -138,7 +146,19 @@ export default function BannerUploadModal({
         </p>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3">
+        <div className="flex items-center gap-3">
+          {/* Reset button - left side */}
+          {hasExistingImage && onReset && (
+            <ResetButton
+              onClick={handleReset}
+              disabled={isLoading}
+              loading={isResetting}
+              title="Reset to default"
+            >
+              Reset
+            </ResetButton>
+          )}
+          <div className="flex-1" />
           <SecondaryButton
             variant="outline"
             onClick={handleClose}

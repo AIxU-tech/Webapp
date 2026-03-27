@@ -34,7 +34,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from '../../hooks';
 
 // UI Components
-import { BaseModal, Alert, GradientButton, SecondaryButton, FormInput, SocialLinksInput, ImageUploadZone, Avatar } from '../ui';
+import { BaseModal, Alert, GradientButton, SecondaryButton, ResetButton, FormInput, SocialLinksInput, ImageUploadZone, Avatar } from '../ui';
 
 /**
  * Get initial form values from user object
@@ -54,6 +54,7 @@ export default function EditProfileModal({
   updateProfileMutation,
   onSave,
   onUploadPicture,
+  onDeletePicture,
   onPictureError,
 }) {
   const [pendingPictureBlob, setPendingPictureBlob] = useState(null);
@@ -126,6 +127,15 @@ export default function EditProfileModal({
           onError={onPictureError}
         />
 
+        {/* Reset profile picture button */}
+        {user?.profile_picture_url && onDeletePicture && (
+          <div className="-mt-4 mb-2">
+            <ResetButton onClick={onDeletePicture} title="Reset to default avatar">
+              Reset Photo
+            </ResetButton>
+          </div>
+        )}
+
         {/* Profile Form */}
         <form onSubmit={handleFormSubmit} className="space-y-4 mt-6">
           {/* Form Error Display */}
@@ -170,7 +180,7 @@ export default function EditProfileModal({
               name="headline"
               value={formData.headline || ''}
               onChange={handleChange}
-              placeholder="e.g. CS Student at MIT"
+              placeholder="e.g. CS Student at UCLA"
             />
           </div>
 

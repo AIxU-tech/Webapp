@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { UniversitiesIcon } from '../../icons';
-import { getUniversityLogoUrl } from '../../../api/universities';
 
 /**
  * Size variants mapping to Tailwind classes
@@ -24,34 +23,26 @@ const SHAPES = {
  * Reusable UniversityLogo component with automatic fallback to gradient + icon
  *
  * Displays a university/club logo if available, otherwise shows a gradient
- * background with a university icon.
+ * background with a university icon. Logo URL comes from the API data (logoUrl).
  *
  * @param {Object} props
- * @param {Object} props.university - University object with id, hasLogo, name, clubName
+ * @param {Object} props.university - University object with id, hasLogo, logoUrl, name, clubName
+ * @param {string} [props.src] - Direct image URL override
  * @param {'sm'|'md'|'lg'} [props.size='md'] - Logo size variant
  * @param {'circle'|'rounded'} [props.shape='rounded'] - Logo shape variant
  * @param {string} [props.className=''] - Additional CSS classes
- * @param {number} [props.cacheKey] - Optional cache-busting key (timestamp)
- *
- * @example
- * // In a card (rounded square)
- * <UniversityLogo university={university} size="md" shape="rounded" />
- *
- * // In a profile (circle)
- * <UniversityLogo university={university} size="lg" shape="circle" />
  */
 export default function UniversityLogo({
   university,
+  src,
   size = 'md',
   shape = 'rounded',
   className = '',
-  cacheKey,
-  src,
 }) {
   const [imgError, setImgError] = useState(false);
 
-  const { id, hasLogo, name, clubName } = university || {};
-  const imageUrl = src || (hasLogo ? getUniversityLogoUrl(id, cacheKey) : null);
+  const { id, hasLogo, logoUrl, name, clubName } = university || {};
+  const imageUrl = src || logoUrl || null;
 
   // Reset error state when image URL changes
   useEffect(() => {
@@ -74,6 +65,7 @@ export default function UniversityLogo({
           alt={altText}
           className="w-full h-full object-cover"
           onError={() => setImgError(true)}
+          loading="lazy"
         />
       ) : (
         <UniversitiesIcon className={`${sizeConfig.icon} text-white`} />

@@ -6,7 +6,6 @@
  * @example
  * import { getTimeAgo, formatFullDate } from '../utils';
  * import { LOCATION_TAGS, orderOpportunityTags } from '../utils';
- * import { getUserBannerUrl, getUniversityLogoUrl } from '../utils';
  */
 
 export { getTimeAgo, formatFullDate, formatDateTime, formatDateRange } from './time';
@@ -31,13 +30,7 @@ export {
 export { validateEmailFormat, validatePhoneFormat, formatUSPhone } from './validation';
 
 // URL construction utilities
-export {
-  getUserProfilePictureUrl,
-  getUserBannerUrl,
-  getUniversityLogoUrl,
-  getUniversityBannerUrl,
-  getApiUrl,
-} from './url';
+export { getApiUrl } from './url';
 
 // Tag constants and utilities
 export {

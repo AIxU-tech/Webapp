@@ -193,15 +193,15 @@ export async function uploadUniversityLogo(universityId, file) {
 }
 
 /**
- * Get URL for university logo
+ * Delete university logo
+ *
+ * Resets logo to default.
  *
  * @param {number} universityId - University ID
- * @param {number} [version] - Optional cache-busting version (timestamp)
- * @returns {string} URL to fetch the logo image
+ * @returns {Promise<object>} Response with success status
  */
-export function getUniversityLogoUrl(universityId, version) {
-  const baseUrl = `/university/${universityId}/logo`;
-  return version ? `${baseUrl}?v=${version}` : baseUrl;
+export async function deleteUniversityLogo(universityId) {
+  return api.delete(`/universities/${universityId}/logo`);
 }
 
 // =============================================================================
@@ -228,13 +228,13 @@ export async function uploadUniversityBanner(universityId, file) {
 }
 
 /**
- * Get URL for university banner
+ * Delete university banner
+ *
+ * Resets banner to default.
  *
  * @param {number} universityId - University ID
- * @param {number} [version] - Optional cache-busting version (timestamp)
- * @returns {string} URL to fetch the banner image
+ * @returns {Promise<object>} Response with success status
  */
-export function getUniversityBannerUrl(universityId, version) {
-  const baseUrl = `/university/${universityId}/banner`;
-  return version ? `${baseUrl}?v=${version}` : baseUrl;
+export async function deleteUniversityBanner(universityId) {
+  return api.delete(`/universities/${universityId}/banner`);
 }

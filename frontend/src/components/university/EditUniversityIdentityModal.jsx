@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { BaseModal, GradientButton, SecondaryButton, Alert, SocialLinksInput, UnsavedChangesModal, ImageUploadZone, UniversityLogo } from '../ui';
+import { BaseModal, GradientButton, SecondaryButton, ResetButton, Alert, SocialLinksInput, UnsavedChangesModal, ImageUploadZone, UniversityLogo } from '../ui';
 
 export default function EditUniversityIdentityModal({
   isOpen,
@@ -16,6 +16,7 @@ export default function EditUniversityIdentityModal({
   university,
   onSave,
   onUploadLogo,
+  onDeleteLogo,
   onDelete,
   isLoading = false,
   isUploadingLogo = false,
@@ -159,6 +160,21 @@ export default function EditUniversityIdentityModal({
           onError={handleLogoError}
         />
 
+        {/* Reset logo button */}
+        {university?.hasLogo && onDeleteLogo && (
+          <div className="-mt-4 mb-2">
+            <ResetButton
+              onClick={() => {
+                clearPendingLogo();
+                onDeleteLogo();
+              }}
+              title="Reset to default logo"
+            >
+              Reset Logo
+            </ResetButton>
+          </div>
+        )}
+
         {logoError && (
           <Alert
             variant="error"
@@ -211,7 +227,7 @@ export default function EditUniversityIdentityModal({
               value={socialLinks}
               onChange={setSocialLinks}
               disabled={isLoading}
-              universityLogoUrl={university?.hasLogo ? `/university/${university.id}/logo` : null}
+              universityLogoUrl={university?.logoUrl || null}
             />
           </div>
 

@@ -22,7 +22,6 @@ import { FormInput, GradientButton, Alert } from '../components/ui';
 import { BrainCircuitIcon, CheckCircleIcon, CalendarIcon, MapPinIcon, ClockIcon, AlertCircleIcon } from '../components/icons';
 import { GRADIENT_PRIMARY } from '../config/styles';
 import { PlasmaBackground } from '../components/layout';
-import { getUniversityLogoUrl } from '../api/universities';
 import { parseUtcDate } from '../utils/time';
 
 // ---------------------------------------------------------------------------
@@ -111,7 +110,7 @@ function Sparkle({ delay, x, y }) {
 
 function ClubLogo({ event }) {
   const [imgError, setImgError] = useState(false);
-  const hasLogo = event?.universityId && event?.universityHasLogo && !imgError;
+  const hasLogo = event?.universityLogoUrl && !imgError;
 
   if (hasLogo) {
     return (
@@ -127,7 +126,7 @@ function ClubLogo({ event }) {
           style={{ animation: 'attend-logo-ring-pulse 3s ease-in-out infinite' }}
         >
           <img
-            src={getUniversityLogoUrl(event.universityId)}
+            src={event.universityLogoUrl}
             alt={`${event.universityName || 'University'} logo`}
             className="w-full h-full object-cover"
             onError={() => setImgError(true)}
@@ -484,7 +483,7 @@ export default function AttendEventPage() {
           </FadeIn>
 
           {/* University name below logo when logo is shown */}
-          {event?.universityId && event?.universityHasLogo && event?.universityName && (
+          {event?.universityLogoUrl && event?.universityName && (
             <FadeIn delay={0.05}>
               <p className="text-center text-sm text-muted-foreground mb-6">
                 {event.universityName}

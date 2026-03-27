@@ -30,6 +30,8 @@ import {
   useUpdateUniversity,
   useUploadUniversityLogo,
   useUploadUniversityBanner,
+  useDeleteUniversityLogo,
+  useDeleteUniversityBanner,
 } from '../hooks';
 
 // UI Components
@@ -74,6 +76,8 @@ export default function UniversityDetailPage() {
   const updateUniversityMutation = useUpdateUniversity();
   const uploadLogoMutation = useUploadUniversityLogo();
   const uploadBannerMutation = useUploadUniversityBanner();
+  const deleteLogoMutation = useDeleteUniversityLogo();
+  const deleteBannerMutation = useDeleteUniversityBanner();
 
   // ---------------------------------------------------------------------------
   // Prefetch All Tab Data on Mount
@@ -93,8 +97,6 @@ export default function UniversityDetailPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showEditIdentityModal, setShowEditIdentityModal] = useState(false);
   const [showBannerModal, setShowBannerModal] = useState(false);
-  const [logoKey, setLogoKey] = useState(Date.now());
-  const [bannerKey, setBannerKey] = useState(Date.now());
   const [bannerPreviewUrl, setBannerPreviewUrl] = useState(null);
 
   // Error modal state
@@ -306,8 +308,7 @@ export default function UniversityDetailPage() {
         universityId: id,
         file: blob,
       });
-      // Bust browser cache for the logo image
-      setLogoKey(Date.now());
+      // Logo URL is updated via React Query cache in useUploadUniversityLogo onSuccess
     } catch (error) {
       console.error('Failed to upload logo:', error);
       setErrorModal({
@@ -339,6 +340,37 @@ export default function UniversityDetailPage() {
     }
   };
 
+  // Handle deleting university logo (reset to default)
+  const handleDeleteLogo = async () => {
+    try {
+      await deleteLogoMutation.mutateAsync({ universityId: id });
+    } catch (error) {
+      console.error('Failed to delete logo:', error);
+      setErrorModal({
+        isOpen: true,
+        title: 'Delete Failed',
+        message: error.message || 'Failed to remove logo.',
+        navigateOnClose: false,
+      });
+    }
+  };
+
+  // Handle deleting university banner (reset to default)
+  const handleDeleteBanner = async () => {
+    setBannerPreviewUrl(null);
+    try {
+      await deleteBannerMutation.mutateAsync({ universityId: id });
+    } catch (error) {
+      console.error('Failed to delete banner:', error);
+      setErrorModal({
+        isOpen: true,
+        title: 'Delete Failed',
+        message: error.message || 'Failed to remove banner.',
+        navigateOnClose: false,
+      });
+    }
+  };
+
   // Handle uploading university banner with optimistic preview
   const handleUploadBanner = async ({ blob, previewUrl }) => {
     // Show optimistic preview immediately
@@ -349,8 +381,7 @@ export default function UniversityDetailPage() {
         universityId: id,
         file: blob,
       });
-      // Success - bust browser cache and clear preview
-      setBannerKey(Date.now());
+      // Success - clear preview (new GCS URL comes from React Query cache)
       setBannerPreviewUrl(null);
     } catch (error) {
       console.error('Failed to upload banner:', error);
@@ -498,6 +529,7 @@ export default function UniversityDetailPage() {
         university={university}
         onSave={handleSaveIdentity}
         onUploadLogo={handleUploadLogo}
+        onDeleteLogo={handleDeleteLogo}
         onDelete={handleDelete}
         isLoading={updateUniversityMutation.isPending}
         isUploadingLogo={uploadLogoMutation.isPending}
@@ -510,7 +542,10 @@ export default function UniversityDetailPage() {
         isOpen={showBannerModal}
         onClose={() => setShowBannerModal(false)}
         onUpload={handleUploadBanner}
+        onReset={handleDeleteBanner}
+        hasExistingImage={!!university?.hasBanner}
         isUploading={uploadBannerMutation.isPending}
+        isResetting={deleteBannerMutation.isPending}
         title="Update Club Banner"
       />
 
@@ -533,7 +568,6 @@ export default function UniversityDetailPage() {
             canEdit={canEdit}
             onEditBanner={() => setShowBannerModal(true)}
             bannerPreviewUrl={bannerPreviewUrl}
-            bannerKey={bannerKey}
           />
 
           {/* Identity Bar */}
@@ -543,7 +577,6 @@ export default function UniversityDetailPage() {
             onEdit={handleOpenEditIdentity}
             canManageMembers={canManageMembers}
             onExecutivePortal={() => navigate(`/executive/${id}`)}
-            logoKey={logoKey}
           />
 
           {/* Navigation Tabs */}

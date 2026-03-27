@@ -37,6 +37,7 @@ export default function SpeakerImage({ imageUrl, name, className = '', size = 'm
           alt={name || 'Speaker'}
           className="w-full h-full object-cover"
           onError={() => setImgError(true)}
+          loading="lazy"
         />
       ) : (
         <span>{initials}</span>

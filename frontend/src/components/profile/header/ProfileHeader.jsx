@@ -14,8 +14,9 @@ import {
   LogOutIcon,
   SocialLinkIcon,
 } from '../../icons';
-import { getProfileBannerUrl } from '../../../api/users';
 import { getPlatformDisplayName, PLATFORM_ICON_COLORS } from '../../../utils/socialLinks';
+
+const DEFAULT_BANNER = 'https://images.unsplash.com/photo-1562774053-701939374585?w=1920&q=80';
 
 export default function ProfileHeader({
   user,
@@ -27,7 +28,6 @@ export default function ProfileHeader({
   onMessage,
   onEditBanner,
   bannerPreviewUrl,
-  bannerKey,
 }) {
   // Compose headline: custom headline > "Student at University" > null
   const headline = user?.headline
@@ -36,16 +36,15 @@ export default function ProfileHeader({
   // Location with university fallback
   const displayLocation = user?.location || universityLocation;
 
-  // Determine banner URL - use preview for optimistic update, otherwise construct URL with cache-buster
-  const bannerUrl = bannerPreviewUrl ||
-    (user?.hasBanner ? getProfileBannerUrl(user.id, bannerKey) : null);
+  // Use preview for optimistic update, otherwise use URL from API data
+  const bannerUrl = bannerPreviewUrl || user?.banner_image_url || null;
 
   return (
     <div className="relative">
       {/* Banner image with edit overlay */}
       <BannerImage
         imageUrl={bannerUrl}
-        defaultImage={universityBannerUrl}
+        defaultImage={universityBannerUrl || DEFAULT_BANNER}
         canEdit={isOwnProfile}
         onEdit={onEditBanner}
         height="h-32 sm:h-40"

@@ -18,6 +18,7 @@ import { STALE_TIMES, GC_TIMES } from '../config/cache';
 import {
   getUser,
   updateProfile,
+  deleteProfileBanner,
   createEducation,
   updateEducation,
   deleteEducation,
@@ -365,6 +366,38 @@ export function useUploadProfileBanner() {
         });
       }
     },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
+    },
+  });
+}
+
+/**
+ * useDeleteProfileBanner Hook
+ *
+ * Mutation hook for deleting profile banner.
+ *
+ * @returns {object} React Query mutation result
+ */
+export function useDeleteProfileBanner() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteProfileBanner,
+
+    onMutate: async () => {
+      const previousQueries = await _snapshotUserQueries(queryClient);
+      queryClient.setQueriesData({ queryKey: userKeys.all }, (oldData) => {
+        if (oldData && typeof oldData === 'object' && !Array.isArray(oldData) && oldData.id) {
+          return { ...oldData, hasBanner: false, banner_image_url: null };
+        }
+        return oldData;
+      });
+      return { previousQueries };
+    },
+
+    onError: (_err, _vars, ctx) => _rollback(queryClient, ctx?.previousQueries),
 
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.all });

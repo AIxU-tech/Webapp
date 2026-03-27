@@ -38,6 +38,7 @@ export {
   PencilIcon,
   TrashIcon,
   ClockIcon,
+  ResetIcon,
   RefreshIcon,
   ExternalLinkIcon,
   ArrowLeftIcon,

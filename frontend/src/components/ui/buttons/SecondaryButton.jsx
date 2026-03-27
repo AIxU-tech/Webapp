@@ -58,7 +58,7 @@ const VARIANT_CLASSES = {
   ghost: 'bg-transparent text-foreground hover:bg-muted',
 
   // Primary solid (non-gradient)
-  primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
+  primary: 'bg-primary text-primary-foreground hover:opacity-90',
 
   // Danger button for destructive actions (uses --destructive CSS variable)
   danger: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',

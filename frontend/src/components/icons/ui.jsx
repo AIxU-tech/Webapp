@@ -59,6 +59,13 @@ export const ClockIcon = ({ size = 'md', className }) => (
   </svg>
 );
 
+export const ResetIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+  </svg>
+);
+
 export const RefreshIcon = ({ size = 'md', className, spinning = false }) => (
   <svg className={`${className || ICON_SIZES[size]} ${spinning ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

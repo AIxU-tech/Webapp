@@ -199,15 +199,15 @@ export async function uploadProfileBanner(file) {
 }
 
 /**
- * Get URL for user's banner image
+ * Delete profile banner
  *
- * @param {number} userId - User ID
- * @param {string|number} version - Optional cache-busting version/timestamp
- * @returns {string} Banner image URL
+ * Resets banner to default.
+ *
+ * @returns {Promise<object>} Response with success status
+ * @throws {ApiError} If not authenticated
  */
-export function getProfileBannerUrl(userId, version) {
-  const baseUrl = `/user/${userId}/banner`;
-  return version ? `${baseUrl}?v=${version}` : baseUrl;
+export async function deleteProfileBanner() {
+  return api.delete('/profile/banner');
 }
 
 // =============================================================================

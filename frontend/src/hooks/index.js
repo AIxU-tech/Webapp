@@ -90,6 +90,8 @@ export {
   useUpdateUniversity,
   useUploadUniversityLogo,
   useUploadUniversityBanner,
+  useDeleteUniversityLogo,
+  useDeleteUniversityBanner,
   universityKeys,
   prefetchUniversities,
 } from './useUniversities';
@@ -169,6 +171,7 @@ export {
   useUploadProfilePicture,
   useDeleteProfilePicture,
   useUploadProfileBanner,
+  useDeleteProfileBanner,
   useCreateEducation,
   useUpdateEducation,
   useDeleteEducation,
