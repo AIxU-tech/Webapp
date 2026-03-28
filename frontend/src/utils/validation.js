@@ -38,3 +38,21 @@ export function validatePhoneFormat(phone) {
   }
   return { valid: true };
 }
+
+/**
+ * Auto-format a phone number as US format: (XXX) XXX-XXXX.
+ * International numbers (starting with +) are left unformatted.
+ * @param {string} value - Raw input value
+ * @returns {string} Formatted phone string
+ */
+export function formatUSPhone(value) {
+  if (!value) return '';
+  // Leave international numbers unformatted
+  if (value.startsWith('+')) return value;
+
+  const digits = value.replace(/\D/g, '');
+  if (digits.length === 0) return '';
+  if (digits.length <= 3) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+}

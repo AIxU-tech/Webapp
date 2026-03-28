@@ -22,9 +22,6 @@ Today's date is {current_date}.
 RECENCY GATE (MANDATORY):
 You MUST discard any story whose eventDate is more than 48 hours before {current_date}. If fewer than 3 stories pass this filter, return only the ones that do — never pad with stale stories.
 
-IMAGE GATE (MANDATORY):
-You MUST only select stories that have an imageUrl field with a non-empty value. Discard any story without an image. If fewer than 3 stories have images, return only the ones that do.
-
 RANKING CRITERIA (in order of importance, applied AFTER the recency gate):
 1. Recency — prefer stories from the last 24 hours over 48 hours
 2. Impact — how significant is this for the AI field?
@@ -37,7 +34,6 @@ For each of the top 3 stories, produce a complete entry with:
 - summary: 2-3 sentence summary written for an informed audience
 - emoji: Single emoji representing the topic (e.g., 🤖, 🧠, 💰, 🔬, 🚀)
 - eventDate: YYYY-MM-DD of the event
-- imageUrl: Copy the imageUrl exactly from the candidate (required)
 - sources: Array of source objects with url and sourceName only
 
 For SOURCES: only include the two most reputable sources from the ones the scout chose. This should loosely be based on the following criteria:
@@ -55,7 +51,6 @@ Return ONLY valid JSON:
       "summary": "...",
       "emoji": "🤖",
       "eventDate": "YYYY-MM-DD",
-      "imageUrl": "https://...",
       "sources": [
         {{
           "url": "https://...",
@@ -126,7 +121,7 @@ def curate_stories(client: anthropic.Anthropic, candidates: list[dict], current_
     print(f"[Story Curator] Curating {len(candidates)} candidates...")
 
     system_prompt = _build_story_curator_system(current_date)
-    user_message = f"Here are {len(candidates)} AI news story candidates. Pick the top 3 and produce full entries. Make sure the stories have an imageUrl field with a non-empty value.\n\n{json.dumps(candidates, indent=2)}"
+    user_message = f"Here are {len(candidates)} AI news story candidates. Pick the top 3 and produce full entries.\n\n{json.dumps(candidates, indent=2)}"
 
     content = call_claude(
         client,

@@ -50,7 +50,7 @@ export default function OpportunityCard({
   const primaryActions = !isOwnPost ? (
     <button
       onClick={handleMessagePoster}
-      className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 font-medium cursor-pointer"
+      className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all duration-200 font-medium cursor-pointer"
       aria-label="Message poster"
     >
       <MessagesIcon size="sm" />

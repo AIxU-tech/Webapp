@@ -209,8 +209,6 @@ export default function OpportunitiesPage() {
     } else {
       newParams.set('location', location);
     }
-    // Clear tag and bookmarked filters when toggling location
-    newParams.delete('tag');
     newParams.delete('bookmarked');
     setSearchParams(newParams);
   }
@@ -222,8 +220,6 @@ export default function OpportunitiesPage() {
     } else {
       newParams.set('paid', paid);
     }
-    // Clear tag and bookmarked filters when toggling paid status
-    newParams.delete('tag');
     newParams.delete('bookmarked');
     setSearchParams(newParams);
   }
@@ -235,8 +231,6 @@ export default function OpportunitiesPage() {
     } else {
       newParams.set('myUniversity', 'true');
     }
-    // Clear tag and bookmarked filters when toggling my university
-    newParams.delete('tag');
     newParams.delete('bookmarked');
     setSearchParams(newParams);
   }

@@ -180,7 +180,7 @@ export default function EventCard({
             <button
               onClick={handleRsvp}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${event.isAttending
-                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                ? 'bg-primary text-primary-foreground hover:opacity-90'
                 : 'bg-muted text-foreground hover:bg-muted-foreground/10'
                 }`}
               aria-label={event.isAttending ? 'Cancel RSVP' : 'RSVP to event'}

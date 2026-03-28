@@ -29,7 +29,9 @@ import {
   usePageTitle,
   useUpdateProfile,
   useUploadProfilePicture,
+  useDeleteProfilePicture,
   useUploadProfileBanner,
+  useDeleteProfileBanner,
   useCreateEducation,
   useUpdateEducation,
   useDeleteEducation,
@@ -45,7 +47,7 @@ import {
   useStartResumeParse,
   useResumeParseStatus,
   resumeKeys,
-  useUniversities,
+  useUniversity,
 } from '../hooks';
 
 // UI Components
@@ -94,11 +96,8 @@ export default function ProfilePage() {
 
   const error = fetchError?.message || null;
 
-  // Look up the user's university from the cached universities list
-  const { data: universities = [] } = useUniversities();
-  const userUniversity = user?.university
-    ? universities.find((u) => u.name === user.university)
-    : null;
+  // Fetch only the user's university instead of the full list
+  const { data: userUniversity = null } = useUniversity(user?.university_id);
 
   // ---------------------------------------------------------------------------
   // Mutations
@@ -106,7 +105,9 @@ export default function ProfilePage() {
 
   const updateProfileMutation = useUpdateProfile();
   const uploadPictureMutation = useUploadProfilePicture();
+  const deletePictureMutation = useDeleteProfilePicture();
   const uploadBannerMutation = useUploadProfileBanner();
+  const deleteBannerMutation = useDeleteProfileBanner();
 
   const createEducationMutation = useCreateEducation();
   const updateEducationMutation = useUpdateEducation();
@@ -141,7 +142,6 @@ export default function ProfilePage() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showBannerModal, setShowBannerModal] = useState(false);
   const [bannerPreviewUrl, setBannerPreviewUrl] = useState(null);
-  const [bannerKey, setBannerKey] = useState(Date.now());
   const [showAutoFillPrompt, setShowAutoFillPrompt] = useState(false);
 
   // ---------------------------------------------------------------------------
@@ -198,9 +198,9 @@ export default function ProfilePage() {
   /**
    * Handle profile picture upload
    */
-  const handleUploadPicture = async (blob) => {
+  const handleUploadPicture = async (imageData) => {
     try {
-      const response = await uploadPictureMutation.mutateAsync(blob);
+      const response = await uploadPictureMutation.mutateAsync(imageData);
 
       // Update AuthContext for navbar avatar
       if (response.profile_picture_url && isOwnProfile && currentUser) {
@@ -213,6 +213,36 @@ export default function ProfilePage() {
   };
 
   /**
+   * Handle profile picture deletion (reset to default)
+   */
+  const handleDeletePicture = async () => {
+    try {
+      const response = await deletePictureMutation.mutateAsync();
+      if (isOwnProfile && currentUser) {
+        setCurrentUser({ ...currentUser, profile_picture_url: response.profile_picture_url || null });
+      }
+      setFeedback({ type: 'success', message: 'Profile picture removed' });
+    } catch (err) {
+      console.error('Error deleting picture:', err);
+      setFeedback({ type: 'error', message: 'Failed to remove profile picture' });
+    }
+  };
+
+  /**
+   * Handle banner deletion (reset to default)
+   */
+  const handleDeleteBanner = async () => {
+    setBannerPreviewUrl(null);
+    try {
+      await deleteBannerMutation.mutateAsync();
+      setFeedback({ type: 'success', message: 'Banner removed' });
+    } catch (err) {
+      console.error('Error deleting banner:', err);
+      setFeedback({ type: 'error', message: 'Failed to remove banner' });
+    }
+  };
+
+  /**
    * Handle profile picture upload errors from ProfilePictureSection
    */
   const handlePictureError = (message) => {
@@ -221,16 +251,15 @@ export default function ProfilePage() {
 
   /**
    * Handle banner upload with optimistic preview
-   * Receives { blob, previewUrl } from BannerUploadModal
+   * Receives { gcsPath, filename, contentType, sizeBytes, previewUrl } from BannerUploadModal
    */
-  const handleUploadBanner = async ({ blob, previewUrl }) => {
+  const handleUploadBanner = async ({ previewUrl, ...imageData }) => {
     // Show optimistic preview immediately
-    setBannerPreviewUrl(previewUrl);
+    if (previewUrl) setBannerPreviewUrl(previewUrl);
 
     try {
-      await uploadBannerMutation.mutateAsync(blob);
-      // Success - bust browser cache and clear preview
-      setBannerKey(Date.now());
+      await uploadBannerMutation.mutateAsync(imageData);
+      // Success - clear preview (cache has the new GCS URL from onSuccess)
       setBannerPreviewUrl(null);
     } catch (err) {
       console.error('Error uploading banner:', err);
@@ -345,13 +374,13 @@ export default function ProfilePage() {
             <ProfileHeader
               user={user}
               universityLocation={userUniversity?.location}
+              universityBannerUrl={userUniversity?.bannerUrl}
               isOwnProfile={isOwnProfile}
               onEditProfile={openEditModal}
               onLogout={() => setShowLogoutModal(true)}
               onMessage={handleMessage}
               onEditBanner={() => setShowBannerModal(true)}
               bannerPreviewUrl={bannerPreviewUrl}
-              bannerKey={bannerKey}
             />
 
             <AboutSection
@@ -433,6 +462,7 @@ export default function ProfilePage() {
           setFeedback({ type: 'success', message: 'Profile updated successfully!' });
         }}
         onUploadPicture={handleUploadPicture}
+        onDeletePicture={handleDeletePicture}
         onPictureError={handlePictureError}
       />
 
@@ -453,7 +483,10 @@ export default function ProfilePage() {
         isOpen={showBannerModal}
         onClose={() => setShowBannerModal(false)}
         onUpload={handleUploadBanner}
+        onReset={handleDeleteBanner}
+        hasExistingImage={!!user?.hasBanner}
         isUploading={uploadBannerMutation.isPending}
+        isResetting={deleteBannerMutation.isPending}
         title="Update Profile Banner"
       />
 

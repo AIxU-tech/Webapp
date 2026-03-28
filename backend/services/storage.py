@@ -27,6 +27,8 @@ Credentials are loaded in this order:
 import base64
 import json
 import os
+import threading
+import time
 import uuid
 from datetime import timedelta
 from typing import Optional
@@ -37,6 +39,7 @@ from google.oauth2 import service_account
 
 from backend.constants import (
     ALLOWED_ATTACHMENT_TYPES,
+    IMAGE_GCS_PREFIXES,
     MAX_ATTACHMENT_SIZE_BYTES,
     EXTENSION_TO_MIME,
 )
@@ -45,6 +48,44 @@ from backend.constants import (
 # Module-level client (initialized lazily)
 _storage_client: Optional[storage.Client] = None
 _bucket: Optional[storage.Bucket] = None
+
+
+class _TTLCache:
+    """Thread-safe in-memory cache with per-entry TTL and bounded size.
+
+    Used to avoid regenerating GCS signed URLs on every API serialization.
+    Keys are GCS paths (which include a UUID, so new uploads = automatic cache miss).
+    """
+
+    def __init__(self, maxsize: int = 2000):
+        self._cache: dict[str, tuple[str, float]] = {}  # key -> (value, expiry)
+        self._lock = threading.Lock()
+        self._maxsize = maxsize
+
+    def get(self, key: str) -> Optional[str]:
+        with self._lock:
+            entry = self._cache.get(key)
+            if entry is None:
+                return None
+            value, expiry = entry
+            if time.time() >= expiry:
+                del self._cache[key]
+                return None
+            return value
+
+    def set(self, key: str, value: str, ttl: float) -> None:
+        with self._lock:
+            if len(self._cache) >= self._maxsize:
+                now = time.time()
+                self._cache = {k: v for k, v in self._cache.items() if v[1] > now}
+                if len(self._cache) >= self._maxsize:
+                    sorted_keys = sorted(self._cache, key=lambda k: self._cache[k][1])
+                    for k in sorted_keys[:len(sorted_keys) // 4]:
+                        del self._cache[k]
+            self._cache[key] = (value, time.time() + ttl)
+
+
+_signed_url_cache = _TTLCache(maxsize=2000)
 
 
 def _get_storage_client() -> storage.Client:
@@ -151,6 +192,130 @@ def get_content_type_from_extension(filename: str) -> Optional[str]:
     return EXTENSION_TO_MIME.get(ext)
 
 
+def get_public_image_url(gcs_path: str) -> Optional[str]:
+    """
+    Return a signed URL for an image stored in GCS.
+
+    Uses signed URLs because the bucket's org policy prevents public access.
+    URLs are generated with a 7-day expiration and cached in-memory for 1 hour
+    to avoid redundant crypto signing on every API serialization.
+
+    Args:
+        gcs_path: Path within the bucket (e.g., 'images/profiles/42/abc_photo.jpg')
+
+    Returns:
+        Signed URL, or None if GCS is not configured or gcs_path is None/empty
+    """
+    if not gcs_path:
+        return None
+    if not is_gcs_configured():
+        return None
+
+    cached = _signed_url_cache.get(gcs_path)
+    if cached is not None:
+        return cached
+
+    bucket = _get_bucket()
+    blob = bucket.blob(gcs_path)
+    url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(days=7),
+        method="GET",
+    )
+
+    # Cache for 1 hour (URLs valid 7 days, React Query refreshes in minutes)
+    _signed_url_cache.set(gcs_path, url, ttl=3600)
+    return url
+
+
+def upload_image_bytes(gcs_path: str, image_data: bytes, content_type: str = 'image/jpeg') -> None:
+    """
+    Upload pre-processed image bytes directly to GCS (server-side upload).
+    Used for profile pictures, banners, logos where the server compresses/crops first.
+
+    Args:
+        gcs_path: Destination path in the bucket
+        image_data: Compressed image bytes
+        content_type: MIME type (default: image/jpeg since compress_image outputs JPEG)
+
+    Raises:
+        ValueError: If GCS is not configured
+        Exception: On upload failure
+    """
+    bucket = _get_bucket()
+    blob = bucket.blob(gcs_path)
+    blob.cache_control = 'public, max-age=31536000, immutable'
+    blob.upload_from_string(image_data, content_type=content_type)
+
+
+def generate_image_gcs_path(prefix: str, entity_id: int, filename: str) -> str:
+    """
+    Generate a unique GCS path for an image.
+
+    Prepends GCS_PATH_PREFIX (e.g., 'dev') when set, so dev and prod
+    uploads stay isolated in the same bucket.
+
+    Args:
+        prefix: Path prefix from IMAGE_GCS_PREFIXES (e.g., 'images/profiles')
+        entity_id: ID of the entity (user_id, university_id, speaker_id)
+        filename: Original filename (will be sanitized)
+
+    Returns:
+        GCS path like 'images/profiles/42/a1b2c3d4_photo.jpg'
+        or 'dev/images/profiles/42/a1b2c3d4_photo.jpg' in dev
+    """
+    env_prefix = current_app.config.get('GCS_PATH_PREFIX', '')
+    unique_id = str(uuid.uuid4())[:8]
+    safe_name = _sanitize_filename(filename)
+    base = f'{prefix}/{entity_id}/{unique_id}_{safe_name}'
+    return f'{env_prefix}/{base}' if env_prefix else base
+
+
+def generate_image_upload_url(
+    image_type: str, entity_id: int, filename: str, content_type: str
+) -> dict:
+    """
+    Generate a signed URL for uploading an image to GCS.
+
+    Uses IMAGE_GCS_PREFIXES to determine the correct path prefix.
+
+    Args:
+        image_type: Key in IMAGE_GCS_PREFIXES (e.g. 'profile', 'university_logo')
+        entity_id: ID of the owning entity (user or university)
+        filename: Original filename
+        content_type: MIME type of the image
+
+    Returns:
+        dict with uploadUrl, gcsPath, expiresIn
+
+    Raises:
+        ValueError: If image_type is not a valid key in IMAGE_GCS_PREFIXES
+    """
+    prefix = IMAGE_GCS_PREFIXES.get(image_type)
+    if not prefix:
+        raise ValueError(f"Invalid image type: '{image_type}'")
+
+    gcs_path = generate_image_gcs_path(prefix, entity_id, filename)
+
+    bucket = _get_bucket()
+    blob = bucket.blob(gcs_path)
+
+    expiration_seconds = current_app.config.get('GCS_UPLOAD_URL_EXPIRATION', 900)
+
+    url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(seconds=expiration_seconds),
+        method="PUT",
+        content_type=content_type,
+    )
+
+    return {
+        'uploadUrl': url,
+        'gcsPath': gcs_path,
+        'expiresIn': expiration_seconds,
+    }
+
+
 def generate_upload_url(user_id: int, filename: str, content_type: str) -> dict:
     """
     Generate a signed URL for uploading a file.
@@ -176,10 +341,11 @@ def generate_upload_url(user_id: int, filename: str, content_type: str) -> dict:
         raise ValueError(f"Content type '{content_type}' is not allowed")
 
     # Generate unique filename to prevent overwrites
-    # Format: uploads/{user_id}/{uuid}_{original_filename}
+    env_prefix = current_app.config.get('GCS_PATH_PREFIX', '')
     unique_id = str(uuid.uuid4())[:8]
     safe_filename = _sanitize_filename(filename)
-    gcs_path = f"uploads/{user_id}/{unique_id}_{safe_filename}"
+    base = f"uploads/{user_id}/{unique_id}_{safe_filename}"
+    gcs_path = f"{env_prefix}/{base}" if env_prefix else base
 
     bucket = _get_bucket()
     blob = bucket.blob(gcs_path)
@@ -206,12 +372,19 @@ def generate_download_url(gcs_path: str) -> str:
     """
     Generate a signed URL for downloading a file.
 
+    Uses the same in-memory cache as get_public_image_url() to avoid
+    regenerating signed URLs on every request for the same file.
+
     Args:
         gcs_path: Path to the file in GCS
 
     Returns:
         Signed GET URL for downloading the file
     """
+    cached = _signed_url_cache.get(gcs_path)
+    if cached is not None:
+        return cached
+
     bucket = _get_bucket()
     blob = bucket.blob(gcs_path)
 
@@ -223,6 +396,7 @@ def generate_download_url(gcs_path: str) -> str:
         method="GET",
     )
 
+    _signed_url_cache.set(gcs_path, url, ttl=3600)
     return url
 
 
@@ -276,7 +450,9 @@ def delete_user_uploads(user_id: int) -> int:
         Number of files deleted
     """
     bucket = _get_bucket()
-    prefix = f"uploads/{user_id}/"
+    env_prefix = current_app.config.get('GCS_PATH_PREFIX', '')
+    base = f"uploads/{user_id}/"
+    prefix = f"{env_prefix}/{base}" if env_prefix else base
 
     blobs = list(bucket.list_blobs(prefix=prefix))
     deleted_count = 0
@@ -288,6 +464,38 @@ def delete_user_uploads(user_id: int) -> int:
         except Exception:
             # Log but continue deleting others
             pass
+
+    return deleted_count
+
+
+def delete_user_images(user_id: int) -> int:
+    """
+    Delete all image files for a user from GCS.
+
+    Covers images/profiles/{user_id}/ and images/banners/{user_id}/ prefixes.
+    Called during account deletion as belt-and-suspenders cleanup alongside
+    explicit path deletion (catches orphans from failed DB commits).
+
+    Args:
+        user_id: ID of the user whose images to delete
+
+    Returns:
+        Number of files deleted
+    """
+    bucket = _get_bucket()
+    env_prefix = current_app.config.get('GCS_PATH_PREFIX', '')
+    deleted_count = 0
+
+    for image_prefix in ['images/profiles', 'images/banners']:
+        base = f"{image_prefix}/{user_id}/"
+        prefix = f"{env_prefix}/{base}" if env_prefix else base
+
+        for blob in bucket.list_blobs(prefix=prefix):
+            try:
+                blob.delete()
+                deleted_count += 1
+            except Exception:
+                pass
 
     return deleted_count
 

@@ -1,22 +1,22 @@
 /**
- * ProfilePictureSection Component
+ * ImageUploadZone Component
  *
- * Handles profile picture display and selection with automatic center-cropping.
- * Supports both click-to-upload and drag-and-drop.
- * Does NOT upload immediately — stores a local preview and passes the blob
- * to the parent via onFileSelect so it can be uploaded on form submit.
+ * Shared drag-and-drop image upload zone with automatic center-cropping.
+ * Used by both profile picture and university logo upload flows.
+ * Does NOT upload — passes the cropped blob to the parent via onFileSelect.
  */
 
 import { useRef, useState, useCallback } from 'react';
-import { CameraIcon } from '../icons';
-import { Avatar } from '../ui';
-import { IMAGE_CONFIG, cropImageToSquare, validateImageFile } from '../../utils';
+import { CameraIcon } from '../../icons';
+import { IMAGE_CONFIG, cropImageToSquare, validateImageFile } from '../../../utils';
 
-export default function ProfilePictureSection({
-  user,
-  previewUrl,
+export default function ImageUploadZone({
+  preview,
   onFileSelect,
   onError,
+  label = 'Drag photo here or click to browse',
+  sublabel = 'JPG, PNG or GIF. Max 5MB',
+  className = '',
 }) {
   const fileInputRef = useRef(null);
   const [inputKey, setInputKey] = useState(0);
@@ -26,9 +26,6 @@ export default function ProfilePictureSection({
     fileInputRef.current?.click();
   };
 
-  /**
-   * Process a file: validate, crop, and pass blob to parent
-   */
   const processFile = useCallback(async (file) => {
     if (!file) return;
 
@@ -77,19 +74,15 @@ export default function ProfilePictureSection({
         isDragging
           ? 'border-primary bg-primary/5'
           : 'border-border hover:border-primary/50 hover:bg-muted/50'
-      }`}
+      } ${className}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       <div className="flex items-center gap-4">
-        {/* Avatar with hover overlay */}
+        {/* Preview with hover overlay */}
         <div className="relative group">
-          <Avatar
-            user={user}
-            src={previewUrl}
-            size="xl"
-          />
+          {preview}
           <div
             className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
           >
@@ -111,10 +104,10 @@ export default function ProfilePictureSection({
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
           <p className="text-sm text-foreground mb-1">
-            {isDragging ? 'Drop photo here' : 'Drag photo here or click to browse'}
+            {isDragging ? 'Drop photo here' : label}
           </p>
           <p className="text-xs text-muted-foreground">
-            JPG, PNG or GIF. Max 5MB
+            {sublabel}
           </p>
         </div>
       </div>

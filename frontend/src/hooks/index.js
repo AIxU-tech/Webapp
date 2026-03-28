@@ -90,6 +90,8 @@ export {
   useUpdateUniversity,
   useUploadUniversityLogo,
   useUploadUniversityBanner,
+  useDeleteUniversityLogo,
+  useDeleteUniversityBanner,
   universityKeys,
   prefetchUniversities,
 } from './useUniversities';
@@ -169,6 +171,7 @@ export {
   useUploadProfilePicture,
   useDeleteProfilePicture,
   useUploadProfileBanner,
+  useDeleteProfileBanner,
   useCreateEducation,
   useUpdateEducation,
   useDeleteEducation,
@@ -276,6 +279,11 @@ export { useClipboard } from './useClipboard';
 // Email Verification Hook
 // =============================================================================
 export { useEmailVerification } from './useEmailVerification.jsx';
+
+// =============================================================================
+// Image Upload Hook
+// =============================================================================
+export { default as useImageUpload } from './useImageUpload';
 
 // =============================================================================
 // Form Hooks

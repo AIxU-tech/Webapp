@@ -18,6 +18,7 @@ The extraction follows this priority order:
 """
 
 from typing import Optional
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -30,8 +31,26 @@ from bs4 import BeautifulSoup
 # Request timeout in seconds
 FETCH_TIMEOUT = 10
 
-# User agent string for requests
-USER_AGENT = 'Mozilla/5.0 (compatible; AIxU/1.0; +https://aixu.app)'
+# Browser-like User-Agent to avoid CDN/WAF bot blocking
+USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
+
+# =============================================================================
+# Validation
+# =============================================================================
+
+def _is_valid_image_url(url: str) -> bool:
+    """Check that a URL is an absolute HTTP(S) URL pointing to a likely image (not SVG/data URI)."""
+    if not url:
+        return False
+    parsed = urlparse(url)
+    if parsed.scheme not in ('http', 'https'):
+        return False
+    if not parsed.netloc:
+        return False
+    if parsed.path.lower().endswith('.svg'):
+        return False
+    return True
 
 
 # =============================================================================
@@ -78,37 +97,23 @@ def extract_image_from_url(url: str) -> Optional[str]:
 
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        # Try og:image first (most common and reliable)
-        og_image = soup.find('meta', property='og:image')
-        if og_image and og_image.get('content'):
-            image_url = og_image['content'].strip()
-            if image_url:
-                print(f"[ImageExtract] Found og:image for {url[:50]}...")
-                return image_url
+        # Meta tags to try, in priority order
+        meta_candidates = [
+            ('property', 'og:image'),
+            ('property', 'og:image:secure_url'),
+            ('property', 'og:image:url'),
+            ('name', 'twitter:image'),
+            ('name', 'twitter:image:src'),
+            ('property', 'article:image'),
+        ]
 
-        # Try twitter:image
-        twitter_image = soup.find('meta', attrs={'name': 'twitter:image'})
-        if twitter_image and twitter_image.get('content'):
-            image_url = twitter_image['content'].strip()
-            if image_url:
-                print(f"[ImageExtract] Found twitter:image for {url[:50]}...")
-                return image_url
-
-        # Try twitter:image:src (alternative format)
-        twitter_image_src = soup.find('meta', attrs={'name': 'twitter:image:src'})
-        if twitter_image_src and twitter_image_src.get('content'):
-            image_url = twitter_image_src['content'].strip()
-            if image_url:
-                print(f"[ImageExtract] Found twitter:image:src for {url[:50]}...")
-                return image_url
-
-        # Try article:image (less common)
-        article_image = soup.find('meta', property='article:image')
-        if article_image and article_image.get('content'):
-            image_url = article_image['content'].strip()
-            if image_url:
-                print(f"[ImageExtract] Found article:image for {url[:50]}...")
-                return image_url
+        for attr_key, attr_value in meta_candidates:
+            tag = soup.find('meta', attrs={attr_key: attr_value})
+            if tag and tag.get('content'):
+                image_url = tag['content'].strip()
+                if _is_valid_image_url(image_url):
+                    print(f"[ImageExtract] Found {attr_value} for {url[:50]}...")
+                    return image_url
 
         print(f"[ImageExtract] No meta image found for {url[:50]}...")
         return None

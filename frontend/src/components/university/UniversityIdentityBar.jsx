@@ -7,7 +7,6 @@
 
 import { EditIcon, SocialLinkIcon, AdminIcon } from '../icons';
 import { IconButton, SecondaryButton, UniversityLogo } from '../ui';
-import { getUniversityLogoUrl } from '../../api/universities';
 import { getPlatformDisplayName, PLATFORM_ICON_COLORS } from '../../utils/socialLinks';
 
 export default function UniversityIdentityBar({
@@ -16,10 +15,8 @@ export default function UniversityIdentityBar({
   onEdit,
   canManageMembers = false,
   onExecutivePortal,
-  logoKey,
 }) {
-  const { id, name, clubName, socialLinks, hasLogo } = university;
-  const logoUrl = hasLogo ? getUniversityLogoUrl(id, logoKey) : null;
+  const { id, name, clubName, socialLinks, hasLogo, logoUrl } = university;
 
   return (
     <div className="relative -mt-8 z-10">
@@ -31,7 +28,6 @@ export default function UniversityIdentityBar({
             university={university}
             size="lg"
             shape="circle"
-            cacheKey={logoKey}
             className="border-4 border-card -mt-12 shadow-lg"
           />
 

@@ -13,7 +13,6 @@ export { default as UniversityOpportunitiesTab } from './UniversityOpportunities
 export { default as UniversityMembersTab } from './UniversityMembersTab';
 export { default as UniversityAboutTab } from './UniversityAboutTab';
 export { default as UniversityAboutSection } from './UniversityAboutSection';
-export { default as UniversityLogoSection } from './UniversityLogoSection';
 export { default as EditUniversityIdentityModal } from './EditUniversityIdentityModal';
 export { default as LeadershipCard } from './LeadershipCard';
 export { default as UpcomingEventsCard } from './UpcomingEventsCard';

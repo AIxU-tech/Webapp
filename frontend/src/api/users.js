@@ -80,24 +80,8 @@ export async function updateProfile(updates) {
  * const file = fileInput.files[0];
  * await uploadProfilePicture(file);
  */
-export async function uploadProfilePicture(file) {
-  // For file uploads, we need to use FormData instead of JSON
-  const formData = new FormData();
-  formData.append('profile_picture', file);
-
-  const response = await fetch('/api/profile/picture', {
-    method: 'PUT',
-    credentials: 'include',
-    body: formData,
-    // Don't set Content-Type - browser will set it with boundary for multipart/form-data
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || 'Upload failed');
-  }
-
-  return response.json();
+export async function uploadProfilePicture({ gcsPath, filename, contentType, sizeBytes }) {
+  return api.put('/profile/picture', { gcsPath, filename, contentType, sizeBytes });
 }
 
 /**
@@ -179,35 +163,20 @@ export async function toggleFollowUser(userId) {
  * const croppedBlob = await cropImageToBanner(file);
  * await uploadProfileBanner(croppedBlob);
  */
-export async function uploadProfileBanner(file) {
-  const formData = new FormData();
-  const filename = file.name || 'banner.jpg';
-  formData.append('banner', file, filename);
-
-  const response = await fetch('/api/profile/banner', {
-    method: 'PUT',
-    credentials: 'include',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || 'Upload failed');
-  }
-
-  return response.json();
+export async function uploadProfileBanner({ gcsPath, filename, contentType, sizeBytes }) {
+  return api.put('/profile/banner', { gcsPath, filename, contentType, sizeBytes });
 }
 
 /**
- * Get URL for user's banner image
+ * Delete profile banner
  *
- * @param {number} userId - User ID
- * @param {string|number} version - Optional cache-busting version/timestamp
- * @returns {string} Banner image URL
+ * Resets banner to default.
+ *
+ * @returns {Promise<object>} Response with success status
+ * @throws {ApiError} If not authenticated
  */
-export function getProfileBannerUrl(userId, version) {
-  const baseUrl = `/user/${userId}/banner`;
-  return version ? `${baseUrl}?v=${version}` : baseUrl;
+export async function deleteProfileBanner() {
+  return api.delete('/profile/banner');
 }
 
 // =============================================================================

@@ -39,12 +39,18 @@ export default function BannerImage({
     <div className={`relative ${height} ${className}`}>
       {/* Image container with overflow-hidden for clipping to rounded corners */}
       <div className={`absolute inset-0 ${rounded} overflow-hidden`}>
-        <img
-          src={displayUrl}
-          alt={altText}
-          className="w-full h-full object-cover"
-          onError={() => setImgError(true)}
-        />
+        {displayUrl ? (
+          <img
+            src={displayUrl}
+            alt={altText}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+            loading="eager"
+            fetchPriority="high"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)]" />
+        )}
 
         {hasOverlay && (
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/25 to-black/10" />

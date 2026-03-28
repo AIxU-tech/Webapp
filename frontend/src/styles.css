@@ -17,7 +17,7 @@
     --primary-foreground: 0 0% 98%;
     --secondary: 220 14% 96%;
     --secondary-foreground: 220 13% 9%;
-    --muted: 220 14% 96%;
+    --muted: 220 14% 95%;
     --muted-foreground: 220 13% 45%;
     --accent: 262 83% 58%;
     --accent-foreground: 0 0% 100%;
@@ -145,6 +145,17 @@
     @apply border-border;
   }
 
+  /* Ensure all interactive elements show pointer cursor.
+     Tailwind Preflight sets cursor:default on buttons —
+     this restores expected UX for all clickable controls. */
+  button:not(:disabled),
+  [type="button"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -152,6 +163,7 @@
     -moz-osx-font-smoothing: grayscale;
     overscroll-behavior: none;
     overflow-x: hidden;
+    scrollbar-gutter: stable;
   }
 
   /* Modern grey scrollbar - subtle and unobtrusive */
@@ -369,6 +381,11 @@
    ======================================== */
 
 @layer utilities {
+  /* Override bg-primary to use the brand gradient instead of a flat color */
+  .bg-primary {
+    background: var(--gradient-primary);
+  }
+
   .content-width {
     width: min(100% - 2rem, 70ch);
     margin-inline: auto;
