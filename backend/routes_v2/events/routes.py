@@ -91,6 +91,13 @@ def get_university_events(university_id):
         )
         base_filter = and_(base_filter, upcoming_filter)
 
+    is_exec = False
+    if current_user.is_authenticated:
+        is_exec = current_user.is_site_admin() or \
+            UniversityRole.get_role_level(current_user.id, university_id) >= UniversityRoles.EXECUTIVE
+
+    event_objects = []
+
     if current_user.is_authenticated:
         # Single query with LEFT JOIN to get events + isAttending in one round-trip
         rows = (
@@ -107,7 +114,8 @@ def get_university_events(university_id):
             .limit(limit)
             .all()
         )
-        event_ids = [e.id for e, _ in rows]
+        event_objects = [e for e, _ in rows]
+        event_ids = [e.id for e in event_objects]
         attendee_counts = dict(
             db.session.query(EventAttendee.event_id, func.count(EventAttendee.id))
             .filter(EventAttendee.event_id.in_(event_ids))
@@ -125,7 +133,8 @@ def get_university_events(university_id):
             .limit(limit)
             .all()
         )
-        event_ids = [e.id for e in events]
+        event_objects = events
+        event_ids = [e.id for e in event_objects]
         attendee_counts = dict(
             db.session.query(EventAttendee.event_id, func.count(EventAttendee.id))
             .filter(EventAttendee.event_id.in_(event_ids))
@@ -138,20 +147,26 @@ def get_university_events(university_id):
         ]
 
     # Include attendance counts for executives+
-    if current_user.is_authenticated:
-        is_exec = current_user.is_site_admin() or \
-            UniversityRole.get_role_level(current_user.id, university_id) >= UniversityRoles.EXECUTIVE
-        if is_exec:
-            event_ids = [e['id'] for e in events_data]
-            if event_ids:
-                counts = dict(
-                    db.session.query(EventAttendance.event_id, func.count(EventAttendance.id))
-                    .filter(EventAttendance.event_id.in_(event_ids))
-                    .group_by(EventAttendance.event_id)
-                    .all()
-                )
-                for event_dict in events_data:
-                    event_dict['attendanceCount'] = counts.get(event_dict['id'], 0)
+    if current_user.is_authenticated and is_exec:
+        if event_ids:
+            # Generate tokens up-front for authorized users so the QR modal
+            # does not need an extra API call when opened.
+            missing_tokens = [ev for ev in event_objects if ev.attendance_token is None]
+            if missing_tokens:
+                for ev in missing_tokens:
+                    ev.attendance_token = generate_secure_token(32)
+                db.session.commit()
+
+            counts = dict(
+                db.session.query(EventAttendance.event_id, func.count(EventAttendance.id))
+                .filter(EventAttendance.event_id.in_(event_ids))
+                .group_by(EventAttendance.event_id)
+                .all()
+            )
+            token_map = {ev.id: ev.attendance_token for ev in event_objects}
+            for event_dict in events_data:
+                event_dict['attendanceCount'] = counts.get(event_dict['id'], 0)
+                event_dict['attendanceToken'] = token_map.get(event_dict['id'])
 
     return jsonify({
         'events': events_data
@@ -298,6 +313,9 @@ def get_event(event_id):
         is_exec = current_user.is_site_admin() or \
             UniversityRole.get_role_level(current_user.id, event.university_id) >= UniversityRoles.EXECUTIVE
         if is_exec:
+            if not event.attendance_token:
+                event.attendance_token = generate_secure_token(32)
+                db.session.commit()
             event_dict['attendanceToken'] = event.attendance_token
             event_dict['attendanceCount'] = EventAttendance.query.filter_by(event_id=event.id).count()
     else:

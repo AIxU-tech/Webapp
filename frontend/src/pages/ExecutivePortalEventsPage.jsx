@@ -2,7 +2,8 @@
  * ExecutivePortalEventsPage
  *
  * Events view for the executive portal.
- * Lists all university events; clicking a row shows event detail with RSVPs and attendance.
+ * Lists all university events with create/edit/delete and QR code actions.
+ * Clicking a row shows event detail with RSVPs and attendance side by side.
  *
  * Routes:
  * - /executive/:universityId/events - Events list
@@ -19,10 +20,12 @@ import {
 } from '../hooks';
 import { EventsTableView, EventDetailView, ExecutivePortalSkeleton } from '../components/executive';
 import { SecondaryButton } from '../components/ui';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function ExecutivePortalEventsPage() {
   const { universityId, eventId } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser, isAuthenticated } = useAuth();
 
   const { data: university, isLoading: universityLoading, error: universityError } =
     useUniversity(universityId);
@@ -32,6 +35,10 @@ export default function ExecutivePortalEventsPage() {
   });
   const { data: event, isLoading: eventLoading, isError: eventError } = useEvent(eventId);
   const { data: attendanceData, isLoading: attendanceLoading } = useEventAttendance(eventId);
+
+  const permissions = university?.permissions ?? {};
+  const { canManageMembers, isSiteAdmin } = permissions;
+  const canManageEvents = isAuthenticated && (canManageMembers || isSiteAdmin);
 
   usePageTitle(
     event?.title
@@ -91,6 +98,7 @@ export default function ExecutivePortalEventsPage() {
         attendanceRecords={attendanceData?.attendance ?? []}
         isLoadingEvent={eventLoading}
         isLoadingAttendance={attendanceLoading && !!eventId}
+        canManageEvents={canManageEvents}
       />
     );
   }
@@ -101,6 +109,7 @@ export default function ExecutivePortalEventsPage() {
       universityId={universityId}
       events={events ?? []}
       isLoading={eventsLoading}
+      canManageEvents={canManageEvents}
     />
   );
 }
