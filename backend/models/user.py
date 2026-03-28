@@ -56,15 +56,6 @@ class User(UserMixin, db.Model):
     profile_picture_gcs_path = db.Column(db.String(500), nullable=True)
     banner_image_gcs_path = db.Column(db.String(500), nullable=True)
 
-    # Legacy blob columns — still in the DB until migrate_images_to_gcs.py has run
-    # and the drop_legacy_blob_image_columns migration is applied.
-    profile_picture = db.Column(db.LargeBinary, nullable=True)
-    profile_picture_filename = db.Column(db.String(100), nullable=True)
-    profile_picture_mimetype = db.Column(db.String(50), nullable=True)
-    banner_image = db.Column(db.LargeBinary, nullable=True)
-    banner_image_filename = db.Column(db.String(255), nullable=True)
-    banner_image_mimetype = db.Column(db.String(100), nullable=True)
-
     def get_university(self):
         from backend.models.university import University
         return University.query.filter_by(name=self.university).first()
