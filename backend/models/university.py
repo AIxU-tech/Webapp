@@ -91,6 +91,15 @@ class University(db.Model):
     logo_gcs_path = db.Column(db.String(500), nullable=True)
     banner_gcs_path = db.Column(db.String(500), nullable=True)
 
+    # Legacy blob columns — still in the DB until migrate_images_to_gcs.py has run
+    # and the drop_legacy_blob_image_columns migration is applied.
+    logo = db.Column(db.LargeBinary, nullable=True)
+    logo_filename = db.Column(db.String(255), nullable=True)
+    logo_mimetype = db.Column(db.String(100), nullable=True)
+    banner = db.Column(db.LargeBinary, nullable=True)
+    banner_filename = db.Column(db.String(255), nullable=True)
+    banner_mimetype = db.Column(db.String(100), nullable=True)
+
     # DEPRECATED: members column is no longer used. Membership is tracked via UniversityRole.
     # This column is kept for backwards compatibility during migration but should not be used.
     members = db.Column(db.Text, nullable=True)
