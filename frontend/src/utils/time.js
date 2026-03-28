@@ -92,14 +92,31 @@ export function getTimeAgo(dateInput, options = {}) {
 }
 
 /**
- * Format a date as a full readable string
+ * Format a date as a short date-time string (e.g., "Dec 20, 2025, 3:30 PM")
  *
- * @param {string|Date} dateInput - ISO date string or Date object
- * @returns {string} Formatted date string (e.g., "December 20, 2025")
+ * @param {string|Date} isoString - ISO date string or Date object
+ * @returns {string} Formatted date-time string
  *
  * @example
- * formatFullDate('2025-12-20T10:30:00Z') // "December 20, 2025"
+ * formatDateTime('2025-12-20T15:30:00Z') // "Dec 20, 2025, 3:30 PM"
  */
+export function formatDateTime(isoString) {
+  if (!isoString) return '—';
+  try {
+    const d = typeof isoString === 'string' ? new Date(isoString) : isoString;
+    if (isNaN(d.getTime())) return String(isoString);
+    return d.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    return String(isoString);
+  }
+}
+
 /**
  * Format a date range for profile sections (education, experience, projects).
  *
@@ -108,17 +125,28 @@ export function getTimeAgo(dateInput, options = {}) {
  * @returns {string|null} Formatted range like "Jan 2023 — Present", or null if no startDate
  */
 export function formatDateRange(startDate, endDate) {
-  if (!startDate) return null;
   const fmt = (d) => {
     if (!d) return null;
     const date = new Date(d + 'T00:00:00');
     return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   };
   const start = fmt(startDate);
-  const end = endDate ? fmt(endDate) : 'Present';
-  return start ? `${start} — ${end}` : null;
+  const end = endDate ? fmt(endDate) : null;
+  if (start && end) return `${start} — ${end}`;
+  if (start) return `${start} — Present`;
+  if (end) return `Expected ${end}`;
+  return null;
 }
 
+/**
+ * Format a date as a full readable string
+ *
+ * @param {string|Date} dateInput - ISO date string or Date object
+ * @returns {string} Formatted date string (e.g., "December 20, 2025")
+ *
+ * @example
+ * formatFullDate('2025-12-20T10:30:00Z') // "December 20, 2025"
+ */
 export function formatFullDate(dateInput) {
   if (!dateInput) return 'Unknown';
 

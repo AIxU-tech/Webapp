@@ -1,20 +1,18 @@
 /**
  * ActivityCard
  *
- * Unified activity component with tabs for Posts, Comments, and Connections.
- * Shows recent items for each category with an option to view more.
+ * Unified activity component with tabs for Posts and Comments.
+ * Shows recent items for each category, clickable to navigate to the post.
  * Uses a sliding pill indicator matching the UniversityNavTabs style.
  */
 
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Avatar } from '../../ui';
+import { Card } from '../../ui';
 import {
   FileTextIcon,
   MessageCircleIcon,
-  UsersIcon,
   HeartIcon,
-  ExternalLinkIcon,
 } from '../../icons';
 
 // Tab configuration
@@ -26,29 +24,29 @@ const TABS = [
 // Post item component
 function PostItem({ post }) {
   return (
-    <div className="py-3 border-b border-border last:border-b-0 group cursor-pointer">
+    <Link to={`/notes/${post.id}`} className="block py-3 border-b border-border last:border-b-0 group">
       <p className="text-sm font-medium text-foreground line-clamp-2 mb-1 group-hover:text-primary transition-colors">
         {post.title}
       </p>
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
-          <HeartIcon className="h-3 w-3" />
+          <HeartIcon size="xs" />
           {post.likes ?? 0}
         </span>
         <span className="flex items-center gap-1">
-          <MessageCircleIcon className="h-3 w-3" />
+          <MessageCircleIcon size="xs" />
           {post.comments ?? 0}
         </span>
         <span>{post.time}</span>
       </div>
-    </div>
+    </Link>
   );
 }
 
 // Comment item component
 function CommentItem({ comment }) {
   return (
-    <div className="py-3 border-b border-border last:border-b-0 group cursor-pointer">
+    <Link to={`/notes/${comment.noteId}`} state={{ highlightCommentId: comment.id }} className="block py-3 border-b border-border last:border-b-0 group">
       <p className="text-sm text-foreground line-clamp-2 mb-1 group-hover:text-primary transition-colors">
         "{comment.text}"
       </p>
@@ -60,43 +58,20 @@ function CommentItem({ comment }) {
         <span>·</span>
         <span>{comment.time}</span>
       </div>
-    </div>
+    </Link>
   );
 }
-
-// Connection item component
-// function ConnectionItem({ connection }) {
-//   return (
-//     <Link
-//       to={`/users/${connection.id}`}
-//       className="flex items-center gap-3 py-2.5 border-b border-border last:border-b-0 group"
-//     >
-//       <Avatar user={connection} src={connection.avatarUrl} size="sm" className="w-9 h-9" />
-//       <div className="flex-1 min-w-0">
-//         <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-//           {connection.name}
-//         </p>
-//         {connection.university && (
-//           <p className="text-xs text-muted-foreground truncate">
-//             {connection.university}
-//           </p>
-//         )}
-//       </div>
-//       <ExternalLinkIcon className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-//     </Link>
-//   );
-// }
 
 // Empty state for each tab
 function TabEmptyState({ tabId, isOwnProfile }) {
   const configs = {
     posts: {
-      icon: <FileTextIcon className="h-6 w-6" />,
+      icon: <FileTextIcon size="lg" />,
       title: isOwnProfile ? 'No posts yet' : 'No posts yet',
       description: isOwnProfile ? 'Share your first post with the community' : null,
     },
     comments: {
-      icon: <MessageCircleIcon className="h-6 w-6" />,
+      icon: <MessageCircleIcon size="lg" />,
       title: isOwnProfile ? 'No comments yet' : 'No comments yet',
       description: isOwnProfile ? 'Join the conversation on posts' : null,
     },
@@ -118,9 +93,7 @@ function TabEmptyState({ tabId, isOwnProfile }) {
 }
 
 export default function ActivityCard({
-  userId,
   activities = [],
-  connections = [],
   isOwnProfile,
 }) {
   const [activeTab, setActiveTab] = useState('posts');
@@ -145,18 +118,6 @@ export default function ActivityCard({
   // Filter activities by type
   const posts = activities.filter((a) => a.type === 'post');
   const comments = activities.filter((a) => a.type === 'comment');
-
-  // Get view more link based on active tab
-  const getViewMoreLink = () => {
-    switch (activeTab) {
-      case 'posts':
-        return `/community?user=${userId}`;
-      case 'comments':
-        return `/community?user=${userId}&tab=comments`;
-      default:
-        return null;
-    }
-  };
 
   // Render content based on active tab
   const renderContent = () => {
@@ -187,30 +148,6 @@ export default function ActivityCard({
 
       default:
         return null;
-    }
-  };
-
-  // Check if current tab has more items to show
-  const hasMore = () => {
-    switch (activeTab) {
-      case 'posts':
-        return posts.length > 3;
-      case 'comments':
-        return comments.length > 3;
-      default:
-        return false;
-    }
-  };
-
-  // Get count for current tab
-  const getCount = () => {
-    switch (activeTab) {
-      case 'posts':
-        return posts.length;
-      case 'comments':
-        return comments.length;
-      default:
-        return 0;
     }
   };
 
@@ -251,11 +188,11 @@ export default function ActivityCard({
               onClick={() => setActiveTab(id)}
               className={`
                 relative z-10 flex-1 py-2 transition-colors rounded-md
-                flex items-center justify-center
+                flex items-center justify-center cursor-pointer
                 ${isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}
               `}
             >
-              <Icon className="w-4 h-4" />
+              <Icon size="sm" />
             </button>
           );
         })}
@@ -265,19 +202,6 @@ export default function ActivityCard({
       <div className="min-h-[120px]">
         {renderContent()}
       </div>
-
-      {/* View more link */}
-      {hasMore() && (
-        <div className="pt-3 mt-3 border-t border-border">
-          <Link
-            to={getViewMoreLink()}
-            className="text-sm text-primary hover:underline flex items-center gap-1"
-          >
-            View all {activeTab}
-            <ExternalLinkIcon className="w-3 h-3" />
-          </Link>
-        </div>
-      )}
     </Card>
   );
 }

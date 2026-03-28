@@ -5,17 +5,25 @@
  * Import icons from this file to ensure consistency and reduce duplication.
  *
  * @example
- * import { SearchIcon, XIcon, HeartIcon } from '../components/icons';
+ * import { SearchIcon, XIcon, HeartIcon, ICON_SIZES } from '../components/icons';
  *
- * // Use with default size
+ * // Use with default size (md)
  * <SearchIcon />
  *
- * // Override size with className
- * <SearchIcon className="h-6 w-6" />
+ * // Use with named size
+ * <SearchIcon size="lg" />
+ *
+ * // Override with className (takes precedence over size)
+ * <SearchIcon className="h-12 w-12" />
  *
  * // Icons with variants
  * <HeartIcon filled={true} />
  */
+
+// =============================================================================
+// ICON SIZE CONSTANTS
+// =============================================================================
+export { ICON_SIZES } from './sizes';
 
 // =============================================================================
 // GENERAL UI ICONS
@@ -30,6 +38,7 @@ export {
   PencilIcon,
   TrashIcon,
   ClockIcon,
+  ResetIcon,
   RefreshIcon,
   ExternalLinkIcon,
   ArrowLeftIcon,
@@ -48,6 +57,7 @@ export {
   SparklesIcon,
   QRCodeIcon,
   DownloadIcon,
+  PhoneIcon,
 } from './ui';
 
 // =============================================================================

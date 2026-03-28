@@ -90,7 +90,7 @@ export default function UserListItem({
    * Common wrapper classes
    */
   const wrapperClass = `flex items-center gap-3 p-3 rounded-lg transition-colors ${
-    highlighted ? 'bg-primary/10' : 'hover:bg-accent'
+    highlighted ? 'bg-primary/10' : 'hover:bg-muted'
   } ${onClick || linkTo ? 'cursor-pointer' : ''} ${className}`;
 
   /**

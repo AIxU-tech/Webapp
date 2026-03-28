@@ -24,6 +24,9 @@ import {
   updateUniversity,
   uploadUniversityLogo,
   uploadUniversityBanner,
+  deleteUniversityLogo,
+  deleteUniversityBanner,
+  getMemberAttendance,
 } from '../api/universities';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
 
@@ -42,6 +45,15 @@ export const universityKeys = {
 
   // Key for a specific university's details
   detail: (id) => [...universityKeys.all, 'detail', id],
+
+  // Key for a member's attendance history at a university
+  memberAttendance: (universityId, userId) => [
+    ...universityKeys.all,
+    'detail',
+    universityId,
+    'memberAttendance',
+    userId,
+  ],
 };
 
 // =============================================================================
@@ -133,14 +145,36 @@ export function useUniversity(id) {
     // Keep in cache to survive navigation
     gcTime: GC_TIMES.UNIVERSITIES,
 
-    // Seed from list cache to avoid loading spinner while detail fetches
+    // Seed from list cache to avoid loading spinner while detail fetches.
+    // List items lack detail-only fields (members, permissions, etc.) so add safe defaults.
     placeholderData: () => {
       const universities = queryClient.getQueryData(universityKeys.list());
       if (Array.isArray(universities)) {
-        return universities.find((uni) => String(uni.id) === String(id));
+        const match = universities.find((uni) => String(uni.id) === String(id));
+        if (match) return { ...match, members: [], permissions: {}, isMember: false };
       }
       return undefined;
     },
+  });
+}
+
+/**
+ * useMemberAttendance Hook
+ *
+ * Fetches a member's event attendance history at a university.
+ * Used on the executive portal member detail view.
+ *
+ * @param {number|string} universityId - University ID
+ * @param {number|string} userId - Member's user ID
+ * @returns {object} React Query result with { events: [...] }
+ */
+export function useMemberAttendance(universityId, userId) {
+  return useQuery({
+    queryKey: universityKeys.memberAttendance(universityId, userId),
+    queryFn: () => getMemberAttendance(universityId, userId),
+    enabled: !!universityId && !!userId,
+    staleTime: STALE_TIMES.UNIVERSITIES,
+    gcTime: GC_TIMES.UNIVERSITIES,
   });
 }
 
@@ -329,6 +363,24 @@ export function useCreateUniversity() {
   });
 }
 
+// =============================================================================
+// Image Upload Helpers
+// =============================================================================
+
+/**
+ * Snapshot a university detail query for optimistic rollback.
+ */
+async function _snapshotUniversityDetail(queryClient, universityId) {
+  await queryClient.cancelQueries({ queryKey: universityKeys.detail(universityId) });
+  return queryClient.getQueryData(universityKeys.detail(universityId));
+}
+
+function _rollbackUniversityDetail(queryClient, universityId, previousData) {
+  if (previousData) {
+    queryClient.setQueryData(universityKeys.detail(universityId), previousData);
+  }
+}
+
 /**
  * useUploadUniversityLogo Hook
  *
@@ -348,15 +400,11 @@ export function useUploadUniversityLogo() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ universityId, file }) => uploadUniversityLogo(universityId, file),
+    mutationFn: ({ universityId, ...data }) => uploadUniversityLogo(universityId, data),
 
-    // Optimistic update: set hasLogo to true immediately
     onMutate: async ({ universityId }) => {
-      await queryClient.cancelQueries({ queryKey: universityKeys.detail(universityId) });
+      const previousUniversity = await _snapshotUniversityDetail(queryClient, universityId);
 
-      const previousUniversity = queryClient.getQueryData(universityKeys.detail(universityId));
-
-      // Optimistically update hasLogo
       if (previousUniversity) {
         queryClient.setQueryData(universityKeys.detail(universityId), {
           ...previousUniversity,
@@ -367,18 +415,26 @@ export function useUploadUniversityLogo() {
       return { previousUniversity, universityId };
     },
 
-    onError: (err, variables, context) => {
-      if (context?.previousUniversity) {
-        queryClient.setQueryData(
-          universityKeys.detail(context.universityId),
-          context.previousUniversity
-        );
+    onError: (_err, _vars, ctx) => {
+      _rollbackUniversityDetail(queryClient, ctx?.universityId, ctx?.previousUniversity);
+    },
+
+    onSuccess: (data, { universityId }) => {
+      if (data?.logoUrl) {
+        const currentData = queryClient.getQueryData(universityKeys.detail(universityId));
+        if (currentData) {
+          queryClient.setQueryData(universityKeys.detail(universityId), {
+            ...currentData,
+            hasLogo: true,
+            logoUrl: data.logoUrl,
+          });
+        }
       }
     },
 
     onSettled: (_, __, { universityId }) => {
-      // Invalidate to refetch with new logo URL (cache-busted)
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
+      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
     },
   });
 }
@@ -403,15 +459,11 @@ export function useUploadUniversityBanner() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ universityId, file }) => uploadUniversityBanner(universityId, file),
+    mutationFn: ({ universityId, ...data }) => uploadUniversityBanner(universityId, data),
 
-    // Optimistic update: set hasBanner to true immediately
     onMutate: async ({ universityId }) => {
-      await queryClient.cancelQueries({ queryKey: universityKeys.detail(universityId) });
+      const previousUniversity = await _snapshotUniversityDetail(queryClient, universityId);
 
-      const previousUniversity = queryClient.getQueryData(universityKeys.detail(universityId));
-
-      // Optimistically update hasBanner
       if (previousUniversity) {
         queryClient.setQueryData(universityKeys.detail(universityId), {
           ...previousUniversity,
@@ -422,7 +474,10 @@ export function useUploadUniversityBanner() {
       return { previousUniversity, universityId };
     },
 
-    // Update cache with new bannerUrl immediately on success (before invalidating)
+    onError: (_err, _vars, ctx) => {
+      _rollbackUniversityDetail(queryClient, ctx?.universityId, ctx?.previousUniversity);
+    },
+
     onSuccess: (data, { universityId }) => {
       if (data?.bannerUrl) {
         const currentData = queryClient.getQueryData(universityKeys.detail(universityId));
@@ -436,18 +491,81 @@ export function useUploadUniversityBanner() {
       }
     },
 
-    onError: (err, variables, context) => {
-      if (context?.previousUniversity) {
-        queryClient.setQueryData(
-          universityKeys.detail(context.universityId),
-          context.previousUniversity
-        );
+    onSettled: (_, __, { universityId }) => {
+      queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
+      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+    },
+  });
+}
+
+/**
+ * useDeleteUniversityLogo Hook
+ *
+ * Mutation hook for deleting a university logo (reset to default).
+ */
+export function useDeleteUniversityLogo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ universityId }) => deleteUniversityLogo(universityId),
+
+    onMutate: async ({ universityId }) => {
+      const previousUniversity = await _snapshotUniversityDetail(queryClient, universityId);
+
+      if (previousUniversity) {
+        queryClient.setQueryData(universityKeys.detail(universityId), {
+          ...previousUniversity,
+          hasLogo: false,
+          logoUrl: null,
+        });
       }
+
+      return { previousUniversity, universityId };
+    },
+
+    onError: (_err, _vars, ctx) => {
+      _rollbackUniversityDetail(queryClient, ctx?.universityId, ctx?.previousUniversity);
     },
 
     onSettled: (_, __, { universityId }) => {
-      // Invalidate to refetch full data (ensures consistency)
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
+      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+    },
+  });
+}
+
+/**
+ * useDeleteUniversityBanner Hook
+ *
+ * Mutation hook for deleting a university banner (reset to default).
+ */
+export function useDeleteUniversityBanner() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ universityId }) => deleteUniversityBanner(universityId),
+
+    onMutate: async ({ universityId }) => {
+      const previousUniversity = await _snapshotUniversityDetail(queryClient, universityId);
+
+      if (previousUniversity) {
+        queryClient.setQueryData(universityKeys.detail(universityId), {
+          ...previousUniversity,
+          hasBanner: false,
+          bannerUrl: null,
+        });
+      }
+
+      return { previousUniversity, universityId };
+    },
+
+    onError: (_err, _vars, ctx) => {
+      _rollbackUniversityDetail(queryClient, ctx?.universityId, ctx?.previousUniversity);
+    },
+
+    onSettled: (_, __, { universityId }) => {
+      queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
+      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
     },
   });
 }

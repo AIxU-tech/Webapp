@@ -15,7 +15,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteUniversity } from '../api/universities';
@@ -30,6 +30,8 @@ import {
   useUpdateUniversity,
   useUploadUniversityLogo,
   useUploadUniversityBanner,
+  useDeleteUniversityLogo,
+  useDeleteUniversityBanner,
 } from '../hooks';
 
 // UI Components
@@ -74,6 +76,8 @@ export default function UniversityDetailPage() {
   const updateUniversityMutation = useUpdateUniversity();
   const uploadLogoMutation = useUploadUniversityLogo();
   const uploadBannerMutation = useUploadUniversityBanner();
+  const deleteLogoMutation = useDeleteUniversityLogo();
+  const deleteBannerMutation = useDeleteUniversityBanner();
 
   // ---------------------------------------------------------------------------
   // Prefetch All Tab Data on Mount
@@ -93,8 +97,6 @@ export default function UniversityDetailPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showEditIdentityModal, setShowEditIdentityModal] = useState(false);
   const [showBannerModal, setShowBannerModal] = useState(false);
-  const [logoKey, setLogoKey] = useState(Date.now());
-  const [bannerKey, setBannerKey] = useState(Date.now());
   const [bannerPreviewUrl, setBannerPreviewUrl] = useState(null);
 
   // Error modal state
@@ -306,8 +308,7 @@ export default function UniversityDetailPage() {
         universityId: id,
         file: blob,
       });
-      // Bust browser cache for the logo image
-      setLogoKey(Date.now());
+      // Logo URL is updated via React Query cache in useUploadUniversityLogo onSuccess
     } catch (error) {
       console.error('Failed to upload logo:', error);
       setErrorModal({
@@ -339,18 +340,48 @@ export default function UniversityDetailPage() {
     }
   };
 
+  // Handle deleting university logo (reset to default)
+  const handleDeleteLogo = async () => {
+    try {
+      await deleteLogoMutation.mutateAsync({ universityId: id });
+    } catch (error) {
+      console.error('Failed to delete logo:', error);
+      setErrorModal({
+        isOpen: true,
+        title: 'Delete Failed',
+        message: error.message || 'Failed to remove logo.',
+        navigateOnClose: false,
+      });
+    }
+  };
+
+  // Handle deleting university banner (reset to default)
+  const handleDeleteBanner = async () => {
+    setBannerPreviewUrl(null);
+    try {
+      await deleteBannerMutation.mutateAsync({ universityId: id });
+    } catch (error) {
+      console.error('Failed to delete banner:', error);
+      setErrorModal({
+        isOpen: true,
+        title: 'Delete Failed',
+        message: error.message || 'Failed to remove banner.',
+        navigateOnClose: false,
+      });
+    }
+  };
+
   // Handle uploading university banner with optimistic preview
-  const handleUploadBanner = async ({ blob, previewUrl }) => {
+  const handleUploadBanner = async ({ previewUrl, ...imageData }) => {
     // Show optimistic preview immediately
-    setBannerPreviewUrl(previewUrl);
+    if (previewUrl) setBannerPreviewUrl(previewUrl);
 
     try {
       await uploadBannerMutation.mutateAsync({
         universityId: id,
-        file: blob,
+        ...imageData,
       });
-      // Success - bust browser cache and clear preview
-      setBannerKey(Date.now());
+      // Success - clear preview (new GCS URL comes from React Query cache)
       setBannerPreviewUrl(null);
     } catch (error) {
       console.error('Failed to upload banner:', error);
@@ -498,6 +529,7 @@ export default function UniversityDetailPage() {
         university={university}
         onSave={handleSaveIdentity}
         onUploadLogo={handleUploadLogo}
+        onDeleteLogo={handleDeleteLogo}
         onDelete={handleDelete}
         isLoading={updateUniversityMutation.isPending}
         isUploadingLogo={uploadLogoMutation.isPending}
@@ -510,19 +542,34 @@ export default function UniversityDetailPage() {
         isOpen={showBannerModal}
         onClose={() => setShowBannerModal(false)}
         onUpload={handleUploadBanner}
+        onReset={handleDeleteBanner}
+        hasExistingImage={!!university?.hasBanner}
         isUploading={uploadBannerMutation.isPending}
+        isResetting={deleteBannerMutation.isPending}
         title="Update Club Banner"
+        imageType="university_banner"
+        entityId={id}
       />
 
       {university && (
         <div className="min-h-screen bg-background">
+          {/* Fixed floating "View All Universities" pill */}
+          <Link
+            to="/universities"
+            className="fixed top-[72px] left-4 z-40 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-foreground/80 hover:text-foreground bg-white/90 backdrop-blur-md border border-border/50 shadow-sm hover:shadow-md hover:bg-white transition-all duration-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            All Universities
+          </Link>
+
           {/* Hero Banner */}
           <UniversityHeroBanner
             university={university}
             canEdit={canEdit}
             onEditBanner={() => setShowBannerModal(true)}
             bannerPreviewUrl={bannerPreviewUrl}
-            bannerKey={bannerKey}
           />
 
           {/* Identity Bar */}
@@ -530,7 +577,8 @@ export default function UniversityDetailPage() {
             university={university}
             canEdit={canEdit}
             onEdit={handleOpenEditIdentity}
-            logoKey={logoKey}
+            canManageMembers={canManageMembers}
+            onExecutivePortal={() => navigate(`/executive/${id}`)}
           />
 
           {/* Navigation Tabs */}

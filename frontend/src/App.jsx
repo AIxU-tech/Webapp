@@ -36,7 +36,10 @@ import NewsPage from './pages/NewsPage';
 import SpeakersPage from './pages/SpeakersPage';
 import AdminUniversityRequestsPage from './pages/AdminUniversityRequestsPage';
 import AttendEventPage from './pages/AttendEventPage';
+import ExecutivePortalPage from './pages/ExecutivePortalPage';
+import ExecutivePortalEventsPage from './pages/ExecutivePortalEventsPage';
 import ScrollToTop from './components/layout/ScrollToTop';
+import { ExecutivePortalRoute } from './components/auth';
 
 function App() {
   return (
@@ -108,6 +111,38 @@ function App() {
           <Route path="/notes/:noteId" element={<NoteDetailPage />} />
           <Route path="/universities" element={<UniversitiesPage />} />
           <Route path="/universities/:id" element={<UniversityDetailPage />} />
+          <Route
+            path="/executive/:universityId"
+            element={
+              <ExecutivePortalRoute>
+                <ExecutivePortalPage />
+              </ExecutivePortalRoute>
+            }
+          />
+          <Route
+            path="/executive/:universityId/members/:userId"
+            element={
+              <ExecutivePortalRoute>
+                <ExecutivePortalPage />
+              </ExecutivePortalRoute>
+            }
+          />
+          <Route
+            path="/executive/:universityId/events"
+            element={
+              <ExecutivePortalRoute>
+                <ExecutivePortalEventsPage />
+              </ExecutivePortalRoute>
+            }
+          />
+          <Route
+            path="/executive/:universityId/events/:eventId"
+            element={
+              <ExecutivePortalRoute>
+                <ExecutivePortalEventsPage />
+              </ExecutivePortalRoute>
+            }
+          />
           <Route path="/opportunities" element={<OpportunitiesPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/users/:userId" element={<ProfilePage />} />

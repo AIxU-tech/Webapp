@@ -42,7 +42,7 @@ export default function OpportunityCard({
 
   const headerBadges = opportunity.universityOnly ? (
     <span className="flex items-center text-xs text-muted-foreground bg-muted px-2 py-1 rounded" title="Only visible to your university">
-      <BuildingIcon className="h-3 w-3 mr-1" />
+      <span className="mr-1"><BuildingIcon size="xs" /></span>
       University Only
     </span>
   ) : null;
@@ -50,10 +50,10 @@ export default function OpportunityCard({
   const primaryActions = !isOwnPost ? (
     <button
       onClick={handleMessagePoster}
-      className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 font-medium"
+      className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all duration-200 font-medium cursor-pointer"
       aria-label="Message poster"
     >
-      <MessagesIcon className="h-4 w-4" />
+      <MessagesIcon size="sm" />
       <span>Message Poster</span>
     </button>
   ) : (

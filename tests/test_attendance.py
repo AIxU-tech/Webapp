@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from backend.extensions import db
 from backend.models.event import Event
 from backend.models.event_attendance import EventAttendance
+from backend.models.university_role import UniversityRole
 from backend.utils.email import generate_secure_token
 
 
@@ -221,6 +222,28 @@ class TestSubmitAttendance:
         # Both should succeed since name-only guests cannot be deduplicated
         assert r1.status_code == 201
         assert r2.status_code == 201
+
+    def test_member_checkin_increments_events_attended_count(
+        self, authenticated_member_client, app, test_event, test_university, member_user
+    ):
+        """Check-in by a university member increments their events_attended_count."""
+        token = _set_event_token(app, test_event)
+
+        with app.app_context():
+            role_before = UniversityRole.get_role(member_user.id, test_university.id)
+            count_before = getattr(role_before, 'events_attended_count', 0) or 0
+
+        response = authenticated_member_client.post(
+            f'/api/attendance/{token}',
+            json={'name': 'Member User'}
+        )
+        assert response.status_code == 201
+
+        with app.app_context():
+            role_after = UniversityRole.get_role(member_user.id, test_university.id)
+            count_after = getattr(role_after, 'events_attended_count', 0) or 0
+
+        assert count_after == count_before + 1
 
     def test_past_event_accepts_attendance(self, client, app, test_university, executive_user):
         """Attendance check-in is allowed anytime (no time restriction)."""

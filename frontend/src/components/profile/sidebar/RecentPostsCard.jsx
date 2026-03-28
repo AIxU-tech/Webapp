@@ -18,11 +18,11 @@ function PostItem({ post }) {
       </p>
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
-          <HeartIcon className="h-3 w-3" />
+          <HeartIcon size="xs" />
           {post.likes ?? 0}
         </span>
         <span className="flex items-center gap-1">
-          <MessageCircleIcon className="h-3 w-3" />
+          <MessageCircleIcon size="xs" />
           {post.comments ?? 0}
         </span>
         <span>{post.time}</span>
@@ -58,7 +58,7 @@ export default function RecentPostsCard({ activities = [], userId }) {
         </div>
       ) : (
         <EmptyState
-          icon={<FileTextIcon className="h-8 w-8" />}
+          icon={<FileTextIcon size="xl" />}
           title="No posts yet"
           className="py-6"
         />

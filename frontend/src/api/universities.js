@@ -138,6 +138,20 @@ export async function removeMember(universityId, userId) {
   return api.delete(`/universities/${universityId}/members/${userId}`);
 }
 
+/**
+ * Get a member's event attendance history at a university
+ *
+ * Returns events the member checked into (via QR code) at this university.
+ *
+ * @param {number} universityId - University ID
+ * @param {number} userId - User ID of the member
+ * @returns {Promise<object>} { events: [{ eventId, eventTitle, eventStartTime, checkedInAt }] }
+ * @throws {ApiError} If not authorized (403) or member not found (404)
+ */
+export async function getMemberAttendance(universityId, userId) {
+  return api.get(`/universities/${universityId}/members/${userId}/attendance`);
+}
+
 // =============================================================================
 // Role Management API Functions
 // =============================================================================
@@ -170,24 +184,20 @@ export async function updateMemberRole(universityId, userId, role) {
  * @returns {Promise<object>} Response with success status and hasLogo
  * @throws {ApiError} If not authorized (403) or invalid file (400)
  */
-export async function uploadUniversityLogo(universityId, file) {
-  const formData = new FormData();
-  const filename = file.name || 'logo.jpg';
-  formData.append('logo', file, filename);
-
-  return api.upload(`/universities/${universityId}/logo`, formData, 'PUT');
+export async function uploadUniversityLogo(universityId, { gcsPath, filename, contentType, sizeBytes }) {
+  return api.put(`/universities/${universityId}/logo`, { gcsPath, filename, contentType, sizeBytes });
 }
 
 /**
- * Get URL for university logo
+ * Delete university logo
+ *
+ * Resets logo to default.
  *
  * @param {number} universityId - University ID
- * @param {number} [version] - Optional cache-busting version (timestamp)
- * @returns {string} URL to fetch the logo image
+ * @returns {Promise<object>} Response with success status
  */
-export function getUniversityLogoUrl(universityId, version) {
-  const baseUrl = `/university/${universityId}/logo`;
-  return version ? `${baseUrl}?v=${version}` : baseUrl;
+export async function deleteUniversityLogo(universityId) {
+  return api.delete(`/universities/${universityId}/logo`);
 }
 
 // =============================================================================
@@ -205,22 +215,18 @@ export function getUniversityLogoUrl(universityId, version) {
  * @returns {Promise<object>} Response with success status and hasBanner
  * @throws {ApiError} If not authorized (403) or invalid file (400)
  */
-export async function uploadUniversityBanner(universityId, file) {
-  const formData = new FormData();
-  const filename = file.name || 'banner.jpg';
-  formData.append('banner', file, filename);
-
-  return api.upload(`/universities/${universityId}/banner`, formData, 'PUT');
+export async function uploadUniversityBanner(universityId, { gcsPath, filename, contentType, sizeBytes }) {
+  return api.put(`/universities/${universityId}/banner`, { gcsPath, filename, contentType, sizeBytes });
 }
 
 /**
- * Get URL for university banner
+ * Delete university banner
+ *
+ * Resets banner to default.
  *
  * @param {number} universityId - University ID
- * @param {number} [version] - Optional cache-busting version (timestamp)
- * @returns {string} URL to fetch the banner image
+ * @returns {Promise<object>} Response with success status
  */
-export function getUniversityBannerUrl(universityId, version) {
-  const baseUrl = `/university/${universityId}/banner`;
-  return version ? `${baseUrl}?v=${version}` : baseUrl;
+export async function deleteUniversityBanner(universityId) {
+  return api.delete(`/universities/${universityId}/banner`);
 }

@@ -6,10 +6,9 @@
  * @example
  * import { getTimeAgo, formatFullDate } from '../utils';
  * import { LOCATION_TAGS, orderOpportunityTags } from '../utils';
- * import { getUserBannerUrl, getUniversityLogoUrl } from '../utils';
  */
 
-export { getTimeAgo, formatFullDate, formatDateRange } from './time';
+export { getTimeAgo, formatFullDate, formatDateTime, formatDateRange } from './time';
 
 export {
   IMAGE_CONFIG,
@@ -28,16 +27,10 @@ export {
   MAX_SOCIAL_LINKS,
 } from './socialLinks';
 
-export { validateEmailFormat, validatePhoneFormat } from './validation';
+export { validateEmailFormat, validatePhoneFormat, formatUSPhone } from './validation';
 
 // URL construction utilities
-export {
-  getUserProfilePictureUrl,
-  getUserBannerUrl,
-  getUniversityLogoUrl,
-  getUniversityBannerUrl,
-  getApiUrl,
-} from './url';
+export { getApiUrl } from './url';
 
 // Tag constants and utilities
 export {

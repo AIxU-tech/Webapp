@@ -101,50 +101,53 @@ class TestUserModel:
             assert 'following_count' in user_dict
             assert 'profile_picture_url' in user_dict
 
-    def test_user_profile_picture_size_limit(self, app, large_image_data):
-        """Test that profile picture over 5MB raises ValueError"""
+    def test_user_set_profile_picture_gcs(self, app):
+        """Test setting GCS profile picture path"""
         with app.app_context():
-            user = User(email='bigimage@example.edu')
+            user = User(email='gcstest@example.edu')
             user.set_password('testpassword')
             db.session.add(user)
             db.session.commit()
 
-            with pytest.raises(ValueError) as exc_info:
-                user.set_profile_picture(large_image_data, 'big.jpg', 'image/jpeg')
+            user.set_profile_picture_gcs('images/profiles/1/abc_photo.jpg')
+            db.session.commit()
 
-            assert '5MB' in str(exc_info.value)
+            assert user.profile_picture_gcs_path == 'images/profiles/1/abc_photo.jpg'
 
-    def test_user_profile_picture_valid(self, app, sample_image_data):
-        """Test that valid profile picture is stored"""
+    def test_user_delete_profile_picture_gcs(self, app):
+        """Test deleting GCS profile picture path returns old path"""
         with app.app_context():
-            user = User(email='validimage@example.edu')
+            user = User(email='gcsdel@example.edu')
             user.set_password('testpassword')
             db.session.add(user)
             db.session.commit()
 
-            user.set_profile_picture(sample_image_data, 'test.jpg', 'image/jpeg')
+            user.set_profile_picture_gcs('images/profiles/1/abc_photo.jpg')
             db.session.commit()
 
-            assert user.profile_picture is not None
-            assert user.profile_picture_filename == 'test.jpg'
-            assert user.profile_picture_mimetype == 'image/jpeg'
+            old_path = user.delete_profile_picture_gcs()
+            db.session.commit()
 
-    def test_user_delete_profile_picture(self, app, sample_image_data):
-        """Test deleting profile picture"""
+            assert old_path == 'images/profiles/1/abc_photo.jpg'
+            assert user.profile_picture_gcs_path is None
+
+    def test_user_get_profile_picture_url_fallback(self, app):
+        """Test that get_profile_picture_url returns avatar_url when no GCS path"""
         with app.app_context():
-            user = User(email='deleteimage@example.edu')
+            user = User(email='fallback@example.edu', avatar_url='https://example.com/avatar.jpg')
             user.set_password('testpassword')
             db.session.add(user)
             db.session.commit()
+            assert user.get_profile_picture_url() == 'https://example.com/avatar.jpg'
 
-            user.set_profile_picture(sample_image_data, 'test.jpg', 'image/jpeg')
+    def test_user_get_profile_picture_url_none(self, app):
+        """Test that get_profile_picture_url returns None when nothing set"""
+        with app.app_context():
+            user = User(email='nopic@example.edu')
+            user.set_password('testpassword')
+            db.session.add(user)
             db.session.commit()
-
-            user.delete_profile_picture()
-            db.session.commit()
-
-            assert user.profile_picture is None
-            assert user.profile_picture_filename is None
+            assert user.get_profile_picture_url() is None
 
     def test_user_increment_post_count(self, app):
         """Test incrementing post count"""

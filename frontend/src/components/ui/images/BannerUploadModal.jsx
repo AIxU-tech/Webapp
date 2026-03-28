@@ -12,8 +12,9 @@
  */
 
 import { useState, useRef } from 'react';
+import { useImageUpload } from '../../../hooks';
 import { BaseModal } from '../modals';
-import { GradientButton, SecondaryButton } from '../buttons';
+import { GradientButton, SecondaryButton, ResetButton } from '../buttons';
 import { validateImageFile, cropImageToBanner, BANNER_CONFIG } from '../../../utils/image';
 import { CameraIcon } from '../../icons';
 
@@ -21,9 +22,15 @@ export default function BannerUploadModal({
   isOpen,
   onClose,
   onUpload,
+  onReset,
+  hasExistingImage = false,
   isUploading = false,
+  isResetting = false,
   title = 'Update Banner Image',
+  imageType = 'banner',
+  entityId = null,
 }) {
+  const { upload: uploadImage, isUploading: isUploadingToGCS } = useImageUpload();
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(null);
@@ -71,25 +78,23 @@ export default function BannerUploadModal({
     setIsProcessing(true);
 
     try {
-      // Crop image to banner dimensions
       const croppedBlob = await cropImageToBanner(selectedFile);
-
-      // Create a preview URL from the cropped blob for optimistic update
       const previewUrl = URL.createObjectURL(croppedBlob);
-
-      // Close modal immediately for optimistic UX
+      const imageData = await uploadImage(imageType, croppedBlob, entityId);
       handleClose();
-
-      // Call parent upload handler with blob and preview URL
-      // Parent can show previewUrl immediately while upload happens
-      await onUpload({ blob: croppedBlob, previewUrl });
+      await onUpload({ ...imageData, previewUrl });
     } catch (err) {
       setError(err.message || 'Failed to process image');
       setIsProcessing(false);
     }
   };
 
-  const isLoading = isUploading || isProcessing;
+  const isLoading = isUploading || isProcessing || isUploadingToGCS;
+
+  const handleReset = () => {
+    handleClose();
+    onReset?.();
+  };
 
   return (
     <BaseModal
@@ -138,7 +143,19 @@ export default function BannerUploadModal({
         </p>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3">
+        <div className="flex items-center gap-3">
+          {/* Reset button - left side */}
+          {hasExistingImage && onReset && (
+            <ResetButton
+              onClick={handleReset}
+              disabled={isLoading}
+              loading={isResetting}
+              title="Reset to default"
+            >
+              Reset
+            </ResetButton>
+          )}
+          <div className="flex-1" />
           <SecondaryButton
             variant="outline"
             onClick={handleClose}

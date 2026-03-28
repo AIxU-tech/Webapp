@@ -84,7 +84,7 @@ export default function UniversityEventsTab({
       {canCreateEvent && (
         <div className="mb-6">
           <GradientButton
-            icon={<PlusIcon className="h-4 w-4" />}
+            icon={<PlusIcon size="sm" />}
             onClick={() => setIsModalOpen(true)}
           >
             Create Event
@@ -102,7 +102,9 @@ export default function UniversityEventsTab({
               onRsvp={handleRsvp}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              onShowQR={(event) => setQrEvent(event ? { id: event.id, title: event.title } : null)}
+                  onShowQR={(event) =>
+                    setQrEvent(event ? { id: event.id, title: event.title, attendanceToken: event.attendanceToken } : null)
+                  }
               currentUserId={currentUserId}
               isAuthenticated={isAuthenticated}
               canManageEvent={canManageEvents}
@@ -149,6 +151,7 @@ export default function UniversityEventsTab({
         onClose={() => setQrEvent(null)}
         eventId={qrEvent?.id}
         eventTitle={qrEvent?.title}
+        attendanceToken={qrEvent?.attendanceToken}
       />
     </>
   );

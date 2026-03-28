@@ -137,7 +137,7 @@ function ImageLightbox({ image, onClose, onPrev, onNext }) {
       {/* Close button */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+        className="absolute top-4 right-4 p-2 text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
         aria-label="Close"
       >
         <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -150,7 +150,7 @@ function ImageLightbox({ image, onClose, onPrev, onNext }) {
       {onPrev && (
         <button
           onClick={(e) => { e.stopPropagation(); onPrev(); }}
-          className="absolute left-4 top-1/2 -translate-y-1/2 p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+          className="absolute left-4 top-1/2 -translate-y-1/2 p-2 text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
           aria-label="Previous image"
         >
           <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -163,7 +163,7 @@ function ImageLightbox({ image, onClose, onPrev, onNext }) {
       {onNext && (
         <button
           onClick={(e) => { e.stopPropagation(); onNext(); }}
-          className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+          className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
           aria-label="Next image"
         >
           <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -39,19 +39,25 @@ export default function BannerImage({
     <div className={`relative ${height} ${className}`}>
       {/* Image container with overflow-hidden for clipping to rounded corners */}
       <div className={`absolute inset-0 ${rounded} overflow-hidden`}>
-        <img
-          src={displayUrl}
-          alt={altText}
-          className="w-full h-full object-cover"
-          onError={() => setImgError(true)}
-        />
+        {displayUrl ? (
+          <img
+            src={displayUrl}
+            alt={altText}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+            loading="eager"
+            fetchPriority="high"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-[hsl(220,85%,60%)] to-[hsl(185,85%,55%)]" />
+        )}
 
         {hasOverlay && (
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/25 to-black/10" />
         )}
       </div>
 
-      {/* Edit button outside overflow-hidden container so click area isn't clipped */}
+      {/* Buttons outside overflow-hidden container so click area isn't clipped */}
       {/* z-20 ensures button is above overlapping elements like UniversityIdentityBar (z-10) */}
       {canEdit && (
         <button
@@ -60,7 +66,7 @@ export default function BannerImage({
           className="absolute bottom-4 right-4 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors cursor-pointer z-20"
           aria-label="Edit banner image"
         >
-          <CameraIcon className="h-5 w-5" />
+          <CameraIcon size="md" />
         </button>
       )}
     </div>

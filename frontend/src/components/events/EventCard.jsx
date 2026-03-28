@@ -102,7 +102,7 @@ export default function EventCard({
                   title="Attendance QR code"
                   aria-label="Attendance QR code"
                 >
-                  <QRCodeIcon className="h-4 w-4" />
+                  <QRCodeIcon size="sm" />
                 </button>
                 <button
                   onClick={() => onEdit?.(event)}
@@ -110,7 +110,7 @@ export default function EventCard({
                   title="Edit event"
                   aria-label="Edit event"
                 >
-                  <PencilIcon className="h-4 w-4" />
+                  <PencilIcon size="sm" />
                 </button>
                 <button
                   onClick={() => onDelete?.(event.id)}
@@ -118,7 +118,7 @@ export default function EventCard({
                   title="Delete event"
                   aria-label="Delete event"
                 >
-                  <TrashIcon className="h-4 w-4" />
+                  <TrashIcon size="sm" />
                 </button>
               </div>
             )}
@@ -148,28 +148,28 @@ export default function EventCard({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-3">
             {/* Time */}
             <span className="flex items-center gap-1.5">
-              <ClockIcon className="h-4 w-4" />
+              <ClockIcon size="sm" />
               {formatTimeRange(event.startTime, event.endTime)}
             </span>
 
             {/* Location */}
             {event.location && (
               <span className="flex items-center gap-1.5">
-                <MapPinIcon className="h-4 w-4" />
+                <MapPinIcon size="sm" />
                 <span className="truncate max-w-[200px]">{event.location}</span>
               </span>
             )}
 
             {/* Attendee Count */}
             <span className="flex items-center gap-1.5">
-              <UsersIcon className="h-4 w-4" />
+              <UsersIcon size="sm" />
               {event.attendeeCount || 0} attending
             </span>
 
             {/* Attendance check-in count -- only present in the payload for executives */}
             {event.attendanceCount != null && event.attendanceCount > 0 && (
               <span className="flex items-center gap-1.5 text-primary">
-                <CheckIcon className="h-4 w-4" />
+                <CheckIcon size="sm" />
                 {event.attendanceCount} checked in
               </span>
             )}
@@ -179,13 +179,13 @@ export default function EventCard({
           <div className="flex items-center gap-2">
             <button
               onClick={handleRsvp}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${event.isAttending
-                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                : 'bg-muted text-foreground hover:bg-accent'
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${event.isAttending
+                ? 'bg-primary text-primary-foreground hover:opacity-90'
+                : 'bg-muted text-foreground hover:bg-muted-foreground/10'
                 }`}
               aria-label={event.isAttending ? 'Cancel RSVP' : 'RSVP to event'}
             >
-              {event.isAttending && <CheckIcon className="h-4 w-4" />}
+              {event.isAttending && <CheckIcon size="sm" />}
               {event.isAttending ? 'Attending' : 'RSVP'}
             </button>
           </div>

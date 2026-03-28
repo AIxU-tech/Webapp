@@ -132,7 +132,7 @@ export default function ConfirmationModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 hover:bg-accent rounded-md transition-colors -mt-1 -mr-1 cursor-pointer"
+            className="p-2 hover:bg-muted rounded-md transition-colors -mt-1 -mr-1 cursor-pointer"
             aria-label="Close modal"
           >
             <XIcon />
@@ -154,7 +154,7 @@ export default function ConfirmationModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-border bg-background rounded-lg hover:bg-accent transition-colors font-medium cursor-pointer"
+              className="px-4 py-2 border border-border bg-background rounded-lg hover:bg-muted transition-colors font-medium cursor-pointer"
             >
               {cancelText}
             </button>

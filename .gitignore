@@ -34,6 +34,9 @@ static/app/
 .env
 __pycache__
 
+# Claude Code
+.claude/worktrees
+
 # Testing
 .pytest_cache/
 .coverage
@@ -45,6 +48,9 @@ coverage.xml
 .hypothesis/
 test.db
 instance/test.db
+
+# Claude Code
+.claude/worktrees/
 
 # GCS / Terraform
 flask-sa-key.json

@@ -121,9 +121,20 @@ export function useUpdateSpeaker() {
         if (!old) return old;
         return {
           ...old,
-          speakers: old.speakers.map((s) =>
-            s.id === speakerId ? { ...s, ...speakerData, linkedinUrl: speakerData.linkedinUrl || s.linkedinUrl } : s
-          ),
+          speakers: old.speakers.map((s) => {
+            if (s.id !== speakerId) return s;
+            return {
+              ...s,
+              ...speakerData,
+              linkedinUrl: speakerData.linkedinUrl || s.linkedinUrl,
+              // Strip GCS-internal fields from cache; keep display-relevant fields
+              imageGcsPath: undefined,
+              imageContentType: undefined,
+              imageSizeBytes: undefined,
+              imageFilename: speakerData.imageGcsPath === null ? null : (speakerData.imageFilename || s.imageFilename),
+              imageUrl: speakerData.imageGcsPath === null ? null : s.imageUrl,
+            };
+          }),
         };
       });
 

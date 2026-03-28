@@ -17,17 +17,21 @@
  * @component
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useMessageTarget } from '../contexts/MessageTargetContext';
 import { logout } from '../api/auth';
+import { clearResumeParseStatus } from '../api/resume';
 import {
   useUser,
   usePageTitle,
   useUpdateProfile,
   useUploadProfilePicture,
+  useDeleteProfilePicture,
   useUploadProfileBanner,
+  useDeleteProfileBanner,
   useCreateEducation,
   useUpdateEducation,
   useDeleteEducation,
@@ -40,6 +44,10 @@ import {
   useResume,
   useUploadResume,
   useDeleteResume,
+  useStartResumeParse,
+  useResumeParseStatus,
+  resumeKeys,
+  useUniversity,
 } from '../hooks';
 
 // UI Components
@@ -62,6 +70,7 @@ import {
   ProjectsSection,
   ResumeSection,
   ProfilePageSkeleton,
+  ResumeParsingBanner,
 } from '../components/profile';
 
 export default function ProfilePage() {
@@ -69,6 +78,7 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { user: currentUser, setUser: setCurrentUser, logoutUser, isAuthenticated } = useAuth();
   const { setTargetUserId } = useMessageTarget();
+  const queryClient = useQueryClient();
 
   // Determine if viewing own profile
   const isOwnProfile = !userId || (currentUser && currentUser.id === parseInt(userId));
@@ -86,13 +96,18 @@ export default function ProfilePage() {
 
   const error = fetchError?.message || null;
 
+  // Fetch only the user's university instead of the full list
+  const { data: userUniversity = null } = useUniversity(user?.university_id);
+
   // ---------------------------------------------------------------------------
   // Mutations
   // ---------------------------------------------------------------------------
 
   const updateProfileMutation = useUpdateProfile();
   const uploadPictureMutation = useUploadProfilePicture();
+  const deletePictureMutation = useDeleteProfilePicture();
   const uploadBannerMutation = useUploadProfileBanner();
+  const deleteBannerMutation = useDeleteProfileBanner();
 
   const createEducationMutation = useCreateEducation();
   const updateEducationMutation = useUpdateEducation();
@@ -107,6 +122,17 @@ export default function ProfilePage() {
   const { data: resume, isLoading: isResumeLoading } = useResume(isAuthenticated ? targetUserId : null);
   const uploadResumeMutation = useUploadResume(targetUserId);
   const deleteResumeMutation = useDeleteResume();
+  const startParseMutation = useStartResumeParse();
+  const { data: parseStatusData } = useResumeParseStatus(isOwnProfile && isAuthenticated);
+
+  // Show success toast when resume parsing completes
+  const prevParseStatus = useRef(parseStatusData?.status);
+  useEffect(() => {
+    if (prevParseStatus.current === 'parsing' && parseStatusData?.status === 'complete') {
+      setFeedback({ type: 'success', message: 'Resume parsed successfully! Your profile has been updated.' });
+    }
+    prevParseStatus.current = parseStatusData?.status;
+  }, [parseStatusData?.status]);
 
   // ---------------------------------------------------------------------------
   // Modal States
@@ -116,7 +142,7 @@ export default function ProfilePage() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showBannerModal, setShowBannerModal] = useState(false);
   const [bannerPreviewUrl, setBannerPreviewUrl] = useState(null);
-  const [bannerKey, setBannerKey] = useState(Date.now());
+  const [showAutoFillPrompt, setShowAutoFillPrompt] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Feedback State (for success/error notifications)
@@ -172,9 +198,9 @@ export default function ProfilePage() {
   /**
    * Handle profile picture upload
    */
-  const handleUploadPicture = async (blob) => {
+  const handleUploadPicture = async (imageData) => {
     try {
-      const response = await uploadPictureMutation.mutateAsync(blob);
+      const response = await uploadPictureMutation.mutateAsync(imageData);
 
       // Update AuthContext for navbar avatar
       if (response.profile_picture_url && isOwnProfile && currentUser) {
@@ -187,6 +213,36 @@ export default function ProfilePage() {
   };
 
   /**
+   * Handle profile picture deletion (reset to default)
+   */
+  const handleDeletePicture = async () => {
+    try {
+      const response = await deletePictureMutation.mutateAsync();
+      if (isOwnProfile && currentUser) {
+        setCurrentUser({ ...currentUser, profile_picture_url: response.profile_picture_url || null });
+      }
+      setFeedback({ type: 'success', message: 'Profile picture removed' });
+    } catch (err) {
+      console.error('Error deleting picture:', err);
+      setFeedback({ type: 'error', message: 'Failed to remove profile picture' });
+    }
+  };
+
+  /**
+   * Handle banner deletion (reset to default)
+   */
+  const handleDeleteBanner = async () => {
+    setBannerPreviewUrl(null);
+    try {
+      await deleteBannerMutation.mutateAsync();
+      setFeedback({ type: 'success', message: 'Banner removed' });
+    } catch (err) {
+      console.error('Error deleting banner:', err);
+      setFeedback({ type: 'error', message: 'Failed to remove banner' });
+    }
+  };
+
+  /**
    * Handle profile picture upload errors from ProfilePictureSection
    */
   const handlePictureError = (message) => {
@@ -195,16 +251,15 @@ export default function ProfilePage() {
 
   /**
    * Handle banner upload with optimistic preview
-   * Receives { blob, previewUrl } from BannerUploadModal
+   * Receives { gcsPath, filename, contentType, sizeBytes, previewUrl } from BannerUploadModal
    */
-  const handleUploadBanner = async ({ blob, previewUrl }) => {
+  const handleUploadBanner = async ({ previewUrl, ...imageData }) => {
     // Show optimistic preview immediately
-    setBannerPreviewUrl(previewUrl);
+    if (previewUrl) setBannerPreviewUrl(previewUrl);
 
     try {
-      await uploadBannerMutation.mutateAsync(blob);
-      // Success - bust browser cache and clear preview
-      setBannerKey(Date.now());
+      await uploadBannerMutation.mutateAsync(imageData);
+      // Success - clear preview (cache has the new GCS URL from onSuccess)
       setBannerPreviewUrl(null);
     } catch (err) {
       console.error('Error uploading banner:', err);
@@ -240,12 +295,19 @@ export default function ProfilePage() {
       {
         onSuccess: () => {
           setFeedback({ type: 'success', message: 'Resume uploaded successfully' });
+          // Prompt user to auto-fill profile from resume
+          setShowAutoFillPrompt(true);
         },
         onError: (err) => {
           setFeedback({ type: 'error', message: err.message || 'Failed to upload resume' });
         },
       }
     );
+  };
+
+  const handleAutoFillConfirm = () => {
+    setShowAutoFillPrompt(false);
+    startParseMutation.mutate();
   };
 
   const handleResumeDelete = () => {
@@ -311,13 +373,14 @@ export default function ProfilePage() {
             {/* Profile Header card is part of main column */}
             <ProfileHeader
               user={user}
+              universityLocation={userUniversity?.location}
+              universityBannerUrl={userUniversity?.bannerUrl}
               isOwnProfile={isOwnProfile}
               onEditProfile={openEditModal}
               onLogout={() => setShowLogoutModal(true)}
               onMessage={handleMessage}
               onEditBanner={() => setShowBannerModal(true)}
               bannerPreviewUrl={bannerPreviewUrl}
-              bannerKey={bannerKey}
             />
 
             <AboutSection
@@ -350,6 +413,18 @@ export default function ProfilePage() {
               onDelete={(id) => deleteProjectMutation.mutate(id, { onError: handleMutationError })}
             />
 
+            {/* Resume parsing status banner — shown directly above resume section */}
+            {isOwnProfile && parseStatusData?.status && parseStatusData.status !== 'complete' && (
+              <ResumeParsingBanner
+                status={parseStatusData.status}
+                error={parseStatusData.error}
+                onDismiss={() => {
+                  clearResumeParseStatus().catch(() => {});
+                  queryClient.setQueryData(resumeKeys.parseStatus, { status: null });
+                }}
+              />
+            )}
+
             <ResumeSection
               resume={resume}
               isOwnProfile={isOwnProfile}
@@ -365,6 +440,7 @@ export default function ProfilePage() {
           <div>
             <ProfileSidebar
               user={user}
+              university={userUniversity}
               isOwnProfile={isOwnProfile}
               onSaveSkills={handleSaveSkills}
             />
@@ -378,7 +454,6 @@ export default function ProfilePage() {
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         updateProfileMutation={updateProfileMutation}
-        uploadPictureMutation={uploadPictureMutation}
         onSave={(response) => {
           // Update AuthContext for navbar
           if (response.user && isOwnProfile) {
@@ -387,6 +462,7 @@ export default function ProfilePage() {
           setFeedback({ type: 'success', message: 'Profile updated successfully!' });
         }}
         onUploadPicture={handleUploadPicture}
+        onDeletePicture={handleDeletePicture}
         onPictureError={handlePictureError}
       />
 
@@ -407,8 +483,23 @@ export default function ProfilePage() {
         isOpen={showBannerModal}
         onClose={() => setShowBannerModal(false)}
         onUpload={handleUploadBanner}
+        onReset={handleDeleteBanner}
+        hasExistingImage={!!user?.hasBanner}
         isUploading={uploadBannerMutation.isPending}
+        isResetting={deleteBannerMutation.isPending}
         title="Update Profile Banner"
+      />
+
+      {/* Auto-fill profile from resume prompt */}
+      <ConfirmationModal
+        isOpen={showAutoFillPrompt}
+        onClose={() => setShowAutoFillPrompt(false)}
+        onConfirm={handleAutoFillConfirm}
+        title="Auto-Fill Profile"
+        message="Would you like to use AI to extract your education, experience, projects, skills, and more from your resume?"
+        confirmText="Auto-Fill"
+        cancelText="No Thanks"
+        variant="info"
       />
 
     </div>

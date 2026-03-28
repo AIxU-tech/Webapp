@@ -313,98 +313,115 @@ class TestSocialLinks:
             assert data['success'] is False
 
 
+class TestEducationGpaValidation:
+    """Tests for GPA validation on education entries"""
+
+    def test_create_education_with_invalid_gpa_rejected(self, authenticated_client, app):
+        """Test that nonsense GPA string is rejected on create"""
+        response = authenticated_client.post('/api/profile/education', json={
+            'institution': 'MIT',
+            'degree': 'B.S. Computer Science',
+            'gpa': 'ksdfjlsdjs',
+        })
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+        assert 'gpa' in data['error'].lower()
+
+    def test_create_education_with_valid_gpa_accepted(self, authenticated_client, app):
+        """Test that a valid decimal GPA is accepted on create"""
+        response = authenticated_client.post('/api/profile/education', json={
+            'institution': 'MIT',
+            'degree': 'B.S. Computer Science',
+            'gpa': '3.85',
+        })
+
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['entry']['gpa'] == '3.85'
+
+    def test_create_education_with_empty_gpa_accepted(self, authenticated_client, app):
+        """Test that omitting GPA is fine (it's optional)"""
+        response = authenticated_client.post('/api/profile/education', json={
+            'institution': 'MIT',
+            'degree': 'B.S. Computer Science',
+        })
+
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data['success'] is True
+
+    def test_update_education_with_invalid_gpa_rejected(self, authenticated_client, app):
+        """Test that nonsense GPA string is rejected on update"""
+        create_resp = authenticated_client.post('/api/profile/education', json={
+            'institution': 'MIT',
+            'degree': 'B.S. Computer Science',
+            'gpa': '3.9',
+        })
+        entry_id = create_resp.get_json()['entry']['id']
+
+        response = authenticated_client.put(f'/api/profile/education/{entry_id}', json={
+            'gpa': 'not_a_number',
+        })
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+        assert 'gpa' in data['error'].lower()
+
+
 class TestProfilePictures:
-    """Tests for profile picture upload/delete"""
+    """Tests for profile picture upload/delete (GCS-based)"""
 
-    def test_upload_profile_picture_valid_image(self, authenticated_client, app, sample_image_data):
-        """Test uploading a valid profile picture"""
-        data = {
-            'profile_picture': (io.BytesIO(sample_image_data), 'test.jpg')
-        }
-
+    def test_upload_profile_picture_gcs_path(self, authenticated_client, app):
+        """Test uploading profile picture with GCS path"""
         response = authenticated_client.put(
             '/api/profile/picture',
-            data=data,
-            content_type='multipart/form-data'
+            json={'gcsPath': 'images/profiles/1/abc_test.jpg', 'filename': 'test.jpg',
+                  'contentType': 'image/jpeg', 'sizeBytes': 12345}
         )
 
         assert response.status_code == 200
         data = response.get_json()
         assert data['success'] is True
-        assert 'profile_picture_url' in data
 
-    def test_upload_profile_picture_no_file(self, authenticated_client, app):
-        """Test upload with no file returns error"""
+    def test_upload_profile_picture_no_gcs_path(self, authenticated_client, app):
+        """Test upload with no gcsPath returns error"""
         response = authenticated_client.put(
             '/api/profile/picture',
-            data={},
-            content_type='multipart/form-data'
+            json={}
         )
 
         assert response.status_code == 400
 
-    def test_upload_profile_picture_base64_camera(self, authenticated_client, app, sample_image_data):
-        """Test uploading profile picture via base64 camera data"""
-        base64_image = base64.b64encode(sample_image_data).decode('utf-8')
-        data_url = f'data:image/jpeg;base64,{base64_image}'
-
-        response = authenticated_client.put(
-            '/api/profile/picture',
-            data={'camera_image': data_url},
-            content_type='multipart/form-data'
-        )
-
-        assert response.status_code == 200
-        data = response.get_json()
-        assert data['success'] is True
-
-    def test_delete_profile_picture(self, authenticated_client, app, sample_image_data, test_user):
+    def test_delete_profile_picture(self, authenticated_client, app, test_user):
         """Test deleting profile picture"""
-        # First upload a picture
-        authenticated_client.put(
-            '/api/profile/picture',
-            data={'profile_picture': (io.BytesIO(sample_image_data), 'test.jpg')},
-            content_type='multipart/form-data'
-        )
+        # First set a GCS path
+        with app.app_context():
+            user = db.session.get(User, test_user.id)
+            user.set_profile_picture_gcs('images/profiles/1/abc_test.jpg')
+            db.session.commit()
 
-        # Then delete it
         response = authenticated_client.delete('/api/profile/picture')
 
         assert response.status_code == 200
         data = response.get_json()
         assert data['success'] is True
-        # Should return default avatar URL
-        assert 'profile_picture_url' in data
 
-    def test_get_profile_picture_binary(self, client, test_user, app, sample_image_data):
-        """Test serving profile picture as binary"""
-        with app.app_context():
-            user = db.session.get(User, test_user.id)
-            user.profile_picture = sample_image_data
-            user.profile_picture_filename = 'test.jpg'
-            user.profile_picture_mimetype = 'image/jpeg'
-            db.session.commit()
-
-            response = client.get(f'/user/{user.id}/profile_picture')
-
-            assert response.status_code == 200
-            assert response.content_type == 'image/jpeg'
-
-    def test_get_profile_picture_fallback_default(self, client, test_user, app):
-        """Test that missing profile picture redirects to default"""
+    def test_legacy_profile_picture_route_returns_410(self, client, test_user, app):
+        """Test that legacy blob-serving route returns 410 Gone"""
         with app.app_context():
             user = db.session.get(User, test_user.id)
             response = client.get(f'/user/{user.id}/profile_picture')
+            assert response.status_code == 410
 
-            # Should redirect to default avatar
-            assert response.status_code == 302
-
-    def test_upload_profile_picture_unauthenticated(self, client, sample_image_data):
+    def test_upload_profile_picture_unauthenticated(self, client):
         """Test upload without login returns 401"""
         response = client.put(
             '/api/profile/picture',
-            data={'profile_picture': (io.BytesIO(sample_image_data), 'test.jpg')},
-            content_type='multipart/form-data'
+            json={'gcsPath': 'images/profiles/1/abc_test.jpg'}
         )
 
         assert response.status_code == 401

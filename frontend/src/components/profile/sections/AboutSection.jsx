@@ -17,8 +17,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ProfileSection from './ProfileSection';
-import { EmptyState, IconButton, Alert, UnsavedChangesModal, ExpandableText } from '../../ui';
-import { EditIcon } from '../../icons';
+import { EmptyState, Alert, UnsavedChangesModal, ExpandableText } from '../../ui';
 import { useBeforeUnload, useClickOutside, useEscapeKey } from '../../../hooks';
 
 export default function AboutSection({
@@ -167,20 +166,9 @@ export default function AboutSection({
 
   const hasContent = aboutText && aboutText.trim().length > 0;
 
-  // Edit button - only shown on own profile when not editing
-  const editAction = isOwnProfile && !isEditing && (
-    <IconButton
-      icon={EditIcon}
-      onClick={handleStartEdit}
-      variant="ghost"
-      size="sm"
-      label="Edit about"
-    />
-  );
-
   return (
     <>
-      <ProfileSection title="About" action={editAction}>
+      <ProfileSection title="About">
         {/* Error message if save failed */}
         {error && (
           <Alert
@@ -193,27 +181,27 @@ export default function AboutSection({
           </Alert>
         )}
 
-        {isEditing ? (
-          // Edit mode - textarea auto-saves on Enter or click outside
+        {isOwnProfile ? (
           <div ref={containerRef}>
             <textarea
               ref={textareaRef}
-              value={editValue}
+              value={isEditing ? editValue : (aboutText || '')}
               onChange={(e) => setEditValue(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onKeyDown={isEditing ? handleKeyDown : undefined}
+              onFocus={!isEditing ? handleStartEdit : undefined}
+              readOnly={!isEditing}
               placeholder="Tell others about yourself..."
               rows={5}
-              className="w-full px-4 py-3 bg-muted border border-border rounded-lg
-                         focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
+              className={`w-full px-4 py-3 bg-background border border-border rounded-lg
                          text-foreground placeholder-muted-foreground text-sm leading-relaxed
-                         resize-none transition-all"
+                         resize-none transition-all cursor-text
+                         ${isEditing ? 'outline-none ring-2 ring-ring border-transparent' : 'focus:outline-none'}`}
             />
-            {/* Hint text for save behavior */}
-            <p className="text-xs text-muted-foreground mt-2">
-              Press <kbd className="px-1.5 py-0.5 bg-muted-foreground/10 rounded text-[10px] font-mono">Enter</kbd> to save
-              {' · '}
-              <kbd className="px-1.5 py-0.5 bg-muted-foreground/10 rounded text-[10px] font-mono">Esc</kbd> to cancel
-            </p>
+            {isEditing && (
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Press <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Enter</kbd> to save · <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Esc</kbd> to cancel · <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Shift+Enter</kbd> for new line
+              </p>
+            )}
           </div>
         ) : hasContent ? (
           <ExpandableText
@@ -222,14 +210,9 @@ export default function AboutSection({
             className="text-sm text-foreground/70 leading-relaxed"
           />
         ) : (
-          // Empty state
           <EmptyState
-            title={isOwnProfile ? 'Share your story' : 'No bio yet'}
-            description={
-              isOwnProfile
-                ? 'Tell others about yourself and your AI journey'
-                : 'This user hasn\'t added a bio yet.'
-            }
+            title="No bio yet"
+            description="This user hasn't added a bio yet."
             className="py-8"
           />
         )}

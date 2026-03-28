@@ -13,24 +13,20 @@ RESTful Endpoints:
 - GET /api/profile - Get current user profile
 - PATCH /api/profile - Update current user profile
 - GET /api/profile/stats - Get current user statistics
-- PUT /api/profile/picture - Upload/update profile picture
-- PUT /api/profile/banner - Upload/update banner image
+- PUT /api/profile/picture - Confirm profile picture upload (GCS path)
+- DELETE /api/profile/picture - Delete profile picture
+- PUT /api/profile/banner - Confirm banner upload (GCS path)
+- DELETE /api/profile/banner - Delete banner image
 - DELETE /api/account - Delete user account
 - GET /api/users/<id> - Get user profile by ID
-- GET /user/<id>/profile_picture - Serve profile picture from database
-- GET /user/<id>/banner - Serve banner image from database
 """
 
-from flask import Blueprint, request, jsonify, send_file, redirect, Response, current_app
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user, logout_user
 from datetime import datetime
-import base64
-import hashlib
-import io
 from sqlalchemy.orm import joinedload
 from backend.extensions import db
 from backend.models import User, Note, NoteComment, Message, University, UserFollows, UserLikedUniversity, UniversityRole
-from backend.utils.image import allowed_file, compress_image, compress_banner_image
 from backend.utils.time import format_full_date, format_join_date, to_iso
 from backend.utils.validation import validate_social_links
 profile_bp = Blueprint('profile', __name__)
@@ -80,36 +76,8 @@ def handle_unauthorized():
 
 @profile_bp.route('/user/<int:user_id>/profile_picture')
 def get_profile_picture(user_id):
-    """
-    Serve profile picture from database.
-
-    Returns the user's uploaded profile picture as binary image data.
-    Falls back to a default avatar URL if no picture is set.
-
-    Args:
-        user_id: ID of the user whose picture to serve
-
-    Returns:
-        Binary image data with appropriate MIME type, or redirect to default
-    """
-    user = User.query.get(user_id)
-    if not user or not user.profile_picture:
-        # Return default avatar
-        return redirect('https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face')
-
-    etag = hashlib.md5(user.profile_picture).hexdigest()
-    if_none_match = request.headers.get('If-None-Match')
-    if if_none_match and if_none_match.strip('"') == etag:
-        return Response(status=304, headers={'ETag': f'"{etag}"'})
-
-    return Response(
-        user.profile_picture,
-        mimetype=user.profile_picture_mimetype or 'image/jpeg',
-        headers={
-            'Cache-Control': 'public, max-age=2592000',
-            'ETag': f'"{etag}"',
-        }
-    )
+    """Legacy route — profile pictures are now served via GCS signed URLs."""
+    return jsonify({'error': 'Use profile_picture_url from API responses'}), 410
 
 
 # =============================================================================
@@ -137,6 +105,7 @@ def update_profile():
 
     Allows updating:
     - first_name, last_name: User's name
+    - headline: Short professional headline
     - about_section: Bio/about text
     - location: Geographic location
     - avatar_url: Fallback avatar URL
@@ -168,6 +137,8 @@ def update_profile():
             current_user.first_name = data['first_name'].strip() or None
         if 'last_name' in data:
             current_user.last_name = data['last_name'].strip() or None
+        if 'headline' in data:
+            current_user.headline = data['headline'].strip() or None
         if 'about_section' in data:
             current_user.about_section = data['about_section'].strip() or None
         if 'location' in data:
@@ -249,53 +220,39 @@ def get_profile_stats():
 @login_required
 def upload_profile_picture():
     """
-    Upload or update profile picture.
+    Confirm profile picture upload after frontend uploaded to GCS.
 
-    Accepts either:
-    - File upload via 'profile_picture' form field
-    - Base64 encoded image via 'camera_image' form field
-
-    Images are automatically compressed to reduce storage size.
+    Request Body:
+        {
+            "gcsPath": "images/profiles/42/abc_photo.jpg",
+            "filename": "photo.jpg",
+            "contentType": "image/jpeg",
+            "sizeBytes": 12345
+        }
 
     Returns:
         JSON object with success status and new profile picture URL
     """
+    from backend.services.storage import delete_file
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Request body required'}), 400
+
+    gcs_path = data.get('gcsPath')
+    if not gcs_path:
+        return jsonify({'success': False, 'error': 'gcsPath is required'}), 400
+
     try:
-        image_data = None
-        filename = None
-        mimetype = None
-
-        # Handle file upload
-        if 'profile_picture' in request.files:
-            file = request.files['profile_picture']
-            if file and file.filename != '' and allowed_file(file.filename):
-                filename = file.filename
-                mimetype = file.content_type
-                image_data = file.read()
-
-        # Handle base64 camera capture
-        elif 'camera_image' in request.form:
-            camera_data = request.form['camera_image']
-            if camera_data.startswith('data:image/'):
-                # Remove data URL prefix
-                header, data = camera_data.split(',', 1)
-                image_data = base64.b64decode(data)
-                # Extract MIME type from header
-                mimetype = header.split(';')[0].split(':')[1]
-                filename = f"camera_capture_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.jpg"
-
-        if not image_data:
-            return jsonify({
-                'success': False,
-                'error': 'No image data received'
-            }), 400
-
-        # Compress image to reduce storage size
-        compressed_data = compress_image(image_data)
-
-        # Set profile picture
-        current_user.set_profile_picture(compressed_data, filename, 'image/jpeg')
+        old_gcs_path = current_user.profile_picture_gcs_path
+        current_user.set_profile_picture_gcs(gcs_path)
         db.session.commit()
+
+        if old_gcs_path:
+            try:
+                delete_file(old_gcs_path)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete old profile picture from GCS: {e}")
 
         return jsonify({
             'success': True,
@@ -303,17 +260,9 @@ def upload_profile_picture():
             'profile_picture_url': current_user.get_profile_picture_url()
         })
 
-    except ValueError as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 400
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({
-            'success': False,
-            'error': 'Error uploading profile picture'
-        }), 500
+        return jsonify({'success': False, 'error': 'Error uploading profile picture'}), 500
 
 
 # RESTful: DELETE to resource deletes it
@@ -329,15 +278,23 @@ def delete_profile_picture():
         JSON object with success status and default profile picture URL
     """
     try:
-        current_user.delete_profile_picture()
+        from backend.services.storage import delete_file
+
+        old_gcs_path = current_user.delete_profile_picture_gcs()
         db.session.commit()
+
+        if old_gcs_path:
+            try:
+                delete_file(old_gcs_path)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete profile picture from GCS: {e}")
 
         return jsonify({
             'success': True,
             'message': 'Profile picture removed successfully',
             'profile_picture_url': current_user.get_profile_picture_url()
         })
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         return jsonify({
             'success': False,
@@ -351,79 +308,44 @@ def delete_profile_picture():
 
 @profile_bp.route('/user/<int:user_id>/banner')
 def get_banner_image(user_id):
-    """
-    Serve banner image from database.
-
-    Returns the user's uploaded banner image as binary image data.
-    Returns 404 if no banner is set (frontend handles fallback).
-
-    Args:
-        user_id: ID of the user whose banner to serve
-
-    Returns:
-        Binary image data with appropriate MIME type, or 404
-    """
-    user = User.query.get(user_id)
-    if not user or not user.banner_image:
-        return jsonify({'error': 'No banner image'}), 404
-
-    etag = hashlib.md5(user.banner_image).hexdigest()
-    if_none_match = request.headers.get('If-None-Match')
-    if if_none_match and if_none_match.strip('"') == etag:
-        return Response(status=304, headers={'ETag': f'"{etag}"'})
-
-    return Response(
-        user.banner_image,
-        mimetype=user.banner_image_mimetype or 'image/jpeg',
-        headers={
-            'Cache-Control': 'public, max-age=2592000',
-            'ETag': f'"{etag}"',
-        }
-    )
+    """Legacy route — banners are now served via GCS signed URLs."""
+    return jsonify({'error': 'Use banner_image_url from API responses'}), 410
 
 
 @profile_bp.route('/api/profile/banner', methods=['PUT'])
 @login_required
 def upload_banner_image():
     """
-    Upload or update banner image.
+    Confirm banner upload after frontend uploaded to GCS.
 
-    Accepts file upload via 'banner' form field.
-    Images are automatically center-cropped to 5:1 aspect ratio
-    and compressed to 1500x300.
-
-    Returns:
-        JSON object with success status and new banner image URL
+    Request Body:
+        {
+            "gcsPath": "images/banners/42/abc_banner.jpg",
+            "filename": "banner.jpg",
+            "contentType": "image/jpeg",
+            "sizeBytes": 12345
+        }
     """
+    from backend.services.storage import delete_file
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Request body required'}), 400
+
+    gcs_path = data.get('gcsPath')
+    if not gcs_path:
+        return jsonify({'success': False, 'error': 'gcsPath is required'}), 400
+
     try:
-        if 'banner' not in request.files:
-            return jsonify({
-                'success': False,
-                'error': 'No banner file provided'
-            }), 400
-
-        file = request.files['banner']
-        if not file or file.filename == '':
-            return jsonify({
-                'success': False,
-                'error': 'No file selected'
-            }), 400
-
-        if not allowed_file(file.filename):
-            return jsonify({
-                'success': False,
-                'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp'
-            }), 400
-
-        # Read file data
-        image_data = file.read()
-
-        # Compress and crop to banner dimensions (1500x300, 5:1 ratio)
-        compressed_data = compress_banner_image(image_data)
-
-        # Set banner image
-        current_user.set_banner_image(compressed_data, file.filename, 'image/jpeg')
+        old_gcs_path = current_user.banner_image_gcs_path
+        current_user.set_banner_image_gcs(gcs_path)
         db.session.commit()
+
+        if old_gcs_path:
+            try:
+                delete_file(old_gcs_path)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete old banner from GCS: {e}")
 
         return jsonify({
             'success': True,
@@ -432,16 +354,37 @@ def upload_banner_image():
             'hasBanner': True
         })
 
-    except ValueError as e:
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Error uploading banner image'}), 500
+
+
+@profile_bp.route('/api/profile/banner', methods=['DELETE'])
+@login_required
+def delete_banner_image():
+    """Delete current banner image, reverting to the default."""
+    try:
+        from backend.services.storage import delete_file
+
+        old_gcs_path = current_user.delete_banner_image_gcs()
+        db.session.commit()
+
+        if old_gcs_path:
+            try:
+                delete_file(old_gcs_path)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete banner from GCS: {e}")
+
         return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 400
-    except Exception as e:
+            'success': True,
+            'message': 'Banner image removed successfully',
+            'hasBanner': False,
+        })
+    except Exception:
         db.session.rollback()
         return jsonify({
             'success': False,
-            'error': 'Error uploading banner image'
+            'error': 'Error deleting banner image'
         }), 500
 
 
@@ -552,6 +495,29 @@ def delete_account():
     user_id = current_user.id
 
     try:
+        # 0. Clean up GCS images before deleting user
+        from backend.services.storage import delete_file, delete_user_uploads, delete_user_images
+
+        user_to_clean = User.query.get(user_id)
+        paths_to_delete = [
+            user_to_clean.profile_picture_gcs_path,
+            user_to_clean.banner_image_gcs_path,
+        ]
+        for path in paths_to_delete:
+            if path:
+                try:
+                    delete_file(path)
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to delete user image from GCS: {e}")
+        try:
+            delete_user_uploads(user_id)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to delete user uploads from GCS: {e}")
+        try:
+            delete_user_images(user_id)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to delete user images from GCS: {e}")
+
         # 1. Delete all notes created by the user
         Note.query.filter_by(author_id=user_id).delete()
 

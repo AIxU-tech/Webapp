@@ -19,7 +19,7 @@ export default function ResearchSection({ publications = [], isOwnProfile, onAdd
     <SecondaryButton
       variant="outline"
       onClick={onAdd}
-      icon={<PlusIcon className="h-4 w-4" />}
+      icon={<PlusIcon size="sm" />}
       size="sm"
     >
       Add
@@ -55,7 +55,7 @@ export default function ResearchSection({ publications = [], isOwnProfile, onAdd
             <SecondaryButton
               variant="outline"
               onClick={onAdd}
-              icon={<PlusIcon className="h-4 w-4" />}
+              icon={<PlusIcon size="sm" />}
               size="sm"
             >
               Add publication

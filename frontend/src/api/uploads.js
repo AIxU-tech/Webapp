@@ -37,6 +37,15 @@ export async function requestUploadUrl({ filename, contentType, sizeBytes }) {
  * @param {File[]} files - Array of File objects to upload
  * @returns {Promise<Object>} Response with uploads array containing uploadUrl, gcsPath, expiresIn for each file
  */
+/**
+ * Request a signed URL for uploading an image to GCS with correct path prefix.
+ */
+export async function requestImageUploadUrl({ imageType, entityId, filename, contentType, sizeBytes }) {
+  return api.post('/uploads/request-image-url', {
+    imageType, entityId, filename, contentType, sizeBytes,
+  });
+}
+
 export async function requestUploadUrls(files) {
   return api.post('/uploads/request-urls', {
     files: files.map((file) => ({

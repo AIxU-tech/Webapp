@@ -18,6 +18,9 @@ import { STALE_TIMES, GC_TIMES } from '../config/cache';
 import {
   getUser,
   updateProfile,
+  uploadProfilePicture,
+  uploadProfileBanner,
+  deleteProfileBanner,
   createEducation,
   updateEducation,
   deleteEducation,
@@ -68,6 +71,51 @@ export const userKeys = {
  *   return <ProfileDisplay user={user} />;
  * }
  */
+/**
+ * Map a university member object to the user profile schema so it can
+ * safely serve as placeholderData while the full profile fetches.
+ *
+ * Member schema (from GET /api/universities/:id):
+ *   {id, name, email, avatar, about, location, skills, postCount, role, roleName, eventsAttendedCount}
+ *
+ * Profile schema (from GET /api/users/:id):
+ *   {id, full_name, first_name, last_name, email, profile_picture_url, about_section, location, skills, ...}
+ */
+function memberToUserPlaceholder(member) {
+  if (!member) return undefined;
+
+  const nameParts = (member.name || '').trim().split(/\s+/);
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+  return {
+    id: member.id,
+    email: member.email,
+    first_name: firstName,
+    last_name: lastName,
+    full_name: member.name || '',
+    profile_picture_url: member.avatar || null,
+    about_section: member.about || '',
+    location: member.location || '',
+    skills: member.skills || [],
+    post_count: member.postCount || 0,
+    // Fields unavailable from member data — safe defaults
+    university: undefined,
+    headline: undefined,
+    hasBanner: false,
+    hasResume: false,
+    socialLinks: [],
+    education: [],
+    experience: [],
+    projects: [],
+    recent_activity: [],
+    follower_count: 0,
+    following_count: 0,
+    permissionLevel: 0,
+    isExecutiveAnywhere: false,
+  };
+}
+
 export function useUser(userId) {
   const queryClient = useQueryClient();
 
@@ -82,7 +130,7 @@ export function useUser(userId) {
     staleTime: STALE_TIMES.USERS,
     gcTime: GC_TIMES.USERS,
 
-    // Seed from university member lists in cache
+    // Seed from university member lists in cache (mapped to profile schema)
     placeholderData: () => {
       const uniQueries = queryClient.getQueriesData({
         queryKey: ['universities', 'detail'],
@@ -90,7 +138,7 @@ export function useUser(userId) {
       for (const [, data] of uniQueries) {
         if (!data?.members) continue;
         const match = data.members.find((m) => String(m.id) === String(userId));
-        if (match) return match;
+        if (match) return memberToUserPlaceholder(match);
       }
       return undefined;
     },
@@ -131,15 +179,28 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: updateProfile,
 
-    onSuccess: (data) => {
-      // Invalidate user queries to refetch updated data
-      queryClient.invalidateQueries({ queryKey: userKeys.all });
+    onMutate: async (updates) => {
+      const previousQueries = await _snapshotUserQueries(queryClient);
+      // Merge partial updates into all cached user objects
+      queryClient.setQueriesData({ queryKey: userKeys.all }, (old) => {
+        if (old && typeof old === 'object' && !Array.isArray(old) && old.id) {
+          return { ...old, ...updates };
+        }
+        return old;
+      });
+      return { previousQueries };
+    },
 
+    onError: (_err, _vars, ctx) => _rollback(queryClient, ctx?.previousQueries),
+
+    onSuccess: (data) => {
       // If we have the user ID in the response, update that specific cache
       if (data?.user?.id) {
         queryClient.setQueryData(userKeys.detail(data.user.id), data.user);
       }
     },
+
+    onSettled: () => queryClient.invalidateQueries({ queryKey: userKeys.all }),
   });
 }
 
@@ -154,28 +215,29 @@ export function useUploadProfilePicture() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (file) => {
-      const formData = new FormData();
-      // Provide a filename for the blob - backend requires valid extension
-      const filename = file.name || 'profile_picture.jpg';
-      formData.append('profile_picture', file, filename);
+    mutationFn: (data) => uploadProfilePicture(data),
 
-      const response = await fetch('/api/profile/picture', {
-        method: 'PUT',
-        credentials: 'include',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to upload picture');
-      }
-
-      return response.json();
+    onMutate: async () => {
+      const previousQueries = await _snapshotUserQueries(queryClient);
+      return { previousQueries };
     },
 
-    onSuccess: () => {
-      // Invalidate user queries to refetch with new picture
+    onError: (_err, _vars, ctx) => {
+      _rollback(queryClient, ctx?.previousQueries);
+    },
+
+    onSuccess: (data) => {
+      if (data?.profile_picture_url) {
+        queryClient.setQueriesData({ queryKey: userKeys.all }, (oldData) => {
+          if (oldData && typeof oldData === 'object' && !Array.isArray(oldData) && oldData.id) {
+            return { ...oldData, profile_picture_url: data.profile_picture_url };
+          }
+          return oldData;
+        });
+      }
+    },
+
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
   });
@@ -231,31 +293,25 @@ export function useUploadProfileBanner() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (file) => {
-      const formData = new FormData();
-      const filename = file.name || 'banner.jpg';
-      formData.append('banner', file, filename);
+    mutationFn: (data) => uploadProfileBanner(data),
 
-      const response = await fetch('/api/profile/banner', {
-        method: 'PUT',
-        credentials: 'include',
-        body: formData,
+    onMutate: async () => {
+      const previousQueries = await _snapshotUserQueries(queryClient);
+      queryClient.setQueriesData({ queryKey: userKeys.all }, (oldData) => {
+        if (oldData && typeof oldData === 'object' && !Array.isArray(oldData) && oldData.id) {
+          return { ...oldData, hasBanner: true };
+        }
+        return oldData;
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to upload banner');
-      }
-
-      return response.json();
+      return { previousQueries };
     },
 
-    // Update cache with new banner URL immediately on success (prevents flash)
+    onError: (_err, _vars, ctx) => _rollback(queryClient, ctx?.previousQueries),
+
     onSuccess: (data) => {
       if (data?.banner_image_url) {
-        // Update all user detail queries that might have this user
         queryClient.setQueriesData({ queryKey: userKeys.all }, (oldData) => {
-          if (oldData && typeof oldData === 'object') {
+          if (oldData && typeof oldData === 'object' && !Array.isArray(oldData) && oldData.id) {
             return {
               ...oldData,
               banner_image_url: data.banner_image_url,
@@ -265,7 +321,41 @@ export function useUploadProfileBanner() {
           return oldData;
         });
       }
-      // Then invalidate to ensure full consistency
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
+    },
+  });
+}
+
+/**
+ * useDeleteProfileBanner Hook
+ *
+ * Mutation hook for deleting profile banner.
+ *
+ * @returns {object} React Query mutation result
+ */
+export function useDeleteProfileBanner() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteProfileBanner,
+
+    onMutate: async () => {
+      const previousQueries = await _snapshotUserQueries(queryClient);
+      queryClient.setQueriesData({ queryKey: userKeys.all }, (oldData) => {
+        if (oldData && typeof oldData === 'object' && !Array.isArray(oldData) && oldData.id) {
+          return { ...oldData, hasBanner: false, banner_image_url: null };
+        }
+        return oldData;
+      });
+      return { previousQueries };
+    },
+
+    onError: (_err, _vars, ctx) => _rollback(queryClient, ctx?.previousQueries),
+
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
   });

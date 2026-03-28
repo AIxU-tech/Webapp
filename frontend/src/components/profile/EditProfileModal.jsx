@@ -10,10 +10,9 @@
  * @param {boolean} isOpen - Whether the modal is open
  * @param {Function} onClose - Callback to close the modal
  * @param {Object} updateProfileMutation - React Query mutation for updating profile
- * @param {Object} uploadPictureMutation - React Query mutation for uploading profile picture
  * @param {Function} onSave - Callback called when save succeeds, receives (response) => void
- * @param {Function} onUploadPicture - Callback for profile picture upload
- * @param {Function} onPictureError - Callback for profile picture upload errors
+ * @param {Function} onUploadPicture - Callback for profile picture upload (called on save with blob)
+ * @param {Function} onPictureError - Callback for profile picture validation errors
  *
  * @example
  * <EditProfileModal
@@ -21,7 +20,6 @@
  *   isOpen={showEditModal}
  *   onClose={() => setShowEditModal(false)}
  *   updateProfileMutation={updateProfileMutation}
- *   uploadPictureMutation={uploadPictureMutation}
  *   onSave={(response) => {
  *     // Update AuthContext
  *     setCurrentUser({ ...currentUser, ...response.user });
@@ -32,14 +30,11 @@
  * />
  */
 
-import { useEffect } from 'react';
-import { useForm } from '../../hooks';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useForm, useImageUpload } from '../../hooks';
 
 // UI Components
-import { BaseModal, Alert, GradientButton, SecondaryButton, FormInput, SocialLinksInput } from '../ui';
-
-// Profile Components
-import { ProfilePictureSection } from './';
+import { BaseModal, Alert, GradientButton, SecondaryButton, ResetButton, FormInput, SocialLinksInput, ImageUploadZone, Avatar } from '../ui';
 
 /**
  * Get initial form values from user object
@@ -47,6 +42,7 @@ import { ProfilePictureSection } from './';
 const getInitialFormValues = (userData) => ({
   first_name: userData?.first_name || '',
   last_name: userData?.last_name || '',
+  headline: userData?.headline || '',
   location: userData?.location || '',
   socialLinks: userData?.socialLinks || [],
 });
@@ -56,11 +52,36 @@ export default function EditProfileModal({
   isOpen,
   onClose,
   updateProfileMutation,
-  uploadPictureMutation,
   onSave,
   onUploadPicture,
+  onDeletePicture,
   onPictureError,
 }) {
+  const { upload: uploadImage, isUploading: isUploadingImage } = useImageUpload();
+  const [pendingImageData, setPendingImageData] = useState(null);
+  const [picturePreviewUrl, setPicturePreviewUrl] = useState(null);
+  const previewUrlRef = useRef(null);
+
+  const handleFileSelect = useCallback(async (blob) => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    const url = URL.createObjectURL(blob);
+    previewUrlRef.current = url;
+    setPicturePreviewUrl(url);
+    try {
+      const data = await uploadImage('profile', blob);
+      setPendingImageData(data);
+    } catch {
+      setPicturePreviewUrl(null);
+    }
+  }, [uploadImage]);
+
+  const clearPendingPicture = useCallback(() => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = null;
+    setPendingImageData(null);
+    setPicturePreviewUrl(null);
+  }, []);
+
   const {
     formData,
     setFormData,
@@ -72,6 +93,11 @@ export default function EditProfileModal({
   } = useForm({
     initialValues: getInitialFormValues(user),
     onSubmit: async (data) => {
+      // Upload pending picture if one was selected
+      if (pendingImageData) {
+        await onUploadPicture(pendingImageData);
+        clearPendingPicture();
+      }
       const response = await updateProfileMutation.mutateAsync(data);
       // Call onSave callback to update AuthContext and show feedback
       onSave?.(response);
@@ -89,23 +115,32 @@ export default function EditProfileModal({
     }
   }, [isOpen, user, setFormData, setInitialValues]);
 
-  // Reset form on close - now safe because reset is stable (empty deps)
+  // Reset form and pending picture on close
   useEffect(() => {
     if (!isOpen) {
       reset();
+      clearPendingPicture();
     }
-  }, [isOpen, reset]);
+  }, [isOpen, reset, clearPendingPicture]);
 
   return (
     <BaseModal isOpen={isOpen} onClose={onClose} title="Edit Profile" size="2xl">
       <div className="p-6">
         {/* Profile Picture Section */}
-        <ProfilePictureSection
-          user={user}
-          onUpload={onUploadPicture}
+        <ImageUploadZone
+          preview={<Avatar user={user} src={picturePreviewUrl} size="xl" />}
+          onFileSelect={handleFileSelect}
           onError={onPictureError}
-          isUploading={uploadPictureMutation?.isPending}
         />
+
+        {/* Reset profile picture button */}
+        {user?.profile_picture_url && onDeletePicture && (
+          <div className="-mt-4 mb-2">
+            <ResetButton onClick={onDeletePicture} title="Reset to default avatar">
+              Reset Photo
+            </ResetButton>
+          </div>
+        )}
 
         {/* Profile Form */}
         <form onSubmit={handleFormSubmit} className="space-y-4 mt-6">
@@ -140,6 +175,19 @@ export default function EditProfileModal({
                 placeholder="Last name"
               />
             </div>
+          </div>
+
+          {/* Headline */}
+          <div>
+            <label className="block text-sm text-muted-foreground mb-1">
+              Headline
+            </label>
+            <FormInput
+              name="headline"
+              value={formData.headline || ''}
+              onChange={handleChange}
+              placeholder="e.g. CS Student at UCLA"
+            />
           </div>
 
           {/* Location */}

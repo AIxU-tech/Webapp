@@ -32,7 +32,8 @@ import json
 import logging
 
 from flask import url_for
-from sqlalchemy import func
+from sqlalchemy import case, func
+from sqlalchemy.exc import IntegrityError
 
 from backend.extensions import db
 from backend.constants import UniversityRoles
@@ -56,9 +57,6 @@ class University(db.Model):
         description: Description of the AI club
         tags: JSON array of topic tags
         website_url: Club website URL
-        logo: Binary logo image data
-        logo_filename: Original filename of the logo
-        logo_mimetype: MIME type of the logo image
         admin_id: User ID of the university admin
 
     Member Management:
@@ -91,12 +89,15 @@ class University(db.Model):
     # Supported types: linkedin, twitter, instagram, github, discord, youtube, website
     social_links = db.Column(db.Text, nullable=True)
 
-    # Logo image storage (similar to User profile_picture)
+    # Image storage (GCS)
+    logo_gcs_path = db.Column(db.String(500), nullable=True)
+    banner_gcs_path = db.Column(db.String(500), nullable=True)
+
+    # Legacy blob columns — still in the DB until migrate_images_to_gcs.py has run
+    # and the drop_legacy_blob_image_columns migration is applied.
     logo = db.Column(db.LargeBinary, nullable=True)
     logo_filename = db.Column(db.String(255), nullable=True)
     logo_mimetype = db.Column(db.String(100), nullable=True)
-
-    # Banner image storage
     banner = db.Column(db.LargeBinary, nullable=True)
     banner_filename = db.Column(db.String(255), nullable=True)
     banner_mimetype = db.Column(db.String(100), nullable=True)
@@ -170,21 +171,35 @@ class University(db.Model):
         if role is None:
             role = UniversityRoles.MEMBER
 
-        # Check if already a member
-        existing = UniversityRole.get_role(user_id, self.id)
-        if existing:
-            return False  # Already a member
+        # Fast path: avoid insert if we can see the role already exists.
+        # Note: this check alone is not race-proof under concurrency; we still
+        # handle unique constraint failures below.
+        if UniversityRole.get_role(user_id, self.id):
+            return False
 
-        # Create new role record
-        new_role = UniversityRole(
-            user_id=user_id,
-            university_id=self.id,
-            role=role
+        new_role = UniversityRole(user_id=user_id, university_id=self.id, role=role)
+
+        # Insert the role. If the UNIQUE constraint on (user_id, university_id)
+        # is hit, the insert will fail and we will not increment the counter.
+        try:
+            with db.session.begin_nested():
+                db.session.add(new_role)
+                db.session.flush()  # triggers UNIQUE constraint
+        except IntegrityError:
+            # Extremely rare: the membership row already exists concurrently.
+            # The SAVEPOINT is rolled back; the outer transaction stays intact.
+            return False
+
+        # Atomic counter increment avoids "lost updates" when multiple requests
+        # add members concurrently.
+        db.session.query(University).filter(University.id == self.id).update(
+            {
+                University.member_count: func.coalesce(University.member_count, 0) + 1,
+            },
+            synchronize_session=False,
         )
-        db.session.add(new_role)
-
-        # Update cached member count
-        self.member_count = (self.member_count or 0) + 1
+        db.session.flush()
+        db.session.refresh(self)
 
         return True
 
@@ -203,15 +218,29 @@ class University(db.Model):
         """
         from backend.models.university_role import UniversityRole
 
-        existing = UniversityRole.get_role(user_id, self.id)
-        if not existing:
-            return False  # Not a member
+        # Bulk delete gives us the affected row count, which is race-safe:
+        # if another request removed it first, `deleted` will be 0.
+        deleted = UniversityRole.query.filter_by(user_id=user_id, university_id=self.id).delete(
+            synchronize_session=False
+        )
+        if not deleted:
+            return False
 
-        db.session.delete(existing)
-
-        # Update cached member count
-        if self.member_count and self.member_count > 0:
-            self.member_count -= 1
+        # Atomic decrement avoids "lost updates" with concurrent add/remove.
+        db.session.query(University).filter(University.id == self.id).update(
+            {
+                University.member_count: case(
+                    (
+                        func.coalesce(University.member_count, 0) > 0,
+                        func.coalesce(University.member_count, 0) - 1,
+                    ),
+                    else_=0,
+                ),
+            },
+            synchronize_session=False,
+        )
+        db.session.flush()
+        db.session.refresh(self)
 
         return True
 
@@ -303,11 +332,43 @@ class University(db.Model):
     # Banner Methods
     # -------------------------------------------------------------------------
 
+    def get_logo_url(self):
+        """Return logo image URL or None."""
+        if self.logo_gcs_path:
+            from backend.services.storage import get_public_image_url
+            return get_public_image_url(self.logo_gcs_path)
+        return None
+
     def get_banner_url(self):
         """Return banner image URL or None (frontend handles fallback)."""
-        if self.banner:
-            return url_for('universities.get_university_banner', university_id=self.id)
+        if self.banner_gcs_path:
+            from backend.services.storage import get_public_image_url
+            return get_public_image_url(self.banner_gcs_path)
         return None
+
+    # -------------------------------------------------------------------------
+    # GCS Image Methods
+    # -------------------------------------------------------------------------
+
+    def set_logo_gcs(self, gcs_path: str):
+        """Set logo to a GCS path."""
+        self.logo_gcs_path = gcs_path
+
+    def delete_logo_gcs(self):
+        """Remove logo GCS reference. Caller must delete from GCS separately."""
+        old_path = self.logo_gcs_path
+        self.logo_gcs_path = None
+        return old_path
+
+    def set_banner_gcs(self, gcs_path: str):
+        """Set banner to a GCS path."""
+        self.banner_gcs_path = gcs_path
+
+    def delete_banner_gcs(self):
+        """Remove banner GCS reference. Caller must delete from GCS separately."""
+        old_path = self.banner_gcs_path
+        self.banner_gcs_path = None
+        return old_path
 
     def to_dict(self):
         """Serialize university to dictionary for API responses."""
@@ -321,8 +382,9 @@ class University(db.Model):
             'adminId': self.admin_id,
             'websiteUrl': self.website_url,
             'socialLinks': self.get_social_links_list(),
-            'hasLogo': self.logo is not None,
-            'hasBanner': self.banner is not None,
+            'hasLogo': self.logo_gcs_path is not None,
+            'logoUrl': self.get_logo_url(),
+            'hasBanner': self.banner_gcs_path is not None,
             'bannerUrl': self.get_banner_url(),
         }
 

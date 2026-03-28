@@ -65,6 +65,7 @@ export function Avatar({ user, src, name, size = 'md', className = '', alt }) {
           alt={altText}
           className="w-full h-full object-cover"
           onError={() => setImgError(true)}
+          loading="lazy"
         />
       ) : (
         <span>{initials}</span>

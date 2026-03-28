@@ -16,7 +16,6 @@ from backend.extensions import db
 from backend.models import Resume
 from backend.constants import ALLOWED_RESUME_TYPES, MAX_RESUME_SIZE_BYTES
 from backend.services.storage import (
-    is_gcs_configured,
     generate_download_url,
     delete_file,
 )
@@ -82,18 +81,17 @@ def confirm_resume_upload():
         db.session.commit()
 
         # Delete old GCS file only after successful commit
-        if old_gcs_path and is_gcs_configured():
+        if old_gcs_path:
             try:
                 delete_file(old_gcs_path)
             except Exception:
                 pass  # Orphaned file is better than data loss
 
         download_url = None
-        if is_gcs_configured():
-            try:
-                download_url = generate_download_url(resume.gcs_path)
-            except Exception:
-                pass
+        try:
+            download_url = generate_download_url(resume.gcs_path)
+        except Exception:
+            pass
 
         return jsonify({
             'success': True,
@@ -118,11 +116,10 @@ def get_user_resume(user_id):
         return jsonify({'success': True, 'resume': None})
 
     download_url = None
-    if is_gcs_configured():
-        try:
-            download_url = generate_download_url(resume.gcs_path)
-        except Exception:
-            pass
+    try:
+        download_url = generate_download_url(resume.gcs_path)
+    except Exception:
+        pass
 
     return jsonify({
         'success': True,
@@ -144,11 +141,10 @@ def delete_resume():
         db.session.commit()
 
         # Delete GCS file only after successful commit
-        if is_gcs_configured():
-            try:
-                delete_file(gcs_path)
-            except Exception:
-                pass  # Orphaned file is better than data loss
+        try:
+            delete_file(gcs_path)
+        except Exception:
+            pass  # Orphaned file is better than data loss
 
         return jsonify({'success': True, 'message': 'Resume deleted'})
 

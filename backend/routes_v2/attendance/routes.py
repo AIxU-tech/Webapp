@@ -117,7 +117,8 @@ def get_event_by_token(token):
             'location': event.location,
             'universityName': university.name if university else None,
             'universityId': university.id if university else None,
-            'universityHasLogo': bool(university.logo) if university else False,
+            'universityHasLogo': bool(university.logo_gcs_path) if university else False,
+            'universityLogoUrl': university.get_logo_url() if university else None,
             'isPast': _is_event_past(event),
         }
     }
@@ -196,6 +197,17 @@ def submit_attendance(token):
         if existing:
             return jsonify({'success': True, 'alreadyCheckedIn': True, 'eventId': event.id}), 200
         return jsonify({'error': 'Failed to record attendance'}), 500
+
+    # Increment events_attended_count atomically if user is a member of this university
+    if user_id:
+        db.session.query(UniversityRole).filter_by(
+            user_id=user_id,
+            university_id=event.university_id,
+        ).update(
+            {UniversityRole.events_attended_count: UniversityRole.events_attended_count + 1},
+            synchronize_session=False,
+        )
+        db.session.commit()
 
     return jsonify({
         'success': True,

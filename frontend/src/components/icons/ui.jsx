@@ -3,119 +3,128 @@
  * Basic interface icons for common actions and elements.
  */
 
-export const XIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+import { ICON_SIZES } from './sizes';
+
+export const XIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
   </svg>
 );
 
-export const SearchIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const SearchIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
   </svg>
 );
 
-export const PlusIcon = ({ className = 'h-4 w-4' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const PlusIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
   </svg>
 );
 
-export const CheckIcon = ({ className = 'h-4 w-4' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const CheckIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
   </svg>
 );
 
-export const CopyIcon = ({ className = 'h-4 w-4' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const CopyIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
   </svg>
 );
 
-export const EditIcon = ({ className = 'h-4 w-4' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const EditIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
   </svg>
 );
 
-export const PencilIcon = ({ className = 'h-4 w-4' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const PencilIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
   </svg>
 );
 
-export const TrashIcon = ({ className = 'h-4 w-4' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const TrashIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
   </svg>
 );
 
-export const ClockIcon = ({ className = 'h-4 w-4' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const ClockIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
 );
 
-export const RefreshIcon = ({ className = 'h-5 w-5', spinning = false }) => (
-  <svg className={`${className} ${spinning ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const ResetIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+  </svg>
+);
+
+export const RefreshIcon = ({ size = 'md', className, spinning = false }) => (
+  <svg className={`${className || ICON_SIZES[size]} ${spinning ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
   </svg>
 );
 
-export const ExternalLinkIcon = ({ className = 'h-4 w-4' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const ExternalLinkIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
   </svg>
 );
 
-export const ArrowLeftIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const ArrowLeftIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
   </svg>
 );
 
-export const UsersIcon = ({ className = 'h-6 w-6' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const UsersIcon = ({ size = 'lg', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
   </svg>
 );
 
-export const GlobeIcon = ({ className = 'h-6 w-6' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const GlobeIcon = ({ size = 'lg', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
 );
 
-export const BuildingIcon = ({ className = 'h-6 w-6' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const BuildingIcon = ({ size = 'lg', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
   </svg>
 );
 
-export const MapPinIcon = ({ className = 'h-4 w-4' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const MapPinIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
 
-export const CalendarIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const CalendarIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
   </svg>
 );
 
-export const CalendarPlusIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const CalendarPlusIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11v6m-3-3h6" />
   </svg>
 );
 
-export const ChevronDownIcon = ({ className = 'h-5 w-5', expanded = false }) => (
+export const ChevronDownIcon = ({ size = 'md', className, expanded = false }) => (
   <svg
-    className={`${className} transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+    className={`${className || ICON_SIZES[size]} transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
     fill="none"
     stroke="currentColor"
     viewBox="0 0 24 24"
@@ -125,20 +134,20 @@ export const ChevronDownIcon = ({ className = 'h-5 w-5', expanded = false }) => 
   </svg>
 );
 
-export const ChevronLeftIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const ChevronLeftIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
   </svg>
 );
 
-export const ChevronRightIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const ChevronRightIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
   </svg>
 );
 
-export const SpinnerIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={`animate-spin ${className}`} fill="none" viewBox="0 0 24 24" aria-hidden="true">
+export const SpinnerIcon = ({ size = 'md', className }) => (
+  <svg className={`animate-spin ${className || ICON_SIZES[size]}`} fill="none" viewBox="0 0 24 24" aria-hidden="true">
     <circle
       className="opacity-25"
       cx="12"
@@ -155,26 +164,26 @@ export const SpinnerIcon = ({ className = 'h-5 w-5' }) => (
   </svg>
 );
 
-export const CodeIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const CodeIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
   </svg>
 );
 
-export const BriefcaseIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const BriefcaseIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
   </svg>
 );
 
-export const SparklesIcon = ({ className = 'h-4 w-4' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const SparklesIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
   </svg>
 );
 
-export const QRCodeIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+export const QRCodeIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="2" width="8" height="8" rx="1" />
     <rect x="14" y="2" width="8" height="8" rx="1" />
     <rect x="2" y="14" width="8" height="8" rx="1" />
@@ -187,9 +196,14 @@ export const QRCodeIcon = ({ className = 'h-5 w-5' }) => (
   </svg>
 );
 
-export const DownloadIcon = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+export const DownloadIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
   </svg>
 );
 
+export const PhoneIcon = ({ size = 'md', className }) => (
+  <svg className={className || ICON_SIZES[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+  </svg>
+);

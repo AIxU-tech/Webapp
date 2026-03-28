@@ -247,12 +247,12 @@ export default function TimePicker({
           text-left
           focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
           disabled:opacity-50 disabled:cursor-not-allowed
-          transition-colors
+          transition-colors cursor-pointer
           ${displayLabel ? 'text-foreground' : 'text-muted-foreground'}
         `}
       >
         <span>{displayLabel || placeholder}</span>
-        <ChevronDownIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" expanded={isOpen} />
+        <span className="text-muted-foreground flex-shrink-0"><ChevronDownIcon size="sm" expanded={isOpen} /></span>
       </button>
 
       {/* Dropdown List - portaled to body so it escapes modal overflow */}

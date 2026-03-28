@@ -8,42 +8,43 @@
 
 import { SecondaryButton, Avatar, BannerImage } from '../../ui';
 import {
-  UniversitiesIcon,
   MapPinIcon,
   ExternalLinkIcon,
   MessagesIcon,
   LogOutIcon,
   SocialLinkIcon,
 } from '../../icons';
-import { getProfileBannerUrl } from '../../../api/users';
 import { getPlatformDisplayName, PLATFORM_ICON_COLORS } from '../../../utils/socialLinks';
 
-// Import default banner image
-import defaultBannerImage from './images/default-profile-banner.jpg';
+const DEFAULT_BANNER = 'https://images.unsplash.com/photo-1562774053-701939374585?w=1920&q=80';
 
 export default function ProfileHeader({
   user,
+  universityLocation,
+  universityBannerUrl,
   isOwnProfile,
   onEditProfile,
   onLogout,
   onMessage,
   onEditBanner,
   bannerPreviewUrl,
-  bannerKey,
 }) {
-  // Compose headline from university
-  const headline = user?.university ? `${user.university}` : 'AI Enthusiast';
+  // Compose headline: custom headline > "Student at University" > null
+  const headline = user?.headline
+    || (user?.university ? `Student at ${user.university}` : null);
 
-  // Determine banner URL - use preview for optimistic update, otherwise construct URL with cache-buster
-  const bannerUrl = bannerPreviewUrl ||
-    (user?.hasBanner ? getProfileBannerUrl(user.id, bannerKey) : null);
+  // Location with university fallback
+  const displayLocation = user?.location || universityLocation;
+
+  // Use preview for optimistic update, otherwise use URL from API data
+  const bannerUrl = bannerPreviewUrl || user?.banner_image_url || null;
 
   return (
     <div className="relative">
       {/* Banner image with edit overlay */}
       <BannerImage
         imageUrl={bannerUrl}
-        defaultImage={defaultBannerImage}
+        defaultImage={universityBannerUrl || DEFAULT_BANNER}
         canEdit={isOwnProfile}
         onEdit={onEditBanner}
         height="h-32 sm:h-40"
@@ -69,7 +70,9 @@ export default function ProfileHeader({
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">
               {user?.full_name || 'Unknown User'}
             </h1>
-            <p className="text-base text-muted-foreground">{headline}</p>
+            {headline && (
+              <p className="text-base text-muted-foreground">{headline}</p>
+            )}
           </div>
 
           {/* Action buttons - rounded-full style */}
@@ -83,21 +86,22 @@ export default function ProfileHeader({
                 >
                   Edit Profile
                 </SecondaryButton>
-                <button
+                <SecondaryButton
+                  variant="outline"
                   onClick={onLogout}
-                  title="Log out"
-                  className="p-2.5 rounded-full border border-border bg-transparent text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors"
+                  className="rounded-full"
+                  icon={<LogOutIcon size="sm" />}
                 >
-                  <LogOutIcon className="h-5 w-5" />
-                </button>
+                  Log Out
+                </SecondaryButton>
               </>
             ) : (
               <button
                 onClick={onMessage}
                 title="Send message"
-                className="p-2.5 rounded-full border border-border bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                className="p-2.5 rounded-full border border-border bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
               >
-                <MessagesIcon className="h-5 w-5" />
+                <MessagesIcon size="md" />
               </button>
             )}
           </div>
@@ -105,21 +109,13 @@ export default function ProfileHeader({
 
         {/* Meta info row */}
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-          {/* Left side: University, Location, Website */}
+          {/* Left side: Location, Website */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* University with gradient icon */}
-            {user?.university && (
-              <span className="flex items-center gap-1.5 bg-secondary/50 px-2.5 py-1 rounded-full">
-                <UniversitiesIcon className="w-3.5 h-3.5 text-primary" />
-                <span className="text-foreground">{user.university}</span>
-              </span>
-            )}
-
             {/* Location - no background */}
-            {user?.location && (
+            {displayLocation && (
               <span className="flex items-center gap-1.5">
                 <MapPinIcon className="w-3.5 h-3.5" />
-                {user.location}
+                {displayLocation}
               </span>
             )}
 
