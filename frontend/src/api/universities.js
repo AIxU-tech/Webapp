@@ -184,12 +184,8 @@ export async function updateMemberRole(universityId, userId, role) {
  * @returns {Promise<object>} Response with success status and hasLogo
  * @throws {ApiError} If not authorized (403) or invalid file (400)
  */
-export async function uploadUniversityLogo(universityId, file) {
-  const formData = new FormData();
-  const filename = file.name || 'logo.jpg';
-  formData.append('logo', file, filename);
-
-  return api.upload(`/universities/${universityId}/logo`, formData, 'PUT');
+export async function uploadUniversityLogo(universityId, { gcsPath, filename, contentType, sizeBytes }) {
+  return api.put(`/universities/${universityId}/logo`, { gcsPath, filename, contentType, sizeBytes });
 }
 
 /**
@@ -219,12 +215,8 @@ export async function deleteUniversityLogo(universityId) {
  * @returns {Promise<object>} Response with success status and hasBanner
  * @throws {ApiError} If not authorized (403) or invalid file (400)
  */
-export async function uploadUniversityBanner(universityId, file) {
-  const formData = new FormData();
-  const filename = file.name || 'banner.jpg';
-  formData.append('banner', file, filename);
-
-  return api.upload(`/universities/${universityId}/banner`, formData, 'PUT');
+export async function uploadUniversityBanner(universityId, { gcsPath, filename, contentType, sizeBytes }) {
+  return api.put(`/universities/${universityId}/banner`, { gcsPath, filename, contentType, sizeBytes });
 }
 
 /**

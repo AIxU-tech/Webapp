@@ -400,7 +400,7 @@ export function useUploadUniversityLogo() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ universityId, file }) => uploadUniversityLogo(universityId, file),
+    mutationFn: ({ universityId, ...data }) => uploadUniversityLogo(universityId, data),
 
     onMutate: async ({ universityId }) => {
       const previousUniversity = await _snapshotUniversityDetail(queryClient, universityId);
@@ -459,7 +459,7 @@ export function useUploadUniversityBanner() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ universityId, file }) => uploadUniversityBanner(universityId, file),
+    mutationFn: ({ universityId, ...data }) => uploadUniversityBanner(universityId, data),
 
     onMutate: async ({ universityId }) => {
       const previousUniversity = await _snapshotUniversityDetail(queryClient, universityId);

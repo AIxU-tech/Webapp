@@ -18,6 +18,8 @@ import { STALE_TIMES, GC_TIMES } from '../config/cache';
 import {
   getUser,
   updateProfile,
+  uploadProfilePicture,
+  uploadProfileBanner,
   deleteProfileBanner,
   createEducation,
   updateEducation,
@@ -213,46 +215,18 @@ export function useUploadProfilePicture() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (file) => {
-      const formData = new FormData();
-      // Provide a filename for the blob - backend requires valid extension
-      const filename = file.name || 'profile_picture.jpg';
-      formData.append('profile_picture', file, filename);
+    mutationFn: (data) => uploadProfilePicture(data),
 
-      const response = await fetch('/api/profile/picture', {
-        method: 'PUT',
-        credentials: 'include',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to upload picture');
-      }
-
-      return response.json();
-    },
-
-    onMutate: async (file) => {
+    onMutate: async () => {
       const previousQueries = await _snapshotUserQueries(queryClient);
-      // Create a local blob URL for optimistic display
-      const previewUrl = URL.createObjectURL(file);
-      queryClient.setQueriesData({ queryKey: userKeys.all }, (oldData) => {
-        if (oldData && typeof oldData === 'object' && !Array.isArray(oldData) && oldData.id) {
-          return { ...oldData, profile_picture_url: previewUrl };
-        }
-        return oldData;
-      });
-      return { previousQueries, previewUrl };
+      return { previousQueries };
     },
 
     onError: (_err, _vars, ctx) => {
       _rollback(queryClient, ctx?.previousQueries);
-      if (ctx?.previewUrl) URL.revokeObjectURL(ctx.previewUrl);
     },
 
-    onSuccess: (data, _vars, ctx) => {
-      // Replace blob URL with server URL in cache
+    onSuccess: (data) => {
       if (data?.profile_picture_url) {
         queryClient.setQueriesData({ queryKey: userKeys.all }, (oldData) => {
           if (oldData && typeof oldData === 'object' && !Array.isArray(oldData) && oldData.id) {
@@ -261,7 +235,6 @@ export function useUploadProfilePicture() {
           return oldData;
         });
       }
-      if (ctx?.previewUrl) URL.revokeObjectURL(ctx.previewUrl);
     },
 
     onSettled: () => {
@@ -320,24 +293,7 @@ export function useUploadProfileBanner() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (file) => {
-      const formData = new FormData();
-      const filename = file.name || 'banner.jpg';
-      formData.append('banner', file, filename);
-
-      const response = await fetch('/api/profile/banner', {
-        method: 'PUT',
-        credentials: 'include',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to upload banner');
-      }
-
-      return response.json();
-    },
+    mutationFn: (data) => uploadProfileBanner(data),
 
     onMutate: async () => {
       const previousQueries = await _snapshotUserQueries(queryClient);

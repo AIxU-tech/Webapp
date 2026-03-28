@@ -198,9 +198,9 @@ export default function ProfilePage() {
   /**
    * Handle profile picture upload
    */
-  const handleUploadPicture = async (blob) => {
+  const handleUploadPicture = async (imageData) => {
     try {
-      const response = await uploadPictureMutation.mutateAsync(blob);
+      const response = await uploadPictureMutation.mutateAsync(imageData);
 
       // Update AuthContext for navbar avatar
       if (response.profile_picture_url && isOwnProfile && currentUser) {
@@ -251,14 +251,14 @@ export default function ProfilePage() {
 
   /**
    * Handle banner upload with optimistic preview
-   * Receives { blob, previewUrl } from BannerUploadModal
+   * Receives { gcsPath, filename, contentType, sizeBytes, previewUrl } from BannerUploadModal
    */
-  const handleUploadBanner = async ({ blob, previewUrl }) => {
+  const handleUploadBanner = async ({ previewUrl, ...imageData }) => {
     // Show optimistic preview immediately
-    setBannerPreviewUrl(previewUrl);
+    if (previewUrl) setBannerPreviewUrl(previewUrl);
 
     try {
-      await uploadBannerMutation.mutateAsync(blob);
+      await uploadBannerMutation.mutateAsync(imageData);
       // Success - clear preview (cache has the new GCS URL from onSuccess)
       setBannerPreviewUrl(null);
     } catch (err) {

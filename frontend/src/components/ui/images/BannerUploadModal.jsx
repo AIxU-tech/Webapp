@@ -12,6 +12,7 @@
  */
 
 import { useState, useRef } from 'react';
+import { useImageUpload } from '../../../hooks';
 import { BaseModal } from '../modals';
 import { GradientButton, SecondaryButton, ResetButton } from '../buttons';
 import { validateImageFile, cropImageToBanner, BANNER_CONFIG } from '../../../utils/image';
@@ -26,7 +27,10 @@ export default function BannerUploadModal({
   isUploading = false,
   isResetting = false,
   title = 'Update Banner Image',
+  imageType = 'banner',
+  entityId = null,
 }) {
+  const { upload: uploadImage, isUploading: isUploadingToGCS } = useImageUpload();
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(null);
@@ -74,25 +78,18 @@ export default function BannerUploadModal({
     setIsProcessing(true);
 
     try {
-      // Crop image to banner dimensions
       const croppedBlob = await cropImageToBanner(selectedFile);
-
-      // Create a preview URL from the cropped blob for optimistic update
       const previewUrl = URL.createObjectURL(croppedBlob);
-
-      // Close modal immediately for optimistic UX
+      const imageData = await uploadImage(imageType, croppedBlob, entityId);
       handleClose();
-
-      // Call parent upload handler with blob and preview URL
-      // Parent can show previewUrl immediately while upload happens
-      await onUpload({ blob: croppedBlob, previewUrl });
+      await onUpload({ ...imageData, previewUrl });
     } catch (err) {
       setError(err.message || 'Failed to process image');
       setIsProcessing(false);
     }
   };
 
-  const isLoading = isUploading || isProcessing;
+  const isLoading = isUploading || isProcessing || isUploadingToGCS;
 
   const handleReset = () => {
     handleClose();

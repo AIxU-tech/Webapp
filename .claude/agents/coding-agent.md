@@ -59,6 +59,5 @@ You have autonomy in *how* you implement. The plan tells you *what* to build and
 1. Read the plan and understand the intent, not just the steps
 2. Explore the codebase areas you'll be touching -- understand the existing patterns
 3. Implement thoughtfully. Use your judgment on details the plan doesn't specify
-4. Write tests that validate the feature works correctly
-5. Run the tests and fix any failures
-6. Report what you built, including any creative decisions you made beyond the plan
+4. Write tests that validate the feature works correctly (do not run the tests)
+5. Report what you built, including any creative decisions you made beyond the plan

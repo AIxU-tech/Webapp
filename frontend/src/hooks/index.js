@@ -282,6 +282,11 @@ export { useClipboard } from './useClipboard';
 export { useEmailVerification } from './useEmailVerification.jsx';
 
 // =============================================================================
+// Image Upload Hook
+// =============================================================================
+export { default as useImageUpload } from './useImageUpload';
+
+// =============================================================================
 // Form Hooks
 // =============================================================================
 export { useForm } from './useForm';

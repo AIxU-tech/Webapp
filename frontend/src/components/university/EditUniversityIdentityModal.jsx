@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useImageUpload } from '../../hooks';
 import { BaseModal, GradientButton, SecondaryButton, ResetButton, Alert, SocialLinksInput, UnsavedChangesModal, ImageUploadZone, UniversityLogo } from '../ui';
 
 export default function EditUniversityIdentityModal({
@@ -23,6 +24,9 @@ export default function EditUniversityIdentityModal({
   isDeleting = false,
   isAdmin = false,
 }) {
+  // Image upload hook
+  const { upload: uploadLogoImage, isUploading: isUploadingLogoToGCS } = useImageUpload();
+
   // Form state
   const [clubName, setClubName] = useState('');
   const [socialLinks, setSocialLinks] = useState([]);
@@ -30,7 +34,7 @@ export default function EditUniversityIdentityModal({
   const [logoError, setLogoError] = useState(null);
 
   // Deferred logo upload state
-  const [pendingLogoBlob, setPendingLogoBlob] = useState(null);
+  const [pendingLogoData, setPendingLogoData] = useState(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState(null);
   const logoPreviewUrlRef = useRef(null);
 
@@ -41,19 +45,25 @@ export default function EditUniversityIdentityModal({
   // Unsaved changes modal state
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 
-  const handleLogoFileSelect = useCallback((blob) => {
+  const handleLogoFileSelect = useCallback(async (blob) => {
     if (logoPreviewUrlRef.current) URL.revokeObjectURL(logoPreviewUrlRef.current);
     const url = URL.createObjectURL(blob);
     logoPreviewUrlRef.current = url;
-    setPendingLogoBlob(blob);
     setLogoPreviewUrl(url);
     setLogoError(null);
-  }, []);
+    try {
+      const data = await uploadLogoImage('university_logo', blob, university?.id);
+      setPendingLogoData(data);
+    } catch {
+      setLogoPreviewUrl(null);
+      setLogoError('Failed to upload logo');
+    }
+  }, [uploadLogoImage, university?.id]);
 
   const clearPendingLogo = useCallback(() => {
     if (logoPreviewUrlRef.current) URL.revokeObjectURL(logoPreviewUrlRef.current);
     logoPreviewUrlRef.current = null;
-    setPendingLogoBlob(null);
+    setPendingLogoData(null);
     setLogoPreviewUrl(null);
   }, []);
 
@@ -81,11 +91,11 @@ export default function EditUniversityIdentityModal({
 
   // Check if there are unsaved changes
   const hasUnsavedChanges = useMemo(() => {
-    if (pendingLogoBlob) return true;
+    if (pendingLogoData) return true;
     if (clubName !== initialClubName) return true;
     if (JSON.stringify(socialLinks) !== JSON.stringify(initialSocialLinks)) return true;
     return false;
-  }, [pendingLogoBlob, clubName, socialLinks, initialClubName, initialSocialLinks]);
+  }, [pendingLogoData, clubName, socialLinks, initialClubName, initialSocialLinks]);
 
   // Handle close with unsaved changes check
   const handleClose = useCallback(() => {
@@ -102,8 +112,8 @@ export default function EditUniversityIdentityModal({
 
     try {
       // Upload pending logo if one was selected
-      if (pendingLogoBlob) {
-        await onUploadLogo(pendingLogoBlob);
+      if (pendingLogoData) {
+        await onUploadLogo(pendingLogoData);
         clearPendingLogo();
       }
       await onSave({

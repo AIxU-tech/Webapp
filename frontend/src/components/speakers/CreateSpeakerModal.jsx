@@ -13,7 +13,7 @@ import { useCreateSpeaker, useUpdateSpeaker, useBeforeUnload } from '../../hooks
 import { isValidUrl } from '../../utils/socialLinks';
 import { validateEmailFormat, validatePhoneFormat, formatUSPhone } from '../../utils';
 import { SPEAKER_TAGS } from '../../constants/speakerTags';
-import { requestUploadUrl, uploadToGCS } from '../../api/uploads';
+import { requestImageUploadUrl, uploadToGCS } from '../../api/uploads';
 import { ImageUploadZone } from '../ui/images';
 import SpeakerImage from './SpeakerImage';
 
@@ -232,7 +232,8 @@ export default function CreateSpeakerModal({ isOpen, onClose, speaker = null }) 
 
     try {
       const filename = `speaker-photo.${croppedBlob.type === 'image/png' ? 'png' : 'jpg'}`;
-      const urlResponse = await requestUploadUrl({
+      const urlResponse = await requestImageUploadUrl({
+        imageType: 'speaker',
         filename,
         contentType: croppedBlob.type,
         sizeBytes: croppedBlob.size,

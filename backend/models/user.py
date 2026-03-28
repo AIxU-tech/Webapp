@@ -1,5 +1,4 @@
 from datetime import datetime
-from flask import url_for
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
@@ -53,18 +52,7 @@ class User(UserMixin, db.Model):
     # - bookmarked_opportunities -> OpportunityBookmark table
     # The columns may still exist in the database but are no longer used by the application.
 
-    #Profile pics
-    # Add these new fields for profile picture
-    profile_picture = db.Column(db.LargeBinary, nullable=True)  # Store image as binary data
-    profile_picture_filename = db.Column(db.String(100), nullable=True)  # Original filename
-    profile_picture_mimetype = db.Column(db.String(50), nullable=True)  # MIME type (image/jpeg, image/png, etc.)
-
-    # Banner image storage
-    banner_image = db.Column(db.LargeBinary, nullable=True)  # Store banner as binary data
-    banner_image_filename = db.Column(db.String(255), nullable=True)  # Original filename
-    banner_image_mimetype = db.Column(db.String(100), nullable=True)  # MIME type
-
-    # GCS image storage (new -- replaces blob columns)
+    # Image storage (GCS)
     profile_picture_gcs_path = db.Column(db.String(500), nullable=True)
     banner_image_gcs_path = db.Column(db.String(500), nullable=True)
 
@@ -183,7 +171,7 @@ class User(UserMixin, db.Model):
             'avatar_url': self.avatar_url,
             'profile_picture_url': self.get_profile_picture_url(),
             'banner_image_url': self.get_banner_image_url(),
-            'hasBanner': self.banner_image_gcs_path is not None or self.banner_image is not None,
+            'hasBanner': self.banner_image_gcs_path is not None,
             'location': self.location,
             'skills': self.get_skills_list(),
             'socialLinks': self.get_social_links_list(),
@@ -203,39 +191,13 @@ class User(UserMixin, db.Model):
         return UniversityRole.is_executive_anywhere(self.id)
 
     def get_profile_picture_url(self):
-        """Return profile picture URL or None (frontend handles fallback).
-
-        Prefers GCS path (new) over blob (legacy). All consumers of this method
-        (messages, notes, comments, university members, speakers, events,
-        opportunities) automatically get the correct URL format.
-        """
-        # Prefer GCS path (new)
+        """Return profile picture URL or None (frontend handles fallback)."""
         if self.profile_picture_gcs_path:
             from backend.services.storage import get_public_image_url
             return get_public_image_url(self.profile_picture_gcs_path)
-        # Fall back to blob (legacy -- during migration, or dev without GCS)
-        if self.profile_picture:
-            return url_for('profile.get_profile_picture', user_id=self.id)
-        elif self.avatar_url:
+        if self.avatar_url:
             return self.avatar_url
         return None
-
-    def set_profile_picture(self, image_data, filename, mimetype):
-        """Set profile picture with size validation"""
-        # Limit to 5MB
-        max_size = 5 * 1024 * 1024  # 5MB in bytes
-        if len(image_data) > max_size:
-            raise ValueError("Image file too large. Maximum size is 5MB.")
-
-        self.profile_picture = image_data
-        self.profile_picture_filename = filename
-        self.profile_picture_mimetype = mimetype
-
-    def delete_profile_picture(self):
-        """Remove profile picture"""
-        self.profile_picture = None
-        self.profile_picture_filename = None
-        self.profile_picture_mimetype = None
 
     # -------------------------------------------------------------------------
     # Banner Image Methods
@@ -246,56 +208,30 @@ class User(UserMixin, db.Model):
         if self.banner_image_gcs_path:
             from backend.services.storage import get_public_image_url
             return get_public_image_url(self.banner_image_gcs_path)
-        if self.banner_image:
-            return url_for('profile.get_banner_image', user_id=self.id)
         return None
-
-    def set_banner_image(self, image_data, filename, mimetype):
-        """Set banner image (image should be compressed before calling)"""
-        self.banner_image = image_data
-        self.banner_image_filename = filename
-        self.banner_image_mimetype = mimetype
-
-    def delete_banner_image(self):
-        """Remove banner image"""
-        self.banner_image = None
-        self.banner_image_filename = None
-        self.banner_image_mimetype = None
 
     # -------------------------------------------------------------------------
     # GCS Image Methods
     # -------------------------------------------------------------------------
 
     def set_profile_picture_gcs(self, gcs_path: str):
-        """Set profile picture to a GCS path, clearing old blob data."""
+        """Set profile picture to a GCS path."""
         self.profile_picture_gcs_path = gcs_path
-        self.profile_picture = None
-        self.profile_picture_filename = None
-        self.profile_picture_mimetype = None
 
     def delete_profile_picture_gcs(self):
         """Remove profile picture GCS reference. Caller must delete from GCS separately."""
         old_path = self.profile_picture_gcs_path
         self.profile_picture_gcs_path = None
-        self.profile_picture = None
-        self.profile_picture_filename = None
-        self.profile_picture_mimetype = None
         return old_path
 
     def set_banner_image_gcs(self, gcs_path: str):
-        """Set banner to a GCS path, clearing old blob data."""
+        """Set banner to a GCS path."""
         self.banner_image_gcs_path = gcs_path
-        self.banner_image = None
-        self.banner_image_filename = None
-        self.banner_image_mimetype = None
 
     def delete_banner_image_gcs(self):
         """Remove banner GCS reference. Caller must delete from GCS separately."""
         old_path = self.banner_image_gcs_path
         self.banner_image_gcs_path = None
-        self.banner_image = None
-        self.banner_image_filename = None
-        self.banner_image_mimetype = None
         return old_path
 
     # -------------------------------------------------------------------------

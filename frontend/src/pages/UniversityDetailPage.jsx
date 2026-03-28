@@ -372,14 +372,14 @@ export default function UniversityDetailPage() {
   };
 
   // Handle uploading university banner with optimistic preview
-  const handleUploadBanner = async ({ blob, previewUrl }) => {
+  const handleUploadBanner = async ({ previewUrl, ...imageData }) => {
     // Show optimistic preview immediately
-    setBannerPreviewUrl(previewUrl);
+    if (previewUrl) setBannerPreviewUrl(previewUrl);
 
     try {
       await uploadBannerMutation.mutateAsync({
         universityId: id,
-        file: blob,
+        ...imageData,
       });
       // Success - clear preview (new GCS URL comes from React Query cache)
       setBannerPreviewUrl(null);
@@ -547,6 +547,8 @@ export default function UniversityDetailPage() {
         isUploading={uploadBannerMutation.isPending}
         isResetting={deleteBannerMutation.isPending}
         title="Update Club Banner"
+        imageType="university_banner"
+        entityId={id}
       />
 
       {university && (

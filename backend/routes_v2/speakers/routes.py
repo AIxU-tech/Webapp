@@ -21,7 +21,7 @@ from backend.extensions import db
 from backend.models import Speaker, UniversityRole, University
 from backend.constants import UniversityRoles, MAX_SPEAKER_IMAGE_SIZE_BYTES, ALLOWED_SPEAKER_IMAGE_TYPES
 from backend.services.content_moderator import moderate_content
-from backend.services.storage import get_public_image_url, is_gcs_configured, delete_file
+from backend.services.storage import get_public_image_url, delete_file
 from backend.utils.validation import validate_email_format, validate_phone_format
 
 speakers_bp = Blueprint('speakers', __name__)
@@ -107,7 +107,7 @@ def _get_user_executive_universities(user):
 
 def _generate_speaker_image_url(speaker):
     """Generate a public GCS URL for a speaker's image, if it exists."""
-    if speaker.image_gcs_path and is_gcs_configured():
+    if speaker.image_gcs_path:
         try:
             return get_public_image_url(speaker.image_gcs_path)
         except Exception:
@@ -429,7 +429,7 @@ def update_speaker(speaker_id):
     db.session.commit()
 
     # Clean up old GCS file after successful commit
-    if old_gcs_path and is_gcs_configured():
+    if old_gcs_path :
         try:
             delete_file(old_gcs_path)
         except Exception:
@@ -474,7 +474,7 @@ def delete_speaker(speaker_id):
     db.session.commit()
 
     # Clean up GCS file after successful commit
-    if gcs_path_to_delete and is_gcs_configured():
+    if gcs_path_to_delete :
         try:
             delete_file(gcs_path_to_delete)
         except Exception:

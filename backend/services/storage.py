@@ -39,6 +39,7 @@ from google.oauth2 import service_account
 
 from backend.constants import (
     ALLOWED_ATTACHMENT_TYPES,
+    IMAGE_GCS_PREFIXES,
     MAX_ATTACHMENT_SIZE_BYTES,
     EXTENSION_TO_MIME,
 )
@@ -270,6 +271,51 @@ def generate_image_gcs_path(prefix: str, entity_id: int, filename: str) -> str:
     return f'{env_prefix}/{base}' if env_prefix else base
 
 
+def generate_image_upload_url(
+    image_type: str, entity_id: int, filename: str, content_type: str
+) -> dict:
+    """
+    Generate a signed URL for uploading an image to GCS.
+
+    Uses IMAGE_GCS_PREFIXES to determine the correct path prefix.
+
+    Args:
+        image_type: Key in IMAGE_GCS_PREFIXES (e.g. 'profile', 'university_logo')
+        entity_id: ID of the owning entity (user or university)
+        filename: Original filename
+        content_type: MIME type of the image
+
+    Returns:
+        dict with uploadUrl, gcsPath, expiresIn
+
+    Raises:
+        ValueError: If image_type is not a valid key in IMAGE_GCS_PREFIXES
+    """
+    prefix = IMAGE_GCS_PREFIXES.get(image_type)
+    if not prefix:
+        raise ValueError(f"Invalid image type: '{image_type}'")
+
+    gcs_path = generate_image_gcs_path(prefix, entity_id, filename)
+
+    bucket = _get_bucket()
+    blob = bucket.blob(gcs_path)
+
+    expiration_seconds = current_app.config.get('GCS_UPLOAD_URL_EXPIRATION', 900)
+
+    url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(seconds=expiration_seconds),
+        method="PUT",
+        content_type=content_type,
+    )
+
+    return {
+        'uploadUrl': url,
+        'gcsPath': gcs_path,
+        'expiresIn': expiration_seconds,
+    }
+
+
 def generate_upload_url(user_id: int, filename: str, content_type: str) -> dict:
     """
     Generate a signed URL for uploading a file.
@@ -326,12 +372,19 @@ def generate_download_url(gcs_path: str) -> str:
     """
     Generate a signed URL for downloading a file.
 
+    Uses the same in-memory cache as get_public_image_url() to avoid
+    regenerating signed URLs on every request for the same file.
+
     Args:
         gcs_path: Path to the file in GCS
 
     Returns:
         Signed GET URL for downloading the file
     """
+    cached = _signed_url_cache.get(gcs_path)
+    if cached is not None:
+        return cached
+
     bucket = _get_bucket()
     blob = bucket.blob(gcs_path)
 
@@ -343,6 +396,7 @@ def generate_download_url(gcs_path: str) -> str:
         method="GET",
     )
 
+    _signed_url_cache.set(gcs_path, url, ttl=3600)
     return url
 
 
