@@ -2,8 +2,8 @@
  * Speaker background tags
  *
  * These tags describe the primary background or perspective a guest speaker brings.
- * They are optional, can be multi-select, and are used only for filtering/searching
- * on the speakers page (not displayed on individual speaker cards).
+ * They are optional, can be multi-select, and are used for filtering/searching
+ * on the speakers page and displayed as badges on speaker cards and contact modals.
  *
  * NOTE: Keep in sync with backend SPEAKER_TAG_CHOICES in:
  *   backend/routes_v2/speakers/routes.py

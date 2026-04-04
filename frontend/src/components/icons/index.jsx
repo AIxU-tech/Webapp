@@ -38,6 +38,7 @@ export {
   PencilIcon,
   TrashIcon,
   ClockIcon,
+  ResetIcon,
   RefreshIcon,
   ExternalLinkIcon,
   ArrowLeftIcon,
@@ -56,6 +57,7 @@ export {
   SparklesIcon,
   QRCodeIcon,
   DownloadIcon,
+  PhoneIcon,
 } from './ui';
 
 // =============================================================================

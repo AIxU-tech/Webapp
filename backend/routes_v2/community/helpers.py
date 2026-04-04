@@ -523,28 +523,24 @@ def get_attachments_for_notes(note_ids: list[int]) -> dict[int, list[dict]]:
         return {}
     
     from backend.models import NoteAttachment
-    from backend.services.storage import is_gcs_configured, generate_download_url
-    
+    from backend.services.storage import generate_download_url
+
     attachments = NoteAttachment.query.filter(
         NoteAttachment.note_id.in_(note_ids)
     ).order_by(NoteAttachment.created_at).all()
-    
+
     # Group by note_id
     result = {note_id: [] for note_id in note_ids}
-    gcs_configured = is_gcs_configured()
-    
+
     for attachment in attachments:
-        if gcs_configured:
-            try:
-                download_url = generate_download_url(attachment.gcs_path)
-                result[attachment.note_id].append(
-                    attachment.to_dict(include_download_url=True, download_url=download_url)
-                )
-            except Exception as e:
-                # If URL generation fails, include attachment without URL
-                current_app.logger.warning(f"[GCS] Failed to generate download URL for attachment {attachment.id}: {e}")
-                result[attachment.note_id].append(attachment.to_dict())
-        else:
+        try:
+            download_url = generate_download_url(attachment.gcs_path)
+            result[attachment.note_id].append(
+                attachment.to_dict(include_download_url=True, download_url=download_url)
+            )
+        except Exception as e:
+            # If URL generation fails, include attachment without URL
+            current_app.logger.warning(f"[GCS] Failed to generate download URL for attachment {attachment.id}: {e}")
             result[attachment.note_id].append(attachment.to_dict())
     
     return result
@@ -813,11 +809,8 @@ def delete_gcs_files_parallel(gcs_paths: list[str]) -> None:
         return
     
     from concurrent.futures import ThreadPoolExecutor
-    from backend.services.storage import is_gcs_configured, delete_file
-    
-    if not is_gcs_configured():
-        return
-    
+    from backend.services.storage import delete_file
+
     def safe_delete(path):
         try:
             delete_file(path)

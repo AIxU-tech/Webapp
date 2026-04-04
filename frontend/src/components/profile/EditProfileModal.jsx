@@ -31,13 +31,10 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useForm } from '../../hooks';
+import { useForm, useImageUpload } from '../../hooks';
 
 // UI Components
-import { BaseModal, Alert, GradientButton, SecondaryButton, FormInput, SocialLinksInput } from '../ui';
-
-// Profile Components
-import { ProfilePictureSection } from './';
+import { BaseModal, Alert, GradientButton, SecondaryButton, ResetButton, FormInput, SocialLinksInput, ImageUploadZone, Avatar } from '../ui';
 
 /**
  * Get initial form values from user object
@@ -57,24 +54,31 @@ export default function EditProfileModal({
   updateProfileMutation,
   onSave,
   onUploadPicture,
+  onDeletePicture,
   onPictureError,
 }) {
-  const [pendingPictureBlob, setPendingPictureBlob] = useState(null);
+  const { upload: uploadImage, isUploading: isUploadingImage } = useImageUpload();
+  const [pendingImageData, setPendingImageData] = useState(null);
   const [picturePreviewUrl, setPicturePreviewUrl] = useState(null);
   const previewUrlRef = useRef(null);
 
-  const handleFileSelect = useCallback((blob) => {
+  const handleFileSelect = useCallback(async (blob) => {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     const url = URL.createObjectURL(blob);
     previewUrlRef.current = url;
-    setPendingPictureBlob(blob);
     setPicturePreviewUrl(url);
-  }, []);
+    try {
+      const data = await uploadImage('profile', blob);
+      setPendingImageData(data);
+    } catch {
+      setPicturePreviewUrl(null);
+    }
+  }, [uploadImage]);
 
   const clearPendingPicture = useCallback(() => {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     previewUrlRef.current = null;
-    setPendingPictureBlob(null);
+    setPendingImageData(null);
     setPicturePreviewUrl(null);
   }, []);
 
@@ -90,8 +94,8 @@ export default function EditProfileModal({
     initialValues: getInitialFormValues(user),
     onSubmit: async (data) => {
       // Upload pending picture if one was selected
-      if (pendingPictureBlob) {
-        await onUploadPicture(pendingPictureBlob);
+      if (pendingImageData) {
+        await onUploadPicture(pendingImageData);
         clearPendingPicture();
       }
       const response = await updateProfileMutation.mutateAsync(data);
@@ -123,12 +127,20 @@ export default function EditProfileModal({
     <BaseModal isOpen={isOpen} onClose={onClose} title="Edit Profile" size="2xl">
       <div className="p-6">
         {/* Profile Picture Section */}
-        <ProfilePictureSection
-          user={user}
-          previewUrl={picturePreviewUrl}
+        <ImageUploadZone
+          preview={<Avatar user={user} src={picturePreviewUrl} size="xl" />}
           onFileSelect={handleFileSelect}
           onError={onPictureError}
         />
+
+        {/* Reset profile picture button */}
+        {user?.profile_picture_url && onDeletePicture && (
+          <div className="-mt-4 mb-2">
+            <ResetButton onClick={onDeletePicture} title="Reset to default avatar">
+              Reset Photo
+            </ResetButton>
+          </div>
+        )}
 
         {/* Profile Form */}
         <form onSubmit={handleFormSubmit} className="space-y-4 mt-6">
@@ -174,7 +186,7 @@ export default function EditProfileModal({
               name="headline"
               value={formData.headline || ''}
               onChange={handleChange}
-              placeholder="e.g. CS Student at MIT"
+              placeholder="e.g. CS Student at UCLA"
             />
           </div>
 

@@ -207,39 +207,109 @@ def _store_papers(papers_data: list, batch_id: str) -> list[dict]:
 
 def _enrich_candidates_with_images(candidates: list[dict]) -> list[dict]:
     """
-    Extract images for story candidates before curation.
-    
-    This allows the curator to filter by stories that have images.
-    Images are extracted in parallel for better performance.
-    
+    Extract unique images for story candidates before curation.
+
+    Tries each candidate's source URLs and skips duplicates so that
+    no two candidates share the same image URL.
+
     Args:
         candidates: List of story candidate dicts from the scout
-        
+
     Returns:
         The same candidates with imageUrl added where found
     """
     from backend.services.image_extraction import extract_image_from_url
-    
+
     print(f"[AI News] Extracting images for {len(candidates)} story candidates...")
-    
-    def extract_for_candidate(candidate):
-        """Extract image from a candidate's source URLs."""
-        source_urls = candidate.get('sourceUrls', [])
-        for url in source_urls:
-            image_url = extract_image_from_url(url)
-            if image_url:
-                candidate['imageUrl'] = image_url
-                return candidate
-        return candidate
-    
-    # Extract images in parallel (limit workers to avoid overwhelming servers)
+
+    # First, collect all possible images per candidate in parallel
+    all_source_urls = []
+    url_to_index = {}  # maps (candidate_idx, source_idx) for results
+    for i, candidate in enumerate(candidates):
+        for j, url in enumerate(candidate.get('sourceUrls', [])):
+            all_source_urls.append((i, j, url))
+
+    # Extract all images in parallel
+    image_results = {}  # (candidate_idx, source_idx) -> image_url or None
     with ThreadPoolExecutor(max_workers=8) as executor:
-        enriched = list(executor.map(extract_for_candidate, candidates))
-    
-    with_images = sum(1 for c in enriched if c.get('imageUrl'))
-    print(f"[AI News] Found images for {with_images}/{len(candidates)} candidates")
-    
-    return enriched
+        futures = {
+            executor.submit(extract_image_from_url, url): (i, j)
+            for i, j, url in all_source_urls
+        }
+        for future in as_completed(futures):
+            key = futures[future]
+            try:
+                image_results[key] = future.result()
+            except Exception:
+                image_results[key] = None
+
+    # Assign images to candidates, skipping duplicates
+    seen_images = set()
+    for i, candidate in enumerate(candidates):
+        source_count = len(candidate.get('sourceUrls', []))
+        for j in range(source_count):
+            image_url = image_results.get((i, j))
+            if image_url and image_url not in seen_images:
+                candidate['imageUrl'] = image_url
+                seen_images.add(image_url)
+                break
+
+    with_images = sum(1 for c in candidates if c.get('imageUrl'))
+    print(f"[AI News] Found unique images for {with_images}/{len(candidates)} candidates")
+
+    return candidates
+
+
+def _apply_images_from_candidates(curated_stories: list[dict], enriched_candidates: list[dict]) -> list[dict]:
+    """
+    Map image URLs from enriched candidates onto curated stories by title match.
+
+    The curator selects stories by newsworthiness without handling images.
+    This function applies the image URLs from the original enriched candidates
+    so the LLM never touches image URLs directly.
+
+    If title matching fails or the matched candidate has no image, an unused
+    image from another candidate is assigned as a fallback.
+    """
+    # Build a lookup from lowercase title to imageUrl
+    image_lookup = {}
+    for candidate in enriched_candidates:
+        title = candidate.get('title', '').lower().strip()
+        image_url = candidate.get('imageUrl')
+        if title and image_url:
+            image_lookup[title] = image_url
+
+    # Collect all available images for fallback
+    all_images = [c.get('imageUrl') for c in enriched_candidates if c.get('imageUrl')]
+
+    used_images = set()
+
+    # Pass 1: Match by title
+    for story in curated_stories:
+        curated_title = story.get('title', '').lower().strip()
+        matched_url = None
+
+        # Try exact match first
+        if curated_title in image_lookup:
+            matched_url = image_lookup[curated_title]
+        else:
+            # Substring match
+            for candidate_title, image_url in image_lookup.items():
+                if candidate_title in curated_title or curated_title in candidate_title:
+                    matched_url = image_url
+                    break
+
+        if matched_url:
+            story['imageUrl'] = matched_url
+            used_images.add(matched_url)
+
+    # Pass 2: Assign unused images to stories that still lack one
+    unused_images = [url for url in all_images if url not in used_images]
+    for story in curated_stories:
+        if not story.get('imageUrl') and unused_images:
+            story['imageUrl'] = unused_images.pop(0)
+
+    return curated_stories
 
 
 def _run_scout_with_retry(scout_fn, client, current_date, label):
@@ -302,11 +372,11 @@ def fetch_top_ai_content() -> dict:
             paper_candidates = paper_future.result()
 
         # Extract images for story candidates before curation
-        # so the curator can filter by stories that have images
+        enriched_story_candidates = None
         if story_candidates:
-            story_candidates = _enrich_candidates_with_images(story_candidates)
+            enriched_story_candidates = _enrich_candidates_with_images(story_candidates)
 
-        if not story_candidates and not paper_candidates:
+        if not enriched_story_candidates and not paper_candidates:
             return {'success': False, 'error': 'Both scouts failed to find candidates', 'batch_id': batch_id}
 
         # Phase 2: Run curators in parallel on the candidates
@@ -315,8 +385,8 @@ def fetch_top_ai_content() -> dict:
 
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = {}
-            if story_candidates:
-                futures[executor.submit(curate_stories, client, story_candidates, current_date)] = 'stories'
+            if enriched_story_candidates:
+                futures[executor.submit(curate_stories, client, enriched_story_candidates, current_date)] = 'stories'
             if paper_candidates:
                 futures[executor.submit(curate_papers, client, paper_candidates, current_date)] = 'papers'
 
@@ -333,6 +403,10 @@ def fetch_top_ai_content() -> dict:
 
         if not stories_data and not papers_data:
             return {'success': False, 'error': 'Both curators failed', 'batch_id': batch_id}
+
+        # Apply images from enriched candidates onto curated stories
+        if stories_data and enriched_story_candidates:
+            stories_data = _apply_images_from_candidates(stories_data, enriched_story_candidates)
 
         # Phase 3: Store in database
         stored_stories = _store_stories(stories_data, batch_id) if stories_data else []

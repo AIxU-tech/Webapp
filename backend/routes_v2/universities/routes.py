@@ -25,9 +25,8 @@ RESTful Endpoints:
 - DELETE /api/universities/<id>/roles/<user_id> - Remove user role (president or admin)
 """
 
-from flask import Blueprint, request, jsonify, Response, current_app
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
-import hashlib
 import json
 from backend.extensions import db
 from backend.models import University, User, UniversityRole, Event, EventAttendance
@@ -38,7 +37,6 @@ from backend.utils.permissions import (
     can_manage_executives,
     get_user_university_permissions,
 )
-from backend.utils.image import allowed_file, compress_image, compress_banner_image
 from backend.utils.validation import validate_social_links, validate_url
 
 universities_bp = Blueprint('universities', __name__)
@@ -81,7 +79,9 @@ def list_universities():
             'emailDomain': uni.email_domain or '',
             'websiteUrl': uni.website_url or '',
             'socialLinks': uni.get_social_links_list(),
-            'hasLogo': uni.logo is not None,
+            'hasLogo': uni.logo_gcs_path is not None,
+            'logoUrl': uni.get_logo_url(),
+            'bannerUrl': uni.get_banner_url(),
         })
 
     return jsonify({
@@ -259,8 +259,9 @@ def get_university(university_id: int):
         'permissions': user_permissions,
         'websiteUrl': uni.website_url or '',
         'socialLinks': uni.get_social_links_list(),
-        'hasLogo': uni.logo is not None,
-        'hasBanner': uni.banner is not None,
+        'hasLogo': uni.logo_gcs_path is not None,
+        'logoUrl': uni.get_logo_url(),
+        'hasBanner': uni.banner_gcs_path is not None,
         'bannerUrl': uni.get_banner_url(),
     }
     return jsonify(detail)
@@ -289,6 +290,16 @@ def delete_university(university_id: int):
     # Only site admin can delete universities
     if not current_user.is_site_admin():
         return jsonify({'error': 'You are not authorized to delete this university.'}), 403
+
+    # Clean up GCS images before deleting university
+    from backend.services.storage import delete_file
+
+    for path in [uni.logo_gcs_path, uni.banner_gcs_path]:
+        if path:
+            try:
+                delete_file(path)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete university image from GCS: {e}")
 
     # Explicitly delete all roles associated with this university
     # Cascade should handle this, but we do this for SQLite compatibility for our tests.
@@ -680,7 +691,10 @@ def update_university(university_id: int):
             'websiteUrl': uni.website_url or '',
             'socialLinks': uni.get_social_links_list(),
             'memberCount': uni.member_count or 0,
-            'hasLogo': uni.logo is not None,
+            'hasLogo': uni.logo_gcs_path is not None,
+            'logoUrl': uni.get_logo_url(),
+            'hasBanner': uni.banner_gcs_path is not None,
+            'bannerUrl': uni.get_banner_url(),
         }
     })
 
@@ -693,108 +707,95 @@ def update_university(university_id: int):
 @login_required
 def upload_university_logo(university_id: int):
     """
-    Upload or replace university logo.
+    Confirm university logo upload from GCS.
 
     Authorization:
         - Executive+ at THIS university, or site admin
 
-    Request:
-        multipart/form-data with 'logo' file field
+    Request body:
+        {
+            "gcsPath": "images/university-logos/...",
+            "filename": "logo.jpg",
+            "contentType": "image/jpeg",
+            "sizeBytes": 12345
+        }
 
     Returns:
-        JSON response with success status
+        JSON response with success status and logo URL
     """
     uni = University.query.get(university_id)
     if not uni:
         return jsonify({'error': 'University not found'}), 404
 
-    # Check authorization
     if not can_manage_university_members(current_user, university_id):
         return jsonify({'error': 'Not authorized to update this university'}), 403
 
-    # Check for file in request
-    if 'logo' not in request.files:
-        return jsonify({'error': 'No logo file provided'}), 400
+    data = request.get_json()
+    if not data or not data.get('gcsPath'):
+        return jsonify({'error': 'gcsPath is required'}), 400
 
-    file = request.files['logo']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
+    from backend.services.storage import delete_file
 
-    # Validate file type
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp'}), 400
+    old_gcs_path = uni.logo_gcs_path
+    uni.set_logo_gcs(data['gcsPath'])
+    db.session.commit()
 
-    # Check Content-Length header first to reject oversized files early
-    max_size = 5 * 1024 * 1024  # 5MB
-    content_length = request.content_length
-    if content_length and content_length > max_size:
-        return jsonify({'error': 'File size must be less than 5MB'}), 400
+    if old_gcs_path:
+        try:
+            delete_file(old_gcs_path)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to delete old university logo from GCS: {e}")
 
-    # Read with size limit to prevent memory exhaustion
-    file_data = file.read(max_size + 1)
-    if len(file_data) > max_size:
-        return jsonify({'error': 'File size must be less than 5MB'}), 400
-
-    try:
-        # Compress and resize the image
-        compressed_data = compress_image(file_data, max_size=(400, 400), quality=90)
-
-        # Sanitize filename to prevent path traversal or special character issues
-        import os
-        from urllib.parse import quote
-        safe_filename = quote(os.path.basename(file.filename), safe='.-_')
-
-        # Update university logo
-        uni.logo = compressed_data
-        uni.logo_filename = safe_filename
-        uni.logo_mimetype = 'image/jpeg'  # compress_image converts to JPEG
-
-        db.session.commit()
-
-        return jsonify({
-            'success': True,
-            'message': 'Logo uploaded successfully',
-            'hasLogo': True,
-        })
-
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': 'Failed to process image'}), 500
+    return jsonify({
+        'success': True,
+        'message': 'Logo uploaded successfully',
+        'hasLogo': True,
+        'logoUrl': uni.get_logo_url(),
+    })
 
 
 @universities_bp.route('/university/<int:university_id>/logo', methods=['GET'])
 def get_university_logo(university_id: int):
+    """Legacy blob-serving endpoint. Logos are now served directly from GCS."""
+    return jsonify({'error': 'Use logoUrl from API responses'}), 410
+
+
+@universities_bp.route('/api/universities/<int:university_id>/logo', methods=['DELETE'])
+@login_required
+def delete_university_logo(university_id: int):
     """
-    Serve university logo image.
+    Delete university logo, reverting to the default.
 
-    This route is public (no authentication required) to allow
-    embedding logos in img tags.
-
-    Returns:
-        Binary image data with appropriate MIME type, or 404 if no logo
+    Authorization:
+        - Executive+ at THIS university, or site admin
     """
     uni = University.query.get(university_id)
     if not uni:
         return jsonify({'error': 'University not found'}), 404
 
-    if not uni.logo:
-        return jsonify({'error': 'No logo available'}), 404
+    if not can_manage_university_members(current_user, university_id):
+        return jsonify({'error': 'Not authorized to update this university'}), 403
 
-    etag = hashlib.md5(uni.logo).hexdigest()
-    if_none_match = request.headers.get('If-None-Match')
-    if if_none_match and if_none_match.strip('"') == etag:
-        return Response(status=304, headers={'ETag': f'"{etag}"'})
+    try:
+        from backend.services.storage import delete_file
 
-    return Response(
-        uni.logo,
-        mimetype=uni.logo_mimetype or 'image/jpeg',
-        headers={
-            'Cache-Control': 'public, max-age=2592000',
-            'ETag': f'"{etag}"',
-        }
-    )
+        old_gcs_path = uni.delete_logo_gcs()
+        db.session.commit()
+
+        if old_gcs_path:
+            try:
+                delete_file(old_gcs_path)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete university logo from GCS: {e}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Logo removed successfully',
+            'hasLogo': False,
+        })
+    except Exception:
+        db.session.rollback()
+        return jsonify({'error': 'Error deleting logo'}), 500
 
 
 # =============================================================================
@@ -805,104 +806,94 @@ def get_university_logo(university_id: int):
 @login_required
 def upload_university_banner(university_id: int):
     """
-    Upload or replace university banner image.
+    Confirm university banner upload from GCS.
 
     Authorization:
         - Executive+ at THIS university, or site admin
 
-    Request:
-        multipart/form-data with 'banner' file field
-
-    Images are automatically center-cropped to 5:1 aspect ratio
-    and compressed to 1500x300.
+    Request body:
+        {
+            "gcsPath": "images/university-banners/...",
+            "filename": "banner.jpg",
+            "contentType": "image/jpeg",
+            "sizeBytes": 12345
+        }
 
     Returns:
-        JSON response with success status
+        JSON response with success status and banner URL
     """
     uni = University.query.get(university_id)
     if not uni:
         return jsonify({'error': 'University not found'}), 404
 
-    # Check authorization
     if not can_manage_university_members(current_user, university_id):
         return jsonify({'error': 'Not authorized to update this university'}), 403
 
-    # Check for file in request
-    if 'banner' not in request.files:
-        return jsonify({'error': 'No banner file provided'}), 400
+    data = request.get_json()
+    if not data or not data.get('gcsPath'):
+        return jsonify({'error': 'gcsPath is required'}), 400
 
-    file = request.files['banner']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
+    from backend.services.storage import delete_file
 
-    # Validate file type
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp'}), 400
+    old_gcs_path = uni.banner_gcs_path
+    uni.set_banner_gcs(data['gcsPath'])
+    db.session.commit()
 
-    # Read file data
-    file_data = file.read()
+    if old_gcs_path:
+        try:
+            delete_file(old_gcs_path)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to delete old university banner from GCS: {e}")
 
-    try:
-        # Compress and crop to banner dimensions (1500x300, 5:1 ratio)
-        compressed_data = compress_banner_image(file_data)
-
-        # Sanitize filename
-        import os
-        from urllib.parse import quote
-        safe_filename = quote(os.path.basename(file.filename), safe='.-_')
-
-        # Update university banner
-        uni.banner = compressed_data
-        uni.banner_filename = safe_filename
-        uni.banner_mimetype = 'image/jpeg'
-
-        db.session.commit()
-
-        return jsonify({
-            'success': True,
-            'message': 'Banner uploaded successfully',
-            'hasBanner': True,
-            'bannerUrl': uni.get_banner_url(),
-        })
-
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': 'Failed to process image'}), 500
+    return jsonify({
+        'success': True,
+        'message': 'Banner uploaded successfully',
+        'hasBanner': True,
+        'bannerUrl': uni.get_banner_url(),
+    })
 
 
 @universities_bp.route('/university/<int:university_id>/banner', methods=['GET'])
 def get_university_banner(university_id: int):
+    """Legacy blob-serving endpoint. Banners are now served directly from GCS."""
+    return jsonify({'error': 'Use bannerUrl from API responses'}), 410
+
+
+@universities_bp.route('/api/universities/<int:university_id>/banner', methods=['DELETE'])
+@login_required
+def delete_university_banner(university_id: int):
     """
-    Serve university banner image.
+    Delete university banner, reverting to the default.
 
-    This route is public (no authentication required) to allow
-    embedding banners in img tags.
-
-    Returns:
-        Binary image data with appropriate MIME type, or 404 if no banner
+    Authorization:
+        - Executive+ at THIS university, or site admin
     """
     uni = University.query.get(university_id)
     if not uni:
         return jsonify({'error': 'University not found'}), 404
 
-    if not uni.banner:
-        return jsonify({'error': 'No banner available'}), 404
+    if not can_manage_university_members(current_user, university_id):
+        return jsonify({'error': 'Not authorized to update this university'}), 403
 
-    etag = hashlib.md5(uni.banner).hexdigest()
-    if_none_match = request.headers.get('If-None-Match')
-    if if_none_match and if_none_match.strip('"') == etag:
-        return Response(status=304, headers={'ETag': f'"{etag}"'})
+    try:
+        from backend.services.storage import delete_file
 
-    return Response(
-        uni.banner,
-        mimetype=uni.banner_mimetype or 'image/jpeg',
-        headers={
-            'Cache-Control': 'public, max-age=2592000',
-            'ETag': f'"{etag}"',
-        }
-    )
+        old_gcs_path = uni.delete_banner_gcs()
+        db.session.commit()
 
+        if old_gcs_path:
+            try:
+                delete_file(old_gcs_path)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to delete university banner from GCS: {e}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Banner removed successfully',
+            'hasBanner': False,
+        })
+    except Exception:
+        db.session.rollback()
+        return jsonify({'error': 'Error deleting banner'}), 500
 
 

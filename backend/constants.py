@@ -124,6 +124,31 @@ RESUME_EXTENSION_TO_MIME = {
 
 
 # =============================================================================
+# Image Upload Constants (profile pictures, banners, logos)
+# =============================================================================
+
+# Maximum raw image upload size before server-side compression
+MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+
+# Allowed image MIME types for profile pictures, banners, and logos
+ALLOWED_IMAGE_TYPES = {
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+}
+
+# GCS path prefixes for each image entity type
+IMAGE_GCS_PREFIXES = {
+    'profile': 'images/profiles',
+    'banner': 'images/banners',
+    'university_logo': 'images/university-logos',
+    'university_banner': 'images/university-banners',
+    'speaker': 'images/speakers',
+}
+
+
+# =============================================================================
 # Permission System Constants
 # =============================================================================
 #
@@ -215,3 +240,17 @@ class UniversityRoles:
     def is_valid(cls, role: int) -> bool:
         """Check if a role value is valid."""
         return role in cls.ROLE_NAMES
+
+
+# =============================================================================
+# Speaker Image Constants
+# =============================================================================
+
+MAX_SPEAKER_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+ALLOWED_SPEAKER_IMAGE_TYPES = {
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+}

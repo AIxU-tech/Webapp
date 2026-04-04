@@ -22,12 +22,13 @@ from flask_login import login_required, current_user
 from backend.extensions import db
 from backend.models import Note, NoteAttachment
 from backend.services.storage import (
-    is_gcs_configured,
     generate_upload_url,
+    generate_image_upload_url,
     generate_download_url,
     delete_file,
 )
-from backend.constants import MAX_ATTACHMENT_SIZE_BYTES
+from backend.constants import IMAGE_GCS_PREFIXES, MAX_ATTACHMENT_SIZE_BYTES
+from backend.utils.permissions import can_manage_university_members
 from backend.routes_v2.uploads.helpers import _validate_file_upload
 
 uploads_bp = Blueprint('uploads', __name__)
@@ -48,12 +49,6 @@ def request_upload_url():
     Returns:
         JSON with uploadUrl, gcsPath, expiresIn on success
     """
-    if not is_gcs_configured():
-        return jsonify({
-            'success': False,
-            'error': 'File storage is not configured'
-        }), 503
-
     data = request.get_json()
     if not data:
         return jsonify({
@@ -117,12 +112,6 @@ def request_upload_urls():
                 - expiresIn: Seconds until URL expires
                 - index: Original index in the request array
     """
-    if not is_gcs_configured():
-        return jsonify({
-            'success': False,
-            'error': 'File storage is not configured'
-        }), 503
-
     data = request.get_json()
     if not data:
         return jsonify({
@@ -205,6 +194,77 @@ def request_upload_urls():
         }), 500
 
 
+@uploads_bp.route('/api/uploads/request-image-url', methods=['POST'])
+@login_required
+def request_image_upload_url():
+    """
+    Request a signed URL for uploading an image to GCS.
+
+    Uses IMAGE_GCS_PREFIXES to place images under the correct path prefix.
+
+    Request body:
+        - imageType (str): Key in IMAGE_GCS_PREFIXES
+        - entityId (int, optional): Entity ID for path. Defaults to current user ID.
+        - filename (str): Original filename
+        - contentType (str): MIME type (must start with image/)
+        - sizeBytes (int): File size in bytes
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Request body required'}), 400
+
+    image_type = data.get('imageType')
+    if not image_type or image_type not in IMAGE_GCS_PREFIXES:
+        return jsonify({
+            'success': False,
+            'error': f'Invalid imageType. Must be one of: {", ".join(IMAGE_GCS_PREFIXES.keys())}'
+        }), 400
+
+    filename = data.get('filename')
+    content_type = data.get('contentType')
+    size_bytes = data.get('sizeBytes')
+
+    if not filename or not content_type or not size_bytes:
+        return jsonify({'success': False, 'error': 'Missing required fields: filename, contentType, sizeBytes'}), 400
+
+    if not content_type.startswith('image/'):
+        return jsonify({'success': False, 'error': 'contentType must be an image type'}), 400
+
+    if not isinstance(size_bytes, (int, float)) or size_bytes <= 0:
+        return jsonify({'success': False, 'error': 'Invalid file size'}), 400
+
+    max_size = 10 * 1024 * 1024  # 10MB
+    if size_bytes > max_size:
+        return jsonify({'success': False, 'error': 'File size must be less than 10MB'}), 400
+
+    entity_id = data.get('entityId')
+    if image_type in ('university_logo', 'university_banner'):
+        if not entity_id:
+            return jsonify({'success': False, 'error': 'entityId is required for university images'}), 400
+        if not can_manage_university_members(current_user, entity_id):
+            return jsonify({'success': False, 'error': 'Not authorized to upload images for this university'}), 403
+    else:
+        entity_id = entity_id or current_user.id
+
+    try:
+        result = generate_image_upload_url(
+            image_type=image_type,
+            entity_id=entity_id,
+            filename=filename,
+            content_type=content_type,
+        )
+        return jsonify({
+            'success': True,
+            'uploadUrl': result['uploadUrl'],
+            'gcsPath': result['gcsPath'],
+            'expiresIn': result['expiresIn'],
+        })
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to generate upload URL'}), 500
+
+
 @uploads_bp.route('/api/uploads/attachments/<int:attachment_id>', methods=['DELETE'])
 @login_required
 def delete_attachment(attachment_id):
@@ -233,8 +293,7 @@ def delete_attachment(attachment_id):
 
     try:
         # Delete from GCS
-        if is_gcs_configured():
-            delete_file(attachment.gcs_path)
+        delete_file(attachment.gcs_path)
 
         # Delete database record
         db.session.delete(attachment)
@@ -272,16 +331,13 @@ def get_note_attachments(note_id):
 
     result = []
     for attachment in attachments:
-        if is_gcs_configured():
-            try:
-                download_url = generate_download_url(attachment.gcs_path)
-                result.append(attachment.to_dict(
-                    include_download_url=True,
-                    download_url=download_url
-                ))
-            except Exception:
-                result.append(attachment.to_dict())
-        else:
+        try:
+            download_url = generate_download_url(attachment.gcs_path)
+            result.append(attachment.to_dict(
+                include_download_url=True,
+                download_url=download_url
+            ))
+        except Exception:
             result.append(attachment.to_dict())
 
     return jsonify({

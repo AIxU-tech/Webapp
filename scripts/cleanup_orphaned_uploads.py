@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-Cleanup Orphaned GCS Uploads Script
+Cleanup Orphaned GCS Files Script
 
-Finds and removes files in GCS that are not associated with any NoteAttachment
-in the database. This handles the case where files are uploaded but the note
-creation fails, leaving orphaned files in storage.
+Finds and removes files in GCS that are not associated with any database record.
+Covers two categories:
+
+  Phase 1 - Uploads:  files under uploads/ not linked to any NoteAttachment
+  Phase 2 - Images:   files under images/ not linked to any User, University, or Speaker
 
 Usage:
     # Dry run against production (default) - shows what would be deleted
@@ -29,7 +31,7 @@ Usage:
     python scripts/cleanup_orphaned_uploads.py --local --delete --grace-period 30 --verbose
 
 Environment:
-    Requires DATABASE_URL (or DEV_DATABASE_URL_LOCAL with --local) and GCS 
+    Requires DATABASE_URL (or DEV_DATABASE_URL_LOCAL with --local) and GCS
     environment variables to be set. Run from the Webapp directory.
 """
 
@@ -48,7 +50,7 @@ load_dotenv()
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description='Clean up orphaned files in GCS that have no NoteAttachment record.',
+        description='Clean up orphaned files in GCS that have no database record.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -96,6 +98,92 @@ def format_size(size_bytes):
         return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
 
+def find_and_clean_orphans(bucket, gcs_prefix, db_paths, grace_period_minutes, delete, verbose, label):
+    """
+    Find orphaned files under a GCS prefix and optionally delete them.
+
+    Args:
+        bucket: GCS bucket object
+        gcs_prefix: GCS prefix to scan (e.g., 'uploads/' or 'images/')
+        db_paths: Set of known GCS paths from the database
+        grace_period_minutes: Skip files newer than this
+        delete: Whether to actually delete files
+        verbose: Whether to show individual file paths
+        label: Display label for this phase (e.g., 'Uploads', 'Images')
+
+    Returns:
+        Tuple of (orphan_count, deleted_count, failed_count, total_size)
+    """
+    print(f"Listing files in GCS under {gcs_prefix}...")
+    gcs_blobs = {}
+    for blob in bucket.list_blobs(prefix=gcs_prefix):
+        gcs_blobs[blob.name] = blob
+    print(f"  Found {len(gcs_blobs)} files in GCS")
+
+    # Find orphaned files (in GCS but not in DB)
+    orphaned_paths = set(gcs_blobs.keys()) - db_paths
+    print(f"  Found {len(orphaned_paths)} orphaned files (in GCS but not in DB)")
+
+    if not orphaned_paths:
+        print(f"  No orphaned {label.lower()} found.")
+        return 0, 0, 0, 0
+
+    # Filter by grace period
+    grace_cutoff = datetime.now(timezone.utc) - timedelta(minutes=grace_period_minutes)
+
+    files_to_delete = []
+    files_skipped_grace = []
+    total_size = 0
+
+    for path in orphaned_paths:
+        blob = gcs_blobs[path]
+        if blob.time_created and blob.time_created > grace_cutoff:
+            files_skipped_grace.append((path, blob))
+        else:
+            files_to_delete.append((path, blob))
+            total_size += blob.size or 0
+
+    print()
+    print(f"  {label} Analysis:")
+    print(f"    Within grace period (skipped): {len(files_skipped_grace)}")
+    print(f"    Eligible for deletion: {len(files_to_delete)}")
+    print(f"    Size to reclaim: {format_size(total_size)}")
+
+    if verbose and files_skipped_grace:
+        print()
+        print(f"  {label} skipped (within grace period):")
+        for path, blob in files_skipped_grace:
+            age_minutes = (datetime.now(timezone.utc) - blob.time_created).total_seconds() / 60
+            print(f"    {path} ({format_size(blob.size or 0)}, {age_minutes:.0f}m old)")
+
+    if verbose and files_to_delete:
+        print()
+        print(f"  {label} to delete:")
+        for path, blob in files_to_delete:
+            created = blob.time_created.strftime('%Y-%m-%d %H:%M') if blob.time_created else 'unknown'
+            print(f"    {path} ({format_size(blob.size or 0)}, created {created})")
+
+    if not files_to_delete:
+        return len(orphaned_paths), 0, 0, 0
+
+    # Delete or report
+    deleted_count = 0
+    failed_count = 0
+
+    if delete:
+        for path, blob in files_to_delete:
+            try:
+                blob.delete()
+                deleted_count += 1
+                if verbose:
+                    print(f"    Deleted: {path}")
+            except Exception as e:
+                failed_count += 1
+                print(f"    FAILED to delete {path}: {e}")
+
+    return len(orphaned_paths), deleted_count, failed_count, total_size
+
+
 def main():
     args = parse_args()
 
@@ -135,8 +223,9 @@ def main():
 
     with app.app_context():
         from backend.extensions import db
-        from backend.models import NoteAttachment
+        from backend.models import NoteAttachment, User, University, Speaker
         from backend.services.storage import _get_bucket, is_gcs_configured
+        from flask import current_app
 
         # Check GCS configuration
         if not is_gcs_configured():
@@ -152,118 +241,97 @@ def main():
         else:
             masked_uri = db_uri
 
+        env_prefix = current_app.config.get('GCS_PATH_PREFIX', '')
+
         print("=" * 60)
-        print("GCS Orphaned Upload Cleanup")
+        print("GCS Orphaned File Cleanup")
         print("=" * 60)
         print(f"Database: {db_label}")
         print(f"  URI: {masked_uri}")
         print(f"Mode: {'DELETE' if args.delete else 'DRY RUN (no files will be deleted)'}")
         print(f"Grace period: {args.grace_period} minutes")
+        if env_prefix:
+            print(f"GCS path prefix: {env_prefix}")
         print()
 
-        # Step 1: Get all gcs_path values from the database
+        bucket = _get_bucket()
+        total_deleted = 0
+        total_failed = 0
+        total_size = 0
+
+        # =================================================================
+        # Phase 1: Orphaned note attachment uploads
+        # =================================================================
+        print("-" * 60)
+        print("Phase 1: Note Attachment Uploads")
+        print("-" * 60)
+
         print("Fetching attachment records from database...")
-        db_paths = set(
+        upload_db_paths = set(
             row[0] for row in
             db.session.query(NoteAttachment.gcs_path).all()
         )
-        print(f"  Found {len(db_paths)} attachments in database")
+        print(f"  Found {len(upload_db_paths)} attachments in database")
 
-        # Step 2: List all blobs in GCS under uploads/
-        print("Listing files in GCS bucket...")
-        bucket = _get_bucket()
-        
-        gcs_blobs = {}  # path -> blob object (for metadata access)
-        for blob in bucket.list_blobs(prefix='uploads/'):
-            gcs_blobs[blob.name] = blob
-        
-        print(f"  Found {len(gcs_blobs)} files in GCS")
+        uploads_prefix = f"{env_prefix}/uploads/" if env_prefix else "uploads/"
+        _, deleted, failed, size = find_and_clean_orphans(
+            bucket, uploads_prefix, upload_db_paths,
+            args.grace_period, args.delete, args.verbose, "Uploads"
+        )
+        total_deleted += deleted
+        total_failed += failed
+        total_size += size
 
-        # Step 3: Find orphaned files (in GCS but not in DB)
-        orphaned_paths = set(gcs_blobs.keys()) - db_paths
-        print(f"  Found {len(orphaned_paths)} orphaned files (in GCS but not in DB)")
-
-        if not orphaned_paths:
-            print()
-            print("No orphaned files found. Nothing to clean up.")
-            return
-
-        # Step 4: Filter by grace period
-        grace_cutoff = datetime.now(timezone.utc) - timedelta(minutes=args.grace_period)
-        
-        files_to_delete = []
-        files_skipped_grace = []
-        total_size = 0
-        
-        for path in orphaned_paths:
-            blob = gcs_blobs[path]
-            
-            # Check if file is within grace period
-            # blob.time_created is timezone-aware (UTC)
-            if blob.time_created and blob.time_created > grace_cutoff:
-                files_skipped_grace.append((path, blob))
-            else:
-                files_to_delete.append((path, blob))
-                total_size += blob.size or 0
-
+        # =================================================================
+        # Phase 2: Orphaned image files
+        # =================================================================
         print()
         print("-" * 60)
-        print("Analysis Results:")
+        print("Phase 2: Image Files (profiles, banners, logos, speakers)")
         print("-" * 60)
-        print(f"  Orphaned files within grace period (skipped): {len(files_skipped_grace)}")
-        print(f"  Orphaned files eligible for deletion: {len(files_to_delete)}")
-        print(f"  Total size to reclaim: {format_size(total_size)}")
 
-        if args.verbose and files_skipped_grace:
-            print()
-            print("Files skipped (within grace period):")
-            for path, blob in files_skipped_grace:
-                age_minutes = (datetime.now(timezone.utc) - blob.time_created).total_seconds() / 60
-                print(f"    {path} ({format_size(blob.size or 0)}, {age_minutes:.0f}m old)")
+        print("Fetching image records from database...")
+        image_db_paths = set()
 
-        if args.verbose and files_to_delete:
-            print()
-            print("Files to delete:")
-            for path, blob in files_to_delete:
-                created = blob.time_created.strftime('%Y-%m-%d %H:%M') if blob.time_created else 'unknown'
-                print(f"    {path} ({format_size(blob.size or 0)}, created {created})")
+        for col in [User.profile_picture_gcs_path, User.banner_image_gcs_path]:
+            for (path,) in db.session.query(col).filter(col.isnot(None)).all():
+                image_db_paths.add(path)
 
-        if not files_to_delete:
-            print()
-            print("No files eligible for deletion (all within grace period).")
-            return
+        for col in [University.logo_gcs_path, University.banner_gcs_path]:
+            for (path,) in db.session.query(col).filter(col.isnot(None)).all():
+                image_db_paths.add(path)
 
-        # Step 5: Delete (or report)
+        for (path,) in db.session.query(Speaker.image_gcs_path).filter(
+            Speaker.image_gcs_path.isnot(None)
+        ).all():
+            image_db_paths.add(path)
+
+        print(f"  Found {len(image_db_paths)} image paths in database")
+
+        images_prefix = f"{env_prefix}/images/" if env_prefix else "images/"
+        _, deleted, failed, size = find_and_clean_orphans(
+            bucket, images_prefix, image_db_paths,
+            args.grace_period, args.delete, args.verbose, "Images"
+        )
+        total_deleted += deleted
+        total_failed += failed
+        total_size += size
+
+        # =================================================================
+        # Summary
+        # =================================================================
         print()
+        print("=" * 60)
         if args.delete:
-            print("-" * 60)
-            print("Deleting orphaned files...")
-            print("-" * 60)
-            
-            deleted_count = 0
-            failed_count = 0
-            
-            for path, blob in files_to_delete:
-                try:
-                    blob.delete()
-                    deleted_count += 1
-                    if args.verbose:
-                        print(f"  Deleted: {path}")
-                except Exception as e:
-                    failed_count += 1
-                    print(f"  FAILED to delete {path}: {e}")
-
-            print()
-            print("=" * 60)
             print("Cleanup Complete")
             print("=" * 60)
-            print(f"  Files deleted: {deleted_count}")
-            print(f"  Files failed: {failed_count}")
-            print(f"  Storage reclaimed: {format_size(total_size)}")
+            print(f"  Total files deleted: {total_deleted}")
+            print(f"  Total files failed: {total_failed}")
+            print(f"  Total storage reclaimed: {format_size(total_size)}")
         else:
-            print("-" * 60)
             print("DRY RUN - No files were deleted")
-            print("-" * 60)
+            print("=" * 60)
+            print(f"  Total reclaimable: {format_size(total_size)}")
             print()
             print("To actually delete these files, run with --delete flag:")
             print(f"    python scripts/cleanup_orphaned_uploads.py --delete")

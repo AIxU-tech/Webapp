@@ -1,5 +1,4 @@
 from datetime import datetime
-from flask import url_for
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
@@ -53,16 +52,9 @@ class User(UserMixin, db.Model):
     # - bookmarked_opportunities -> OpportunityBookmark table
     # The columns may still exist in the database but are no longer used by the application.
 
-    #Profile pics
-    # Add these new fields for profile picture
-    profile_picture = db.Column(db.LargeBinary, nullable=True)  # Store image as binary data
-    profile_picture_filename = db.Column(db.String(100), nullable=True)  # Original filename
-    profile_picture_mimetype = db.Column(db.String(50), nullable=True)  # MIME type (image/jpeg, image/png, etc.)
-
-    # Banner image storage
-    banner_image = db.Column(db.LargeBinary, nullable=True)  # Store banner as binary data
-    banner_image_filename = db.Column(db.String(255), nullable=True)  # Original filename
-    banner_image_mimetype = db.Column(db.String(100), nullable=True)  # MIME type
+    # Image storage (GCS)
+    profile_picture_gcs_path = db.Column(db.String(500), nullable=True)
+    banner_image_gcs_path = db.Column(db.String(500), nullable=True)
 
     def get_university(self):
         from backend.models.university import University
@@ -168,6 +160,7 @@ class User(UserMixin, db.Model):
             'last_name': self.last_name,
             'full_name': self.get_full_name(),
             'university': self.university,
+            'university_id': self.university_roles[0].university_id if self.university_roles else None,
             'join_date': to_iso(self.join_date),
             'joined_formatted': format_join_date(self.join_date),
             'post_count': self.post_count,
@@ -178,7 +171,7 @@ class User(UserMixin, db.Model):
             'avatar_url': self.avatar_url,
             'profile_picture_url': self.get_profile_picture_url(),
             'banner_image_url': self.get_banner_image_url(),
-            'hasBanner': self.banner_image is not None,
+            'hasBanner': self.banner_image_gcs_path is not None,
             'location': self.location,
             'skills': self.get_skills_list(),
             'socialLinks': self.get_social_links_list(),
@@ -198,53 +191,48 @@ class User(UserMixin, db.Model):
         return UniversityRole.is_executive_anywhere(self.id)
 
     def get_profile_picture_url(self):
-        """Return profile picture URL or None (frontend handles fallback)"""
-        if self.profile_picture:
-            return url_for('profile.get_profile_picture', user_id=self.id)
-        elif self.avatar_url:
+        """Return profile picture URL or None (frontend handles fallback)."""
+        if self.profile_picture_gcs_path:
+            from backend.services.storage import get_public_image_url
+            return get_public_image_url(self.profile_picture_gcs_path)
+        if self.avatar_url:
             return self.avatar_url
-        else:
-            # Return None - frontend Avatar component handles fallback with gradient + initials
-            return None
-
-    def set_profile_picture(self, image_data, filename, mimetype):
-        """Set profile picture with size validation"""
-        # Limit to 5MB
-        max_size = 5 * 1024 * 1024  # 5MB in bytes
-        if len(image_data) > max_size:
-            raise ValueError("Image file too large. Maximum size is 5MB.")
-
-        self.profile_picture = image_data
-        self.profile_picture_filename = filename
-        self.profile_picture_mimetype = mimetype
-
-    def delete_profile_picture(self):
-        """Remove profile picture"""
-        self.profile_picture = None
-        self.profile_picture_filename = None
-        self.profile_picture_mimetype = None
+        return None
 
     # -------------------------------------------------------------------------
     # Banner Image Methods
     # -------------------------------------------------------------------------
 
     def get_banner_image_url(self):
-        """Return banner image URL or None (frontend handles fallback)"""
-        if self.banner_image:
-            return url_for('profile.get_banner_image', user_id=self.id)
+        """Return banner image URL or None (frontend handles fallback)."""
+        if self.banner_image_gcs_path:
+            from backend.services.storage import get_public_image_url
+            return get_public_image_url(self.banner_image_gcs_path)
         return None
 
-    def set_banner_image(self, image_data, filename, mimetype):
-        """Set banner image (image should be compressed before calling)"""
-        self.banner_image = image_data
-        self.banner_image_filename = filename
-        self.banner_image_mimetype = mimetype
+    # -------------------------------------------------------------------------
+    # GCS Image Methods
+    # -------------------------------------------------------------------------
 
-    def delete_banner_image(self):
-        """Remove banner image"""
-        self.banner_image = None
-        self.banner_image_filename = None
-        self.banner_image_mimetype = None
+    def set_profile_picture_gcs(self, gcs_path: str):
+        """Set profile picture to a GCS path."""
+        self.profile_picture_gcs_path = gcs_path
+
+    def delete_profile_picture_gcs(self):
+        """Remove profile picture GCS reference. Caller must delete from GCS separately."""
+        old_path = self.profile_picture_gcs_path
+        self.profile_picture_gcs_path = None
+        return old_path
+
+    def set_banner_image_gcs(self, gcs_path: str):
+        """Set banner to a GCS path."""
+        self.banner_image_gcs_path = gcs_path
+
+    def delete_banner_image_gcs(self):
+        """Remove banner GCS reference. Caller must delete from GCS separately."""
+        old_path = self.banner_image_gcs_path
+        self.banner_image_gcs_path = None
+        return old_path
 
     # -------------------------------------------------------------------------
     # Note Like/Bookmark Methods

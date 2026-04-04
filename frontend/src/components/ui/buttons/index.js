@@ -9,3 +9,4 @@ export { default as SecondaryButton } from './SecondaryButton';
 export { default as IconButton } from './IconButton';
 export { default as CloseButton } from './CloseButton';
 export { default as LikeButton } from './LikeButton';
+export { default as ResetButton } from './ResetButton';

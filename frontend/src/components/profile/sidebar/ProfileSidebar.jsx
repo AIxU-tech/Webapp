@@ -29,7 +29,7 @@ export default function ProfileSidebar({ user, university, isOwnProfile, onSaveS
       <AIClubsCard
         universityName={user?.university}
         universityId={university?.id}
-        universityLogoUrl={university?.hasLogo ? `/university/${university.id}/logo` : null}
+        universityLogoUrl={university?.logoUrl || null}
         role={universityRole}
       />
 
