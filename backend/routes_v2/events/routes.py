@@ -264,8 +264,16 @@ def create_event(university_id):
     db.session.add(event)
     db.session.commit()
 
-    # In-app notifications for all club members (excludes creator)
-    notify_event_created(event, current_user, uni)
+    # In-app notifications for all club members (excludes creator).
+    # Failures here must NOT fail the request — the event is already persisted,
+    # and retrying would create a duplicate event.
+    try:
+        notify_event_created(event, current_user, uni)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception(
+            'Failed to send in-app notifications for event %s', event.id
+        )
 
     # Email notifications for all club members (non-blocking)
     recipients = _get_member_recipients(uni)

@@ -26,6 +26,34 @@ from backend.sockets.events import emit_resume_parse_result
 PARSE_MODEL = "claude-haiku-4-5-20251001"
 PARSE_MAX_TOKENS = 4096
 
+# Tracks user_ids whose resume is currently being parsed. Prevents a user from
+# kicking off multiple concurrent parses (which would waste Claude tokens and
+# race on the same User row). This is per-process in-memory state; it matches
+# the semantics of the previous polling-based implementation.
+_active_parses = set()
+_active_parses_lock = threading.Lock()
+
+
+def try_acquire_parse_slot(user_id):
+    """
+    Atomically reserve a parse slot for ``user_id``.
+
+    Returns True if the slot was acquired (caller is responsible for releasing
+    it, either directly on failure or indirectly via the background thread on
+    success). Returns False if a parse is already in progress for this user.
+    """
+    with _active_parses_lock:
+        if user_id in _active_parses:
+            return False
+        _active_parses.add(user_id)
+        return True
+
+
+def release_parse_slot(user_id):
+    """Release a parse slot. Safe to call even if the slot is not held."""
+    with _active_parses_lock:
+        _active_parses.discard(user_id)
+
 
 def download_file_from_gcs(gcs_path):
     """Download a file from GCS and return its bytes."""
@@ -311,6 +339,8 @@ def start_resume_parse(app, user_id, file_bytes, content_type):
                     success=False,
                     error_message="Failed to parse resume. Please try again later.",
                 )
+        finally:
+            release_parse_slot(user_id)
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
