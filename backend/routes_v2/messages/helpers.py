@@ -91,6 +91,33 @@ def get_messages_between_users(current_user, user_id):
     return messages
 
 
+def conversation_detail_payload(current_user, other_user, messages):
+    """
+    Build the user + messages object for JSON (same shape as GET /conversation/<id>).
+
+    Does not mark messages read — used when embedding the latest thread in
+    GET /conversations so unread state stays accurate until the user opens it.
+    """
+    return {
+        'user': {
+            'id': other_user.id,
+            'name': other_user.get_full_name(),
+            'university': other_user.university or 'University',
+            'avatar': other_user.get_profile_picture_url()
+        },
+        'messages': [
+            {
+                'id': msg.id,
+                'content': msg.content,
+                'timestamp': msg.get_time_ago(),
+                'isSentByCurrentUser': msg.sender_id == current_user.id,
+                'isRead': msg.is_read
+            }
+            for msg in messages
+        ]
+    }
+
+
 
 def send_to_recipient(message, current_user, recipient_id):
     """

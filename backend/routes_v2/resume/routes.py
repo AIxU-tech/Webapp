@@ -1,12 +1,13 @@
 """
 Resume Routes
 
-API endpoints for uploading, retrieving, and deleting user resumes.
+API endpoints for uploading, retrieving, deleting, and parsing user resumes.
 
 Endpoints:
 - POST /api/profile/resume       - Confirm resume upload (replace if exists)
 - GET  /api/users/<id>/resume    - Get a user's resume (authenticated only)
 - DELETE /api/profile/resume     - Delete own resume
+- POST /api/profile/resume/parse - Trigger AI parsing of uploaded resume
 """
 
 from flask import Blueprint, jsonify, request, current_app
@@ -18,6 +19,12 @@ from backend.constants import ALLOWED_RESUME_TYPES, MAX_RESUME_SIZE_BYTES
 from backend.services.storage import (
     generate_download_url,
     delete_file,
+)
+from backend.services.resume_parser import (
+    download_file_from_gcs,
+    start_resume_parse,
+    try_acquire_parse_slot,
+    release_parse_slot,
 )
 
 resume_bp = Blueprint('resume', __name__)
@@ -151,3 +158,38 @@ def delete_resume():
     except Exception:
         db.session.rollback()
         return jsonify({'success': False, 'error': 'Failed to delete resume'}), 500
+
+
+@resume_bp.route('/api/profile/resume/parse', methods=['POST'])
+@login_required
+def parse_resume():
+    """
+    Trigger AI-powered parsing of the user's uploaded resume.
+
+    Downloads the file from GCS and kicks off a background thread that
+    extracts structured profile data. On completion (or failure) the user
+    receives a WebSocket event (`resume_parse_complete` / `resume_parse_error`).
+
+    Only one parse per user can be in flight at a time — concurrent requests
+    return 409 to avoid wasted Claude calls and races on the user's profile.
+    """
+    resume = Resume.query.filter_by(user_id=current_user.id).first()
+    if not resume:
+        return jsonify({'success': False, 'error': 'No resume uploaded'}), 404
+
+    if not try_acquire_parse_slot(current_user.id):
+        return jsonify({
+            'success': False,
+            'error': 'Resume parsing is already in progress',
+        }), 409
+
+    try:
+        file_bytes = download_file_from_gcs(resume.gcs_path)
+    except Exception:
+        release_parse_slot(current_user.id)
+        return jsonify({'success': False, 'error': 'Failed to download resume from storage'}), 500
+
+    # The background thread releases the slot in its finally block.
+    start_resume_parse(current_app._get_current_object(), current_user.id, file_bytes, resume.content_type)
+
+    return jsonify({'success': True, 'message': 'Resume parsing started'})

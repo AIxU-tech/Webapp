@@ -29,6 +29,8 @@ export {
 
 export { validateEmailFormat, validatePhoneFormat, formatUSPhone } from './validation';
 
+export { isMobile } from './isMobile';
+
 // URL construction utilities
 export { getApiUrl } from './url';
 

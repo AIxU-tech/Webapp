@@ -25,11 +25,13 @@ from backend.extensions import db
 from backend.models import Message, User
 from backend.sockets.events import emit_messages_read
 from backend.routes_v2.messages.helpers import (
+    conversation_detail_payload,
     create_conversations_dict,
     get_messages_between_users,
-    send_to_recipient
+    send_to_recipient,
 )
 from backend.utils.email import send_new_conversation_email
+from backend.routes_v2.notifications.helpers import notify_new_message
 
 _DEV_MODE = os.environ.get('DEV_MODE')
 _APP_URL = "http://localhost:8000" if _DEV_MODE else "https://aixu.tech"
@@ -94,6 +96,12 @@ def get_conversations():
     - hasUnread: Whether there are unread messages from this user
 
     Conversations are sorted by most recent message first.
+
+    When there is at least one conversation, ``recentConversation`` contains the
+    full message thread for the most recently active conversation (same shape as
+    GET /conversation/<user_id>) so the client can hydrate cache without a second
+    round-trip. Messages are not marked as read here; opening the thread still
+    does that via GET /conversation/<user_id>.
     """
     try:
         # Get all messages involving the current user
@@ -111,9 +119,20 @@ def get_conversations():
         # Convert to list (already sorted by most recent due to query order)
         conversations = list(conversations_dict.values())
 
+        recent_conversation = None
+        if conversations:
+            other_id = conversations[0]['otherUser']['id']
+            other_user = User.query.get(other_id)
+            if other_user:
+                thread_messages = get_messages_between_users(current_user, other_id)
+                recent_conversation = conversation_detail_payload(
+                    current_user, other_user, thread_messages
+                )
+
         return jsonify({
             'success': True,
-            'conversations': conversations
+            'conversations': conversations,
+            'recentConversation': recent_conversation,
         })
 
     except Exception as e:
@@ -181,8 +200,10 @@ def send_message():
         # Emit WebSocket notification to recipient for real-time delivery
         send_to_recipient(message, current_user, recipient_id)
 
-        # Send email notification for brand-new conversations (async to avoid blocking)
+        # First-ever conversation: email + in-app notification
         if is_first_conversation:
+            notify_new_message(recipient, current_user, message)
+
             app = current_app._get_current_object()
             thread = threading.Thread(
                 target=_send_first_conversation_email,
@@ -254,21 +275,10 @@ def get_conversation(user_id):
                 conversation_id=current_user.id  # From sender's perspective
             )
 
+        payload = conversation_detail_payload(current_user, other_user, messages)
         return jsonify({
             'success': True,
-            'user': {
-                'id': other_user.id,
-                'name': other_user.get_full_name(),
-                'university': other_user.university or 'University',
-                'avatar': other_user.get_profile_picture_url()
-            },
-            'messages': [{
-                'id': msg.id,
-                'content': msg.content,
-                'timestamp': msg.get_time_ago(),
-                'isSentByCurrentUser': msg.sender_id == current_user.id,
-                'isRead': msg.is_read
-            } for msg in messages]
+            **payload
         })
 
     except Exception as e:

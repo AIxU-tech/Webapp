@@ -238,6 +238,30 @@ def emit_notification_update(recipient_id, notification_data):
     logger.debug('Emitted notification_update to user_%s', recipient_id)
 
 
+def emit_resume_parse_result(user_id, success, error_message=None):
+    """
+    Notify the user that background resume parsing has finished.
+
+    Args:
+        user_id (int): The user whose resume was parsed
+        success (bool): Whether parsing succeeded
+        error_message (str|None): Human-readable error if failed
+    """
+    room = f'user_{user_id}'
+
+    payload = {
+        'type': 'resume_parse_complete' if success else 'resume_parse_error',
+        'success': success,
+    }
+    if error_message:
+        payload['error'] = error_message
+
+    event_name = 'resume_parse_complete' if success else 'resume_parse_error'
+    socketio.emit(event_name, payload, room=room)
+
+    logger.debug('Emitted %s to user_%s', event_name, user_id)
+
+
 def emit_university_update(university_id, members, update_type, user_data=None):
     """
     Emit an update when university membership changes.

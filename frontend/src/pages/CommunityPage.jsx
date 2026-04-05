@@ -23,12 +23,11 @@
  * @component
  */
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { clearResumeParseStatus } from '../api/resume';
 import {
   useInfiniteNotes,
   useCreateNote,
@@ -42,8 +41,6 @@ import {
   useResume,
   useUploadResume,
   useStartResumeParse,
-  useResumeParseStatus,
-  resumeKeys,
 } from '../hooks';
 
 // UI Components
@@ -54,7 +51,7 @@ import {
   Toast,
 } from '../components/ui';
 import { NoteCard, NotesFilter, CreateNoteModal, EditNoteModal, NotesLoadingSkeleton } from '../components/community';
-import { ResumeAutoFillModal, ResumeParsingBanner } from '../components/profile';
+import { ResumeAutoFillModal } from '../components/profile';
 
 // Icons
 import {
@@ -78,7 +75,6 @@ export default function CommunityPage() {
   const isAdmin = user?.permissionLevel >= 1;
   const { openAuthModal } = useAuthModal();
   const [searchParams, setSearchParams] = useSearchParams();
-
   const queryClient = useQueryClient();
 
   /**
@@ -176,6 +172,7 @@ export default function CommunityPage() {
    * Toast notification for background errors (e.g., failed note creation/update)
    */
   const [errorToast, setErrorToast] = useState(null);
+  const [feedbackToast, setFeedbackToast] = useState(null);
 
   // ---------------------------------------------------------------------------
   // Resume Auto-Fill Prompt (shown to new users after signup)
@@ -184,23 +181,7 @@ export default function CommunityPage() {
   const { data: resume } = useResume(isAuthenticated ? user?.id : null);
   const uploadResumeMutation = useUploadResume(user?.id);
   const startParseMutation = useStartResumeParse();
-  // Poll parse status for authenticated users. The initial request returns null
-  // and stops polling (refetchInterval returns false), so the overhead for users
-  // without active parsing is a single lightweight request.
-  const { data: parseStatusData } = useResumeParseStatus(isAuthenticated);
   const [showResumeModal, setShowResumeModal] = useState(false);
-
-  /**
-   * Success toast for resume parsing completion
-   */
-  const [successToast, setSuccessToast] = useState(null);
-  const prevParseStatus = useRef(parseStatusData?.status);
-  useEffect(() => {
-    if (prevParseStatus.current === 'parsing' && parseStatusData?.status === 'complete') {
-      setSuccessToast('Resume parsed successfully! Your profile has been updated.');
-    }
-    prevParseStatus.current = parseStatusData?.status;
-  }, [parseStatusData?.status]);
 
   /**
    * Delete Confirmation Modal State
@@ -236,7 +217,10 @@ export default function CommunityPage() {
       { file },
       {
         onSuccess: () => {
-          startParseMutation.mutate();
+          startParseMutation.mutate(undefined, {
+            onSuccess: () => setFeedbackToast({ variant: 'success', message: 'Parsing your resume in the background — we\'ll notify you when it\'s done!' }),
+            onError: (err) => setFeedbackToast({ variant: 'error', message: err.message || 'Failed to start resume parsing' }),
+          });
         },
       }
     );
@@ -499,20 +483,6 @@ export default function CommunityPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Resume parsing status banner */}
-      {parseStatusData?.status && parseStatusData.status !== 'complete' && (
-        <div className="mb-6">
-          <ResumeParsingBanner
-            status={parseStatusData.status}
-            error={parseStatusData.error}
-            onDismiss={() => {
-              clearResumeParseStatus().catch(() => {});
-              queryClient.setQueryData(resumeKeys.parseStatus, { status: null });
-            }}
-          />
-        </div>
-      )}
-
       {/*
         Page Header
 
@@ -600,46 +570,46 @@ export default function CommunityPage() {
       {showSkeleton ? (
         <NotesLoadingSkeleton />
       ) : (
-      <FeedItemList
-        items={notes}
-        isLoading={false}
-        error={queryError}
-        emptyIcon={bookmarkedFilter ? <BookmarkIcon className="h-12 w-12" /> : <FileTextIcon className="h-12 w-12" />}
-        emptyTitle={
-          searchQuery
-            ? 'No results found'
-            : bookmarkedFilter
-              ? 'No bookmarked notes yet'
-              : 'No posts yet'
-        }
-        emptyDescription={
-          searchQuery
-            ? `No posts match your search for "${searchQuery}". Try a different keyword or author name.`
-            : bookmarkedFilter
-              ? 'Start bookmarking notes you want to save for later. Click the bookmark icon on any note to add it to your collection.'
-              : filterUserId
-                ? "This user hasn't created any posts yet."
-                : 'There are no posts in the community yet. Be the first to share!'
-        }
-        emptyAction={
-          (filterUserId || searchQuery || bookmarkedFilter)
-            ? { label: 'View all community posts', onClick: bookmarkedFilter ? handleBookmarkedToggle : clearFilters }
-            : undefined
-        }
-        renderItem={(note) => (
-          <NoteCard
-            key={note.id}
-            note={note}
-            onLike={handleLike}
-            onBookmark={handleBookmark}
-            onEdit={handleEditClick}
-            onDelete={handleDeleteClick}
-            currentUserId={user?.id}
-            isAuthenticated={isAuthenticated}
-            isAdmin={isAdmin}
-          />
-        )}
-      />
+        <FeedItemList
+          items={notes}
+          isLoading={false}
+          error={queryError}
+          emptyIcon={bookmarkedFilter ? <BookmarkIcon className="h-12 w-12" /> : <FileTextIcon className="h-12 w-12" />}
+          emptyTitle={
+            searchQuery
+              ? 'No results found'
+              : bookmarkedFilter
+                ? 'No bookmarked notes yet'
+                : 'No posts yet'
+          }
+          emptyDescription={
+            searchQuery
+              ? `No posts match your search for "${searchQuery}". Try a different keyword or author name.`
+              : bookmarkedFilter
+                ? 'Start bookmarking notes you want to save for later. Click the bookmark icon on any note to add it to your collection.'
+                : filterUserId
+                  ? "This user hasn't created any posts yet."
+                  : 'There are no posts in the community yet. Be the first to share!'
+          }
+          emptyAction={
+            (filterUserId || searchQuery || bookmarkedFilter)
+              ? { label: 'View all community posts', onClick: bookmarkedFilter ? handleBookmarkedToggle : clearFilters }
+              : undefined
+          }
+          renderItem={(note) => (
+            <NoteCard
+              key={note.id}
+              note={note}
+              onLike={handleLike}
+              onBookmark={handleBookmark}
+              onEdit={handleEditClick}
+              onDelete={handleDeleteClick}
+              currentUserId={user?.id}
+              isAuthenticated={isAuthenticated}
+              isAdmin={isAdmin}
+            />
+          )}
+        />
       )}
 
       {/* Infinite Scroll Sentinel - Triggers load when scrolled into view */}
@@ -693,12 +663,12 @@ export default function CommunityPage() {
         variant="error"
       />
 
-      {/* Success Toast for resume parsing completion */}
       <Toast
-        message={successToast}
-        isVisible={!!successToast}
-        onDismiss={() => setSuccessToast(null)}
-        variant="success"
+        message={feedbackToast?.message}
+        isVisible={!!feedbackToast}
+        onDismiss={() => setFeedbackToast(null)}
+        variant={feedbackToast?.variant}
+        position="left"
       />
 
       {/* Resume Auto-Fill Modal (shown once to new users) */}
