@@ -35,6 +35,7 @@ import MessagesPage from './pages/MessagesPage';
 import NewsPage from './pages/NewsPage';
 import SpeakersPage from './pages/SpeakersPage';
 import AdminUniversityRequestsPage from './pages/AdminUniversityRequestsPage';
+import NotificationsPage from './pages/NotificationsPage';
 import AttendEventPage from './pages/AttendEventPage';
 import ExecutivePortalPage from './pages/ExecutivePortalPage';
 import ExecutivePortalEventsPage from './pages/ExecutivePortalEventsPage';
@@ -151,6 +152,14 @@ function App() {
             element={
               <ProtectedRoute redirectTo="/login">
                 <MessagesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute redirectTo="/login">
+                <NotificationsPage />
               </ProtectedRoute>
             }
           />

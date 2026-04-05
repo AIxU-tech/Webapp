@@ -17,13 +17,11 @@
  * @component
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useMessageTarget } from '../contexts/MessageTargetContext';
 import { logout } from '../api/auth';
-import { clearResumeParseStatus } from '../api/resume';
 import {
   useUser,
   usePageTitle,
@@ -45,8 +43,6 @@ import {
   useUploadResume,
   useDeleteResume,
   useStartResumeParse,
-  useResumeParseStatus,
-  resumeKeys,
   useUniversity,
 } from '../hooks';
 
@@ -70,7 +66,6 @@ import {
   ProjectsSection,
   ResumeSection,
   ProfilePageSkeleton,
-  ResumeParsingBanner,
 } from '../components/profile';
 
 export default function ProfilePage() {
@@ -78,7 +73,6 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { user: currentUser, setUser: setCurrentUser, logoutUser, isAuthenticated } = useAuth();
   const { setTargetUserId } = useMessageTarget();
-  const queryClient = useQueryClient();
 
   // Determine if viewing own profile
   const isOwnProfile = !userId || (currentUser && currentUser.id === parseInt(userId));
@@ -123,16 +117,6 @@ export default function ProfilePage() {
   const uploadResumeMutation = useUploadResume(targetUserId);
   const deleteResumeMutation = useDeleteResume();
   const startParseMutation = useStartResumeParse();
-  const { data: parseStatusData } = useResumeParseStatus(isOwnProfile && isAuthenticated);
-
-  // Show success toast when resume parsing completes
-  const prevParseStatus = useRef(parseStatusData?.status);
-  useEffect(() => {
-    if (prevParseStatus.current === 'parsing' && parseStatusData?.status === 'complete') {
-      setFeedback({ type: 'success', message: 'Resume parsed successfully! Your profile has been updated.' });
-    }
-    prevParseStatus.current = parseStatusData?.status;
-  }, [parseStatusData?.status]);
 
   // ---------------------------------------------------------------------------
   // Modal States
@@ -307,7 +291,10 @@ export default function ProfilePage() {
 
   const handleAutoFillConfirm = () => {
     setShowAutoFillPrompt(false);
-    startParseMutation.mutate();
+    startParseMutation.mutate(undefined, {
+      onSuccess: () => setFeedback({ type: 'success', message: 'Parsing your resume in the background — we\'ll notify you when it\'s done!' }),
+      onError: (err) => setFeedback({ type: 'error', message: err.message || 'Failed to start resume parsing' }),
+    });
   };
 
   const handleResumeDelete = () => {
@@ -412,18 +399,6 @@ export default function ProfilePage() {
               onUpdate={(data) => updateProjectMutation.mutate(data, { onError: handleMutationError })}
               onDelete={(id) => deleteProjectMutation.mutate(id, { onError: handleMutationError })}
             />
-
-            {/* Resume parsing status banner — shown directly above resume section */}
-            {isOwnProfile && parseStatusData?.status && parseStatusData.status !== 'complete' && (
-              <ResumeParsingBanner
-                status={parseStatusData.status}
-                error={parseStatusData.error}
-                onDismiss={() => {
-                  clearResumeParseStatus().catch(() => {});
-                  queryClient.setQueryData(resumeKeys.parseStatus, { status: null });
-                }}
-              />
-            )}
 
             <ResumeSection
               resume={resume}

@@ -1,15 +1,17 @@
 /**
  * Resume Hooks Module
  *
- * React Query hooks for managing user resume uploads.
+ * React Query hooks for managing user resume uploads and AI parsing.
  *
  * Available Hooks:
  * - useResume(userId) - Fetch a user's resume metadata + download URL
  * - useUploadResume(userId) - Upload and confirm a new resume (optimistic)
  * - useDeleteResume() - Delete the current user's resume
+ * - useStartResumeParse() - Trigger background AI parsing
+ * - useResumeParseSocket() - Listen for parse result via WebSocket + toast
  */
 
-import { useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { STALE_TIMES, GC_TIMES } from '../config/cache';
 import {
@@ -17,16 +19,14 @@ import {
   confirmResumeUpload,
   deleteResume,
   startResumeParse,
-  getResumeParseStatus,
-  clearResumeParseStatus,
 } from '../api/resume';
 import { requestUploadUrl, uploadToGCS } from '../api/uploads';
+import { useSocketEvent } from '../contexts/SocketContext';
 import { userKeys } from './useUsers';
 
 export const resumeKeys = {
   all: ['resumes'],
   detail: (userId) => [...resumeKeys.all, 'detail', userId],
-  parseStatus: ['resumes', 'parse-status'],
 };
 
 function formatBytes(bytes) {
@@ -140,66 +140,33 @@ export function useDeleteResume() {
 
 /**
  * Start AI-powered resume parsing.
- * Triggers background parsing that auto-fills profile data.
+ * Triggers background parsing; result arrives via WebSocket.
  */
 export function useStartResumeParse() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: startResumeParse,
-
-    // Optimistically show the parsing banner immediately
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: resumeKeys.parseStatus });
-      const previous = queryClient.getQueryData(resumeKeys.parseStatus);
-      queryClient.setQueryData(resumeKeys.parseStatus, { status: 'parsing' });
-      return { previous };
-    },
-
-    onError: (_err, _variables, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(resumeKeys.parseStatus, context.previous);
-      }
-    },
-
-    onSuccess: () => {
-      // Start polling for status
-      queryClient.invalidateQueries({ queryKey: resumeKeys.parseStatus });
-    },
   });
 }
 
 /**
- * Poll for resume parsing status.
- * Automatically polls every 2s while status is 'parsing'.
- * When 'complete', invalidates user data so the profile refreshes.
- *
- * @param {boolean} enabled - Whether polling should be active
+ * Listen for resume parse WebSocket events.
+ * On success, invalidates user profile cache so the new data appears.
+ * Returns toast state for the consuming component to render.
  */
-export function useResumeParseStatus(enabled = true) {
+export function useResumeParseSocket() {
   const queryClient = useQueryClient();
+  const [toast, setToast] = useState(null);
 
-  const query = useQuery({
-    queryKey: resumeKeys.parseStatus,
-    queryFn: getResumeParseStatus,
-    enabled,
-    // Poll every 2s while parsing, stop when done
-    refetchInterval: (q) => {
-      const status = q.state.data?.status;
-      return status === 'parsing' ? 2000 : false;
-    },
-    staleTime: 0,
-    gcTime: 0,
-  });
+  useSocketEvent('resume_parse_complete', useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: userKeys.all });
+    setToast({ variant: 'success', message: 'Resume parsed! Your profile has been updated.' });
+  }, [queryClient]));
 
-  // Handle completion side effects outside queryFn to avoid
-  // re-triggering on window focus or component remounts
-  useEffect(() => {
-    if (query.data?.status === 'complete') {
-      queryClient.invalidateQueries({ queryKey: userKeys.all });
-      clearResumeParseStatus().catch(() => {});
-    }
-  }, [query.data?.status, queryClient]);
+  useSocketEvent('resume_parse_error', useCallback((data) => {
+    setToast({ variant: 'error', message: data?.error || 'Failed to parse resume. Please try again later.' });
+  }, []));
 
-  return query;
+  const dismissToast = useCallback(() => setToast(null), []);
+
+  return { toast, dismissToast };
 }

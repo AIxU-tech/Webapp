@@ -44,6 +44,25 @@ export const noteKeys = {
 };
 
 /**
+ * When a like/comment notification arrives over the socket, invalidate cached note
+ * data so detail pages and feed cards refetch (fixes stale comment/like counts).
+ *
+ * @param {import('@tanstack/react-query').QueryClient} queryClient
+ * @param {object} socketPayload - Socket event payload `{ type, notification }`
+ */
+export function invalidateNoteCachesFromNotificationSocketPayload(queryClient, socketPayload) {
+  const n = socketPayload?.notification;
+  if (!n || n.targetType !== 'post') return;
+  const noteId = n.targetId;
+  if (noteId == null) return;
+
+  queryClient.invalidateQueries({ queryKey: noteKeys.detail(noteId) });
+  queryClient.invalidateQueries({ queryKey: noteKeys.comments(noteId) });
+  queryClient.invalidateQueries({ queryKey: noteKeys.likers(noteId) });
+  queryClient.invalidateQueries({ queryKey: [...noteKeys.all, 'infinite'] });
+}
+
+/**
  * useInfiniteNotes Hook
  *
  * Fetches notes with infinite scroll pagination support.

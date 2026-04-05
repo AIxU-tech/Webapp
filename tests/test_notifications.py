@@ -638,8 +638,9 @@ class TestNotificationEndpoints:
             response = client.get('/api/notifications')
             assert response.status_code == 200
             data = response.get_json()
-            assert len(data) == 1
-            assert data[0]['verb'] == 'like'
+            assert data['total'] == 1
+            assert len(data['notifications']) == 1
+            assert data['notifications'][0]['verb'] == 'like'
 
     def test_get_unread_count(self, app):
         with app.app_context():

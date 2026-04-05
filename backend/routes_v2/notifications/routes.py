@@ -20,17 +20,36 @@ notifications_bp = Blueprint('notifications', __name__)
 @login_required
 def get_notifications():
     """
-    Get the most recent notifications for the current user.
-    Returns the last 20 ordered by updated_at DESC.
+    Get notifications for the current user, ordered by updated_at DESC.
+
+    Query params:
+        limit  – max rows to return (default 20, 0 or absent → 20).
+                 Pass a large value (e.g. 1000) for the full-page view.
+        offset – number of rows to skip (default 0). Enables simple pagination.
     """
-    notifications = (
+    try:
+        limit = max(1, int(request.args.get('limit', 20)))
+    except (TypeError, ValueError):
+        limit = 20
+
+    try:
+        offset = max(0, int(request.args.get('offset', 0)))
+    except (TypeError, ValueError):
+        offset = 0
+
+    query = (
         Notification.query
         .filter_by(recipient_id=current_user.id)
         .order_by(Notification.updated_at.desc())
-        .limit(20)
-        .all()
     )
-    return jsonify([n.to_dict() for n in notifications])
+
+    total = query.count()
+    notifications = query.offset(offset).limit(limit).all()
+
+    return jsonify({
+        'notifications': [n.to_dict() for n in notifications],
+        'total': total,
+    })
 
 
 @notifications_bp.route('/api/notifications/count')

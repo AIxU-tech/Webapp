@@ -10,6 +10,7 @@ import {
   prefetchConversation,
 } from '../hooks';
 import { ErrorState } from '../components/ui';
+import { isMobile } from '../utils';
 import { ArrowLeftIcon } from '../components/icons';
 import {
   ConversationSidebar,
@@ -68,10 +69,16 @@ export default function MessagesPage() {
   // Prevents auto-select from immediately overriding their navigation.
   const userNavigatedBack = useRef(false);
 
-  // Auto-select first conversation when available.
+  // Auto-select first conversation when available (desktop/tablet only — mobile shows the list first).
   // CSS handles which panel is visible at each breakpoint.
   useEffect(() => {
-    if (!activeUserId && conversations.length > 0 && !isNewConversation && !userNavigatedBack.current) {
+    if (
+      !activeUserId
+      && conversations.length > 0
+      && !isNewConversation
+      && !userNavigatedBack.current
+      && !isMobile()
+    ) {
       setActiveUserId(conversations[0].otherUser.id);
       markConversationRead(queryClient, conversations[0].otherUser.id);
       clearUnreadConversation(queryClient, conversations[0].otherUser.id);

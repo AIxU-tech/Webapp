@@ -16,46 +16,47 @@ export default function UniversityIdentityBar({
   canManageMembers = false,
   onExecutivePortal,
 }) {
-  const { id, name, clubName, socialLinks, hasLogo, logoUrl } = university;
+  const { name, clubName, socialLinks, logoUrl } = university;
+  const displayName = name?.trim() || clubName?.trim() || 'University';
 
   return (
-    <div className="relative -mt-8 z-10">
-      <div className="container mx-auto px-4">
-        {/* Card with slight translucency */}
-        <div className="bg-card/100 border border-border rounded-lg shadow-md p-6 flex items-center gap-6">
-          {/* University Avatar/Logo */}
-          <UniversityLogo
-            university={university}
-            size="lg"
-            shape="circle"
-            className="border-4 border-card -mt-12 shadow-lg"
-          />
-
-          {/* University Name */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-foreground truncate">
-                {name}
-              </h1>
-              {canEdit && (
-                <IconButton
-                  icon={EditIcon}
-                  onClick={onEdit}
-                  variant="ghost"
-                  size="md"
-                  label="Edit club identity"
-                />
+    <div className="relative z-10 -mt-6 md:-mt-8">
+      <div className="container mx-auto max-w-full px-3 sm:px-4">
+        <div className="bg-card/100 border border-border rounded-lg shadow-md p-4 sm:p-6 flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
+          {/* Logo + title: on mobile, only these compete for width — keeps the name visible */}
+          <div className="flex min-w-0 flex-1 gap-3 sm:gap-4 md:items-center">
+            <UniversityLogo
+              university={university}
+              size="lg"
+              shape="circle"
+              className="h-16 w-16 shrink-0 border-4 border-card shadow-lg sm:h-20 sm:w-20 md:-mt-12"
+            />
+            <div className="min-w-0 flex-1 pt-0.5 md:pt-0">
+              <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
+                <h1 className="text-xl font-bold leading-tight text-foreground sm:text-2xl break-words [overflow-wrap:anywhere]">
+                  {displayName}
+                </h1>
+                {canEdit && (
+                  <IconButton
+                    icon={EditIcon}
+                    onClick={onEdit}
+                    variant="ghost"
+                    size="md"
+                    label="Edit club identity"
+                    className="shrink-0"
+                  />
+                )}
+              </div>
+              {clubName && clubName !== displayName && (
+                <p className="mt-1 text-sm text-muted-foreground break-words [overflow-wrap:anywhere]">
+                  {clubName}
+                </p>
               )}
             </div>
-            {clubName && clubName !== name && (
-              <p className="text-sm text-muted-foreground">
-                {clubName}
-              </p>
-            )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Actions: full-width row on mobile so socials wrap instead of squeezing the title */}
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-2 border-t border-border/70 pt-3 md:w-auto md:shrink-0 md:gap-3 md:border-t-0 md:pt-0">
             {canManageMembers && university?.id && onExecutivePortal && (
               <SecondaryButton
                 variant="outline"
@@ -67,20 +68,19 @@ export default function UniversityIdentityBar({
                 Executive Portal
               </SecondaryButton>
             )}
-            {/* Social Links - display as icon buttons */}
             {socialLinks && socialLinks.length > 0 && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 {socialLinks.map((link) => (
                   <a
                     key={link.url}
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`p-2 rounded-lg hover:bg-muted transition-colors ${PLATFORM_ICON_COLORS[link.type] || 'text-muted-foreground'}`}
+                    className={`shrink-0 rounded-lg p-1.5 transition-colors hover:bg-muted sm:p-2 ${PLATFORM_ICON_COLORS[link.type] || 'text-muted-foreground'}`}
                     title={getPlatformDisplayName(link.type)}
                     aria-label={`${getPlatformDisplayName(link.type)} (opens in new window)`}
                   >
-                    <SocialLinkIcon type={link.type} size="lg" logoUrl={logoUrl} />
+                    <SocialLinkIcon type={link.type} size="md" logoUrl={logoUrl} />
                   </a>
                 ))}
               </div>

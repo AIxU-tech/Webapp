@@ -129,6 +129,7 @@ export {
   noteKeys,
   prefetchNotes,
   prefetchInfiniteNotes,
+  invalidateNoteCachesFromNotificationSocketPayload,
 } from './useNotes';
 
 // =============================================================================
@@ -237,6 +238,7 @@ export {
 // =============================================================================
 export {
   useNotifications,
+  useAllNotifications,
   useUnreadNotificationCount,
   useMarkAllNotificationsRead,
   notificationKeys,
@@ -250,7 +252,7 @@ export {
   useUploadResume,
   useDeleteResume,
   useStartResumeParse,
-  useResumeParseStatus,
+  useResumeParseSocket,
   resumeKeys,
 } from './useResume';
 
