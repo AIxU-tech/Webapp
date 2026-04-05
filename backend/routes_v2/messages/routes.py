@@ -31,6 +31,7 @@ from backend.routes_v2.messages.helpers import (
     send_to_recipient,
 )
 from backend.utils.email import send_new_conversation_email
+from backend.routes_v2.notifications.helpers import notify_new_message
 
 _DEV_MODE = os.environ.get('DEV_MODE')
 _APP_URL = "http://localhost:8000" if _DEV_MODE else "https://aixu.tech"
@@ -199,8 +200,10 @@ def send_message():
         # Emit WebSocket notification to recipient for real-time delivery
         send_to_recipient(message, current_user, recipient_id)
 
-        # Send email notification for brand-new conversations (async to avoid blocking)
+        # First-ever conversation: email + in-app notification
         if is_first_conversation:
+            notify_new_message(recipient, current_user, message)
+
             app = current_app._get_current_object()
             thread = threading.Thread(
                 target=_send_first_conversation_email,

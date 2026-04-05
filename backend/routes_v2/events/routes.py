@@ -30,6 +30,7 @@ from backend.constants import UniversityRoles
 from backend.utils.permissions import can_manage_university_members
 from backend.utils.email import send_event_created_email, send_event_cancelled_email, generate_secure_token
 from backend.routes_v2.events.helpers import send_bulk_email, validate_event_times_not_in_past
+from backend.routes_v2.notifications.helpers import notify_event_created
 
 _DEV_MODE = os.environ.get('DEV_MODE')
 _APP_URL = "http://localhost:8000" if _DEV_MODE else "https://aixu.tech"
@@ -263,7 +264,10 @@ def create_event(university_id):
     db.session.add(event)
     db.session.commit()
 
-    # Notify all club members about the new event (non-blocking)
+    # In-app notifications for all club members (excludes creator)
+    notify_event_created(event, current_user, uni)
+
+    # Email notifications for all club members (non-blocking)
     recipients = _get_member_recipients(uni)
     if recipients:
         rsvp_url = f"{_APP_URL}/app/universities/{university_id}"
