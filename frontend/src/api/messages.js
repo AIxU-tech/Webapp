@@ -23,7 +23,11 @@ import { api } from './client';
  * Returns a list of conversations sorted by most recent message.
  * Each conversation contains the other user's info and the last message.
  *
- * @returns {Promise<object>} Response containing conversations array
+ * When the inbox is non-empty, `recentConversation` includes full `user` and
+ * `messages` for the most recently active thread (same shape as getConversation),
+ * without marking messages read — the client can seed its cache from this.
+ *
+ * @returns {Promise<object>} Response containing conversations array and optional recentConversation
  * @throws {ApiError} If not authenticated (401)
  *
  * @example

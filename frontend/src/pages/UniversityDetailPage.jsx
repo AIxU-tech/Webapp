@@ -556,7 +556,7 @@ export default function UniversityDetailPage() {
           {/* Fixed floating "View All Universities" pill */}
           <Link
             to="/universities"
-            className="fixed top-[72px] left-4 z-40 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-foreground/80 hover:text-foreground bg-white/90 backdrop-blur-md border border-border/50 shadow-sm hover:shadow-md hover:bg-white transition-all duration-200"
+            className="fixed top-[72px] left-3 z-40 inline-flex max-w-[min(100%,calc(100vw-1.5rem))] items-center gap-1.5 rounded-full border border-border/50 bg-white/90 px-3 py-1.5 text-xs font-medium text-foreground/80 shadow-sm backdrop-blur-md transition-all duration-200 hover:bg-white hover:text-foreground hover:shadow-md sm:left-4 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />

@@ -16,6 +16,8 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import NavBar from './NavBar';
 import Footer from './Footer';
+import { Toast } from '../ui';
+import { useResumeParseSocket } from '../../hooks/useResume';
 
 const FULL_SCREEN_ROUTES = ['/messages'];
 
@@ -30,6 +32,7 @@ const FULL_SCREEN_ROUTES = ['/messages'];
 function AppLayout() {
   const { pathname } = useLocation();
   const hideFooter = FULL_SCREEN_ROUTES.some((r) => pathname.startsWith(r));
+  const { toast: parseToast, dismissToast } = useResumeParseSocket();
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -75,6 +78,13 @@ function AppLayout() {
           <div className="h-16 xl:hidden" aria-hidden="true" />
         </>
       )}
+
+      <Toast
+        message={parseToast?.message}
+        isVisible={!!parseToast}
+        onDismiss={dismissToast}
+        variant={parseToast?.variant}
+      />
     </div>
   );
 }

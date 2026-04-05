@@ -5,7 +5,7 @@ Uses Claude AI (Haiku 4.5) to extract structured profile information from resume
 Supports PDF and Word documents uploaded to GCS.
 
 The parsing runs in a background thread after being triggered by the user.
-Status is tracked in-memory and polled by the frontend.
+On completion (or failure), a WebSocket event is emitted to the user.
 """
 
 import base64
@@ -19,25 +19,12 @@ from backend.extensions import db
 from backend.models.user import User
 from backend.models.profile_sections import Education, Experience, Project
 from backend.services.storage import _get_bucket
+from backend.sockets.events import emit_resume_parse_result
 
 
 # Model for resume parsing
 PARSE_MODEL = "claude-haiku-4-5-20251001"
 PARSE_MAX_TOKENS = 4096
-
-# In-memory parsing status tracking
-# {user_id: {"status": "parsing"|"complete"|"error", "error": str|None}}
-_parsing_status = {}
-
-
-def get_parse_status(user_id):
-    """Get the current parsing status for a user."""
-    return _parsing_status.get(user_id)
-
-
-def clear_parse_status(user_id):
-    """Clear parsing status for a user."""
-    _parsing_status.pop(user_id, None)
 
 
 def download_file_from_gcs(gcs_path):
@@ -307,21 +294,23 @@ def start_resume_parse(app, user_id, file_bytes, content_type):
     Start resume parsing in a background thread.
 
     The file bytes are downloaded in the request context before calling this.
-    The thread uses app context only for database writes.
+    The thread uses app context only for database writes and the socket emit.
     """
-    _parsing_status[user_id] = {"status": "parsing"}
 
     def _run():
         try:
             parsed_data = _parse_with_claude(file_bytes, content_type)
             _apply_parsed_data(app, user_id, parsed_data)
-            _parsing_status[user_id] = {"status": "complete"}
+            with app.app_context():
+                emit_resume_parse_result(user_id, success=True)
         except Exception as e:
             print(f"[ResumeParser] Error parsing resume for user {user_id}: {e}")
-            _parsing_status[user_id] = {
-                "status": "error",
-                "error": "Failed to parse resume. Please try again later.",
-            }
+            with app.app_context():
+                emit_resume_parse_result(
+                    user_id,
+                    success=False,
+                    error_message="Failed to parse resume. Please try again later.",
+                )
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()

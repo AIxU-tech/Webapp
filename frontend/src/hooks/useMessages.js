@@ -61,6 +61,25 @@ export const messageKeys = {
   unreadCount: () => [...messageKeys.all, 'unreadCount'],
 };
 
+/**
+ * When GET /conversations includes recentConversation, seed the per-thread cache
+ * so opening the latest chat does not wait on a second request.
+ *
+ * @param {import('@tanstack/react-query').QueryClient} queryClient
+ * @param {object} data - API response from getConversations()
+ */
+function seedRecentConversationCache(queryClient, data) {
+  const rc = data?.recentConversation;
+  const uid = rc?.user?.id;
+  if (uid == null) return;
+
+  queryClient.setQueryData(messageKeys.conversation(uid), {
+    success: true,
+    user: rc.user,
+    messages: rc.messages ?? [],
+  });
+}
+
 // =============================================================================
 // Query Hooks
 // =============================================================================
@@ -168,7 +187,11 @@ export function useConversations() {
 
   return useQuery({
     queryKey: messageKeys.conversations(),
-    queryFn: getConversations,
+    queryFn: async () => {
+      const data = await getConversations();
+      seedRecentConversationCache(queryClient, data);
+      return data;
+    },
 
     // WebSocket handles real-time updates, so staleTime is just a safety net
     // for reconnection scenarios or multi-device sync
@@ -751,7 +774,11 @@ export function clearUnreadConversation(queryClient, userId) {
 export function prefetchConversations(queryClient) {
   return queryClient.prefetchQuery({
     queryKey: messageKeys.conversations(),
-    queryFn: getConversations,
+    queryFn: async () => {
+      const data = await getConversations();
+      seedRecentConversationCache(queryClient, data);
+      return data;
+    },
     staleTime: STALE_TIMES.CONVERSATIONS,
   });
 }

@@ -131,6 +131,29 @@ class TestConversationsList:
         assert 'conversations' in data
         assert len(data['conversations']) >= 1
 
+    def test_get_conversations_includes_recent_thread_without_marking_read(
+        self, authenticated_client, app, test_user, second_user, conversation_messages
+    ):
+        """Most recent conversation is embedded with full messages; unread state preserved."""
+        response = authenticated_client.get('/api/messages/conversations')
+        assert response.status_code == 200
+        data = response.get_json()
+
+        assert 'recentConversation' in data
+        rc = data['recentConversation']
+        first = data['conversations'][0]
+        assert rc['user']['id'] == first['otherUser']['id']
+        assert len(rc['messages']) == 3
+
+        # Listing must not mark messages as read (opening thread does that)
+        with app.app_context():
+            unread = Message.query.filter_by(
+                sender_id=second_user.id,
+                recipient_id=test_user.id,
+                is_read=False,
+            ).count()
+        assert unread >= 1
+
     def test_conversations_show_last_message(
         self, authenticated_client, app, test_user, second_user, conversation_messages
     ):
