@@ -19,8 +19,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAttendanceEvent, useSubmitAttendance, useUniversities, usePageTitle } from '../hooks';
 import { FormInput, GradientButton, Alert } from '../components/ui';
-import { UniversityDetectionStatus } from '../components/auth';
-import { BrainCircuitIcon, CheckCircleIcon, CalendarIcon, MapPinIcon, ClockIcon, AlertCircleIcon } from '../components/icons';
+import { BrainCircuitIcon, CheckCircleIcon, CalendarIcon, MapPinIcon, ClockIcon, AlertCircleIcon, AlertTriangleIcon } from '../components/icons';
 import { GRADIENT_PRIMARY } from '../config/styles';
 import { PlasmaBackground } from '../components/layout';
 import { parseUtcDate } from '../utils/time';
@@ -485,24 +484,38 @@ export default function AttendEventPage() {
             <label htmlFor="attend-email" className="block text-sm font-medium text-foreground mb-1.5">
               Email <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <FormInput
-              id="attend-email"
-              type="email"
-              name="email"
-              placeholder="student@university.edu"
-              value={email}
-              onChange={handleEmailChange}
-              autoComplete="email"
-            />
-            {showUniversityStatus && (
-              <div className="mt-2">
-                <UniversityDetectionStatus
-                  detectedUniversity={detectedUniversity}
-                  isWhitelisted={isWhitelisted}
-                  onRequestUniversity={() => {}}
-                />
-              </div>
-            )}
+            <div className="relative">
+              <FormInput
+                id="attend-email"
+                type="email"
+                name="email"
+                placeholder="student@university.edu"
+                value={email}
+                onChange={handleEmailChange}
+                autoComplete="email"
+                className={showUniversityStatus ? 'pr-10' : ''}
+              />
+              {showUniversityStatus && (
+                <div
+                  className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  title={
+                    detectedUniversity
+                      ? detectedUniversity.name
+                      : isWhitelisted
+                        ? 'Whitelisted email'
+                        : 'No matching university'
+                  }
+                >
+                  {detectedUniversity ? (
+                    <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                  ) : isWhitelisted ? (
+                    <CheckCircleIcon className="h-5 w-5 text-blue-500" />
+                  ) : (
+                    <AlertTriangleIcon className="h-5 w-5 text-amber-500" />
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </FadeIn>
 
