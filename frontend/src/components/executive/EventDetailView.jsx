@@ -7,9 +7,9 @@
  */
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { formatDateTime } from '../../utils';
-import { Card, SecondaryButton, GradientButton, ConfirmationModal } from '../ui';
+import { Card, Badge, SecondaryButton, GradientButton, ConfirmationModal } from '../ui';
 import { ArrowLeftIcon, CalendarIcon, UsersIcon, PencilIcon, TrashIcon, QRCodeIcon, CheckIcon } from '../icons';
 import { CreateEventModal, AttendanceQRModal } from '../events';
 import { useDeleteEvent } from '../../hooks';
@@ -25,6 +25,9 @@ export default function EventDetailView({
   canManageEvents = false,
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const backPath = location.state?.from || `/executive/${universityId}/events`;
+  const backLabel = location.state?.fromLabel || 'Back to Events';
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [qrEvent, setQrEvent] = useState(null);
@@ -41,26 +44,24 @@ export default function EventDetailView({
 
   if (isLoadingEvent || !event) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8">
-          <SecondaryButton
-            variant="ghost"
-            size="sm"
-            icon={<ArrowLeftIcon className="h-4 w-4" />}
-            onClick={() => navigate(`/executive/${universityId}/events`)}
-            className="mb-6 -ml-2"
-          >
-            Back to Events
-          </SecondaryButton>
-          <Card padding="lg">
-            <div className="animate-pulse space-y-4">
-              <div className="h-8 bg-muted rounded w-2/3" />
-              <div className="h-4 bg-muted rounded w-1/2" />
-              <div className="h-4 bg-muted rounded w-1/3" />
-            </div>
-          </Card>
-        </div>
-      </div>
+      <>
+        <SecondaryButton
+          variant="ghost"
+          size="sm"
+          icon={<ArrowLeftIcon className="h-4 w-4" />}
+          onClick={() => navigate(backPath)}
+          className="mb-6 -ml-2"
+        >
+          {backLabel}
+        </SecondaryButton>
+        <Card padding="lg">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-muted rounded w-2/3" />
+            <div className="h-4 bg-muted rounded w-1/2" />
+            <div className="h-4 bg-muted rounded w-1/3" />
+          </div>
+        </Card>
+      </>
     );
   }
 
@@ -74,16 +75,15 @@ export default function EventDetailView({
   const noShowCount = (attendees ?? []).filter((a) => !checkedInUserIds.has(a.id)).length;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
+    <>
         <SecondaryButton
           variant="ghost"
           size="sm"
           icon={<ArrowLeftIcon className="h-4 w-4" />}
-          onClick={() => navigate(`/executive/${universityId}/events`)}
+          onClick={() => navigate(backPath)}
           className="mb-6 -ml-2"
         >
-          Back to Events
+          {backLabel}
         </SecondaryButton>
 
         <Card padding="lg" className="mb-6">
@@ -157,7 +157,9 @@ export default function EventDetailView({
             items={attendees}
             getItemKey={(a) => a.id}
             renderUser={(a) => a}
-            onUserClick={(a) => navigate(`/executive/${universityId}/members/${a.id}`)}
+            onUserClick={(a) => navigate(`/executive/${universityId}/members/${a.id}`, {
+              state: { from: `/executive/${universityId}/events/${event.id}`, fromLabel: 'Back to Event' },
+            })}
             renderSubtitle={(a) => {
               const didAttend = checkedInUserIds.has(a.id);
               const rsvpText = a.rsvpAt ? `RSVP'd ${formatDateTime(a.rsvpAt)}` : null;
@@ -189,15 +191,22 @@ export default function EventDetailView({
             items={attendanceRecords}
             getItemKey={(r) => r.id}
             renderUser={(r) => ({ id: r.userId, name: r.name })}
-            onUserClick={(r) => navigate(`/executive/${universityId}/members/${r.userId}`)}
-            renderSubtitle={(r) => (r.checkedInAt ? formatDateTime(r.checkedInAt) : null)}
+            onUserClick={(r) => navigate(`/executive/${universityId}/members/${r.userId}`, {
+              state: { from: `/executive/${universityId}/events/${event.id}`, fromLabel: 'Back to Event' },
+            })}
+            isItemClickable={(r) => !!r.userId}
+            renderSubtitle={(r) => (
+              <span className="flex items-center gap-1">
+                {r.checkedInAt && <span>{formatDateTime(r.checkedInAt)}</span>}
+                {r.isPartial && <Badge variant="outline" size="xs">Pending Account</Badge>}
+              </span>
+            )}
             emptyIcon={UsersIcon}
             emptyTitle="No one checked in"
             emptyDescription="Attendance will appear here after members check in via QR code."
             isLoading={isLoadingAttendance}
           />
         </div>
-      </div>
 
       <CreateEventModal
         isOpen={isEditModalOpen}
@@ -223,6 +232,6 @@ export default function EventDetailView({
         eventTitle={qrEvent?.title}
         attendanceToken={qrEvent?.attendanceToken}
       />
-    </div>
+    </>
   );
 }

@@ -232,6 +232,7 @@ def get_university(university_id: int):
             'role': role.role,
             'roleName': role.role_name,
             'eventsAttendedCount': role.events_attended_count or 0,
+            'isPartial': m.is_partial,
         })
 
     # Check if current user is a member (for UI display purposes)

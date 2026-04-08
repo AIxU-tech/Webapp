@@ -6,12 +6,10 @@
  */
 
 import { UsersIcon } from '../icons';
-import ExecutivePortalLayout from './ExecutivePortalLayout';
 import ExecutiveSectionCard from './ExecutiveSectionCard';
 import MemberCard from './MemberCard';
 
 export default function MemberTableView({
-  university,
   universityId,
   members,
   permissions,
@@ -29,7 +27,6 @@ export default function MemberTableView({
   const isEmpty = sortedMembers.length === 0;
 
   return (
-    <ExecutivePortalLayout university={university} universityId={universityId}>
       <ExecutiveSectionCard
         title="All Members"
         subtitle="Manage roles and view attendance history"
@@ -58,6 +55,5 @@ export default function MemberTableView({
           ))}
         </div>
       </ExecutiveSectionCard>
-    </ExecutivePortalLayout>
   );
 }
