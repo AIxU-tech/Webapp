@@ -13,7 +13,7 @@
  * @module hooks/useRegisterForm
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { register } from '../api';
 import { useUniversities, useForm } from '../hooks';
 import {
@@ -33,7 +33,7 @@ import {
  *   If not provided, handleRequestUniversity will set an error.
  * @returns {Object} Form state and handlers
  */
-export default function useRegisterForm({ onSuccess, onRequestUniversity }) {
+export default function useRegisterForm({ onSuccess, onRequestUniversity, initialValues: initVals }) {
   // Fetch universities with React Query (cached, auto-refetching)
   const { data: universities = [], isLoading: loadingUniversities } = useUniversities();
 
@@ -79,7 +79,12 @@ export default function useRegisterForm({ onSuccess, onRequestUniversity }) {
     handleSubmit,
     reset,
   } = useForm({
-    initialValues: { email: '', password: '', firstName: '', lastName: '' },
+    initialValues: {
+      email: initVals?.email || '',
+      password: '',
+      firstName: initVals?.firstName || '',
+      lastName: initVals?.lastName || '',
+    },
 
     // Update university detection when email changes
     onFieldChange: (name, value) => {
