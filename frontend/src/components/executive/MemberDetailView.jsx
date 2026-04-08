@@ -11,6 +11,7 @@ import {
   Card,
   EmptyState,
   Avatar,
+  Badge,
   IconButton,
   MemberActionsPopover,
   SecondaryButton,
@@ -77,6 +78,7 @@ export default function MemberDetailView({
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-semibold text-foreground truncate">{member.name}</h1>
                 <RoleBadge role={member.role} size="sm" />
+                {member.isPartial && <Badge variant="outline" size="sm">Pending Account</Badge>}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
                 {member.location || 'Location not set'}
@@ -86,14 +88,16 @@ export default function MemberDetailView({
                 {(member.eventsAttendedCount ?? 0) !== 1 ? 's' : ''} attended
               </p>
               <div className="flex items-center gap-2 mt-4">
-                <SecondaryButton
-                  variant="ghost"
-                  size="sm"
-                  icon={<ExternalLinkIcon size="sm" />}
-                  onClick={() => navigate(`/users/${member.id}`)}
-                >
-                  View Profile
-                </SecondaryButton>
+                {!member.isPartial && (
+                  <SecondaryButton
+                    variant="ghost"
+                    size="sm"
+                    icon={<ExternalLinkIcon size="sm" />}
+                    onClick={() => navigate(`/users/${member.id}`)}
+                  >
+                    View Profile
+                  </SecondaryButton>
+                )}
                 {showEditButton && (
                   <div className="relative">
                     <IconButton

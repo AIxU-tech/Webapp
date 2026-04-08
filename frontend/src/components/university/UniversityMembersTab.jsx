@@ -26,7 +26,10 @@ export default function UniversityMembersTab({
   const { canManageMembers, canManageExecutives, isSiteAdmin } = permissions;
   const canManageAny = canManageMembers || canManageExecutives || isSiteAdmin;
 
-  if (members.length === 0) {
+  // Hide partial members (accounts created via event check-in but not yet completed)
+  const visibleMembers = members.filter((m) => !m.isPartial);
+
+  if (visibleMembers.length === 0) {
     return (
       <EmptyState
         icon={<UsersIcon className="h-12 w-12" />}
@@ -40,12 +43,12 @@ export default function UniversityMembersTab({
     <Card padding="md">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-foreground">
-          All Members ({members.length})
+          All Members ({visibleMembers.length})
         </h3>
       </div>
 
       <div className="space-y-2">
-        {members.map((member) => {
+        {visibleMembers.map((member) => {
           const isCurrentUser = member.id === currentUserId;
           // Show edit button if user has permissions and it's not themselves
           const showEditButton = canManageAny && !isCurrentUser;

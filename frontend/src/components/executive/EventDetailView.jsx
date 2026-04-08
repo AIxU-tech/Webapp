@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { formatDateTime } from '../../utils';
-import { Card, SecondaryButton, GradientButton, ConfirmationModal } from '../ui';
+import { Card, Badge, SecondaryButton, GradientButton, ConfirmationModal } from '../ui';
 import { ArrowLeftIcon, CalendarIcon, UsersIcon, PencilIcon, TrashIcon, QRCodeIcon, CheckIcon } from '../icons';
 import { CreateEventModal, AttendanceQRModal } from '../events';
 import { useDeleteEvent } from '../../hooks';
@@ -195,7 +195,12 @@ export default function EventDetailView({
               state: { from: `/executive/${universityId}/events/${event.id}`, fromLabel: 'Back to Event' },
             })}
             isItemClickable={(r) => !!r.userId}
-            renderSubtitle={(r) => (r.checkedInAt ? formatDateTime(r.checkedInAt) : null)}
+            renderSubtitle={(r) => (
+              <span className="flex items-center gap-1">
+                {r.checkedInAt && <span>{formatDateTime(r.checkedInAt)}</span>}
+                {r.isPartial && <Badge variant="outline" size="xs">Pending Account</Badge>}
+              </span>
+            )}
             emptyIcon={UsersIcon}
             emptyTitle="No one checked in"
             emptyDescription="Attendance will appear here after members check in via QR code."

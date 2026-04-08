@@ -87,9 +87,9 @@ export function AuthProvider({ children }) {
 
 
       try {
-        const response = await devLogin();
-        // Dev login succeeded - save user data
-        setUser(response.user);
+        // const response = await devLogin();
+        // // Dev login succeeded - save user data
+        // setUser(response.user);
       } catch (devError) {
         // Dev login failed (production mode or dev user missing)
         // This is expected in production - silently continue

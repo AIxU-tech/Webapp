@@ -68,6 +68,7 @@ class EventAttendance(db.Model):
             'userId': self.user_id,
             'checkedInVia': self.checked_in_via,
             'checkedInAt': self.checked_in_at.isoformat() + 'Z' if self.checked_in_at else None,
+            'isPartial': self.user.is_partial if self.user else False,
         }
 
     def __repr__(self):
