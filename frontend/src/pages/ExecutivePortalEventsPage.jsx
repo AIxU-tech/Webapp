@@ -18,7 +18,7 @@ import {
   useEventAttendance,
   usePageTitle,
 } from '../hooks';
-import { EventsTableView, EventDetailView, ExecutivePortalSkeleton } from '../components/executive';
+import { EventsTableView, EventDetailView, ExecutivePortalSkeleton, ExecutivePortalLayout } from '../components/executive';
 import { SecondaryButton } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -58,7 +58,7 @@ export default function ExecutivePortalEventsPage() {
         <p className="text-muted-foreground">
           {universityError.message || 'Failed to load university.'}
         </p>
-        <SecondaryButton className="mt-4" variant="primary" onClick={() => window.history.back()}>
+        <SecondaryButton className="mt-4" variant="primary" onClick={() => navigate(-1)}>
           Go Back
         </SecondaryButton>
       </div>
@@ -68,8 +68,7 @@ export default function ExecutivePortalEventsPage() {
   if (eventId) {
     if (eventError && !eventLoading) {
       return (
-        <div className="min-h-screen bg-background">
-          <div className="container mx-auto px-4 py-8">
+        <ExecutivePortalLayout university={university} universityId={universityId}>
             <SecondaryButton
               variant="ghost"
               size="sm"
@@ -86,30 +85,32 @@ export default function ExecutivePortalEventsPage() {
             >
               View All Events
             </SecondaryButton>
-          </div>
-        </div>
+        </ExecutivePortalLayout>
       );
     }
     return (
-      <EventDetailView
-        event={event}
-        universityId={universityId}
-        attendees={event?.attendees ?? []}
-        attendanceRecords={attendanceData?.attendance ?? []}
-        isLoadingEvent={eventLoading}
-        isLoadingAttendance={attendanceLoading && !!eventId}
-        canManageEvents={canManageEvents}
-      />
+      <ExecutivePortalLayout university={university} universityId={universityId}>
+        <EventDetailView
+          event={event}
+          universityId={universityId}
+          attendees={event?.attendees ?? []}
+          attendanceRecords={attendanceData?.attendance ?? []}
+          isLoadingEvent={eventLoading}
+          isLoadingAttendance={attendanceLoading && !!eventId}
+          canManageEvents={canManageEvents}
+        />
+      </ExecutivePortalLayout>
     );
   }
 
   return (
-    <EventsTableView
-      university={university}
-      universityId={universityId}
-      events={events ?? []}
-      isLoading={eventsLoading}
-      canManageEvents={canManageEvents}
-    />
+    <ExecutivePortalLayout university={university} universityId={universityId}>
+      <EventsTableView
+        universityId={universityId}
+        events={events ?? []}
+        isLoading={eventsLoading}
+        canManageEvents={canManageEvents}
+      />
+    </ExecutivePortalLayout>
   );
 }

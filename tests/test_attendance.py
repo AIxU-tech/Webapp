@@ -149,11 +149,11 @@ class TestSubmitAttendance:
 
         response = client.post(
             f'/api/attendance/{token}',
-            json={'name': 'Jane Doe', 'email': 'jane@test.edu'}
+            json={'name': 'Jane Doe', 'email': 'jane@example.edu'}
         )
         assert response.status_code == 201
         data = response.get_json()
-        assert data['attendance']['email'] == 'jane@test.edu'
+        assert data['attendance']['email'] == 'jane@example.edu'
 
     def test_submit_without_name_fails(self, client, app, test_event):
         token = _set_event_token(app, test_event)
@@ -187,11 +187,11 @@ class TestSubmitAttendance:
 
         client.post(
             f'/api/attendance/{token}',
-            json={'name': 'John', 'email': 'john@test.edu'}
+            json={'name': 'John', 'email': 'john@example.edu'}
         )
         r2 = client.post(
             f'/api/attendance/{token}',
-            json={'name': 'John', 'email': 'john@test.edu'}
+            json={'name': 'John', 'email': 'john@example.edu'}
         )
         assert r2.get_json()['alreadyCheckedIn'] is True
 

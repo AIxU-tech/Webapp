@@ -34,6 +34,7 @@ export default function UserActionListCard({
   renderName,
   renderSubtitle,
   onUserClick,
+  isItemClickable,
   emptyIcon: EmptyIcon,
   emptyTitle,
   emptyDescription,
@@ -70,7 +71,7 @@ export default function UserActionListCard({
               user={renderUser(item)}
               name={renderName ? renderName(item) : undefined}
               subtitle={renderSubtitle ? renderSubtitle(item) : undefined}
-              onClick={onUserClick ? () => onUserClick(item) : undefined}
+              onClick={onUserClick && (!isItemClickable || isItemClickable(item)) ? () => onUserClick(item) : undefined}
             />
           ))}
         </div>

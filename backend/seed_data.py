@@ -245,15 +245,6 @@ def seed_users(universities):
     users_data = [
         # UO students (first user becomes president automatically)
         {
-            "email": "osto@uoregon.edu",
-            "first_name": "Oliver",
-            "last_name": "Stoner-German",
-            "about_section": "AI enthusiast passionate about machine learning and its applications.",
-            "location": "Eugene, OR",
-            "skills": ["Python", "PyTorch", "Machine Learning", "React"],
-            "permission_level": ADMIN
-        },
-        {
             "email": "jsmith@uoregon.edu",
             "first_name": "Jordan",
             "last_name": "Smith",
