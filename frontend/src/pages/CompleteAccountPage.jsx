@@ -64,7 +64,7 @@ const InvalidTokenMessage = ({ error }) => (
       </GradientButton>
 
       <p className="text-sm text-muted-foreground mt-4">
-        Need to submit a new university request?{' '}
+        Need a new account?{' '}
         <Link to="/register" className="text-primary hover:underline">
           Register here
         </Link>

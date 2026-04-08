@@ -12,17 +12,31 @@
  * @component
  */
 
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useMemo } from 'react';
 import { usePageTitle, useRegisterForm } from '../hooks';
 import { AuthFormLayout, RegisterFormContent, TermsLink } from '../components/auth';
 import { Alert, Divider } from '../components/ui';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   usePageTitle('Sign Up');
+
+  // Read pre-fill values from query params (e.g. from attendance flow)
+  const initialValues = useMemo(() => {
+    const email = searchParams.get('email') || '';
+    const firstName = searchParams.get('firstName') || '';
+    const lastName = searchParams.get('lastName') || '';
+    if (email || firstName || lastName) {
+      return { email, firstName, lastName };
+    }
+    return undefined;
+  }, [searchParams]);
 
   // Use shared register form hook
   const registerForm = useRegisterForm({
+    initialValues,
     onSuccess: ({ email, university }) => {
       navigate('/verify-email', {
         replace: true,

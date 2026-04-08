@@ -11,7 +11,6 @@ import { CalendarIcon, PlusIcon } from '../icons';
 import { GradientButton, ConfirmationModal } from '../ui';
 import { CreateEventModal, AttendanceQRModal } from '../events';
 import { useDeleteEvent } from '../../hooks';
-import ExecutivePortalLayout from './ExecutivePortalLayout';
 import ExecutiveSectionCard from './ExecutiveSectionCard';
 import EventRow from './EventRow';
 
@@ -41,7 +40,6 @@ function EventsTableSkeleton({ rows = 5 }) {
 }
 
 export default function EventsTableView({
-  university,
   universityId,
   events,
   isLoading,
@@ -79,7 +77,7 @@ export default function EventsTableView({
   ) : null;
 
   return (
-    <ExecutivePortalLayout university={university} universityId={universityId}>
+    <>
       <ExecutiveSectionCard
         title="All Events"
         subtitle="View RSVPs and attendance for each event"
@@ -136,6 +134,6 @@ export default function EventsTableView({
         eventTitle={qrEvent?.title}
         attendanceToken={qrEvent?.attendanceToken}
       />
-    </ExecutivePortalLayout>
+    </>
   );
 }

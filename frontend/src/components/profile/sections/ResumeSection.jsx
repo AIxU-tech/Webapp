@@ -51,9 +51,6 @@ export default function ResumeSection({
   const [isDragging, setIsDragging] = useState(false);
   const { openAuthModal } = useAuthModal();
 
-  // Hide empty sections on other users' profiles
-  if (!isOwnProfile && !resume && !isLoading) return null;
-
   const handleFile = useCallback(
     (file) => {
       const validationError = validateFile(file);
@@ -102,6 +99,9 @@ export default function ResumeSection({
     setError(null);
     onDelete();
   }, [onDelete]);
+
+  // Hide empty sections on other users' profiles
+  if (!isOwnProfile && !resume && !isLoading) return null;
 
   // Hidden file input (shared by empty state and replace action)
   const fileInput = isOwnProfile && (

@@ -14,15 +14,16 @@
  * States: loading, error, past event, already checked in, form, success.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useAttendanceEvent, useSubmitAttendance, usePageTitle } from '../hooks';
+import { useAttendanceEvent, useSubmitAttendance, useUniversities, usePageTitle } from '../hooks';
 import { FormInput, GradientButton, Alert } from '../components/ui';
-import { BrainCircuitIcon, CheckCircleIcon, CalendarIcon, MapPinIcon, ClockIcon, AlertCircleIcon } from '../components/icons';
+import { BrainCircuitIcon, CheckCircleIcon, CalendarIcon, MapPinIcon, ClockIcon, AlertCircleIcon, AlertTriangleIcon } from '../components/icons';
 import { GRADIENT_PRIMARY } from '../config/styles';
 import { PlasmaBackground } from '../components/layout';
 import { parseUtcDate } from '../utils/time';
+import { extractEduSubdomain, isValidRegistrationEmail, isWhitelistedEmail } from '../utils/email';
 
 // ---------------------------------------------------------------------------
 // Animation keyframes injected once into the document head
@@ -197,6 +198,7 @@ export default function AttendEventPage() {
   const { user } = useAuth();
   const { data, isLoading, isError } = useAttendanceEvent(token);
   const submitMutation = useSubmitAttendance();
+  const { data: universities = [] } = useUniversities();
 
   usePageTitle('Check In');
 
@@ -205,6 +207,40 @@ export default function AttendEventPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [formError, setFormError] = useState('');
   const [hasAutoFilled, setHasAutoFilled] = useState(false);
+  const [detectedUniversity, setDetectedUniversity] = useState(null);
+
+  // University domain lookup map (mirrors registration logic)
+  const universityDomainMap = useMemo(() => {
+    const map = new Map();
+    universities.forEach((uni) => {
+      if (uni.emailDomain) map.set(uni.emailDomain.toLowerCase(), uni);
+    });
+    return map;
+  }, [universities]);
+
+  const findUniversityByEmail = useCallback((emailVal) => {
+    const subdomain = extractEduSubdomain(emailVal);
+    if (!subdomain) return null;
+    let uni = universityDomainMap.get(subdomain);
+    if (uni) return uni;
+    if (subdomain.includes('.')) {
+      uni = universityDomainMap.get(subdomain.split('.').pop());
+      if (uni) return uni;
+    }
+    return null;
+  }, [universityDomainMap]);
+
+  const handleEmailChange = useCallback((e) => {
+    const val = e.target.value;
+    setEmail(val);
+    if (universityDomainMap.size > 0) {
+      setDetectedUniversity(findUniversityByEmail(val));
+    }
+  }, [universityDomainMap, findUniversityByEmail]);
+
+  // Show university status when email looks like a valid .edu
+  const showUniversityStatus = email && isValidRegistrationEmail(email);
+  const isWhitelisted = isWhitelistedEmail(email);
 
   // Inject animation keyframes on mount
   useEffect(() => {
@@ -229,8 +265,21 @@ export default function AttendEventPage() {
       return;
     }
 
+    // Validate email if provided: must be .edu from a registered university
+    const trimmedEmail = email.trim();
+    if (trimmedEmail) {
+      if (!isValidRegistrationEmail(trimmedEmail)) {
+        setFormError('Please use a .edu email address.');
+        return;
+      }
+      if (!isWhitelistedEmail(trimmedEmail) && !findUniversityByEmail(trimmedEmail)) {
+        setFormError('No university matches your email domain.');
+        return;
+      }
+    }
+
     submitMutation.mutate(
-      { token, data: { name: trimmedName, email: email.trim() || undefined } },
+      { token, data: { name: trimmedName, email: trimmedEmail || undefined } },
       {
         onSuccess: () => setIsSubmitted(true),
         onError: (err) => setFormError(err.message || 'Failed to submit attendance.'),
@@ -240,7 +289,9 @@ export default function AttendEventPage() {
 
   const event = data?.event;
   const alreadyCheckedIn = data?.alreadyCheckedIn;
-  const firstName = name.trim().split(/\s+/)[0];
+  const nameParts = name.trim().split(/\s+/);
+  const firstName = nameParts[0];
+  const lastName = nameParts.slice(1).join(' ');
 
   // -------------------------------------------------------------------
   // State renderers
@@ -373,7 +424,14 @@ export default function AttendEventPage() {
             </p>
             <GradientButton
               as={Link}
-              to={email.trim() ? `/register?email=${encodeURIComponent(email.trim())}` : '/register'}
+              to={(() => {
+                const params = new URLSearchParams();
+                if (email.trim()) params.set('email', email.trim());
+                if (firstName) params.set('firstName', firstName);
+                if (lastName) params.set('lastName', lastName);
+                const qs = params.toString();
+                return qs ? `/register?${qs}` : '/register';
+              })()}
               size="sm"
             >
               Create Account
@@ -426,15 +484,38 @@ export default function AttendEventPage() {
             <label htmlFor="attend-email" className="block text-sm font-medium text-foreground mb-1.5">
               Email <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <FormInput
-              id="attend-email"
-              type="email"
-              name="email"
-              placeholder="student@university.edu"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
+            <div className="relative">
+              <FormInput
+                id="attend-email"
+                type="email"
+                name="email"
+                placeholder="student@university.edu"
+                value={email}
+                onChange={handleEmailChange}
+                autoComplete="email"
+                className={showUniversityStatus ? 'pr-10' : ''}
+              />
+              {showUniversityStatus && (
+                <div
+                  className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  title={
+                    detectedUniversity
+                      ? detectedUniversity.name
+                      : isWhitelisted
+                        ? 'Whitelisted email'
+                        : 'No matching university'
+                  }
+                >
+                  {detectedUniversity ? (
+                    <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                  ) : isWhitelisted ? (
+                    <CheckCircleIcon className="h-5 w-5 text-blue-500" />
+                  ) : (
+                    <AlertTriangleIcon className="h-5 w-5 text-amber-500" />
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </FadeIn>
 

@@ -6,7 +6,7 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Avatar, IconButton, MemberActionsPopover } from '../ui';
+import { Avatar, Badge, IconButton, MemberActionsPopover } from '../ui';
 import { PencilIcon } from '../icons';
 import RoleBadge from '../university/RoleBadge';
 
@@ -38,6 +38,7 @@ export default function MemberCard({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground truncate">{member.name}</span>
           <RoleBadge role={member.role} size="xs" />
+          {member.isPartial && <Badge variant="outline" size="xs">Pending Account</Badge>}
         </div>
         <p className="text-xs text-muted-foreground truncate">
           {member.location || 'Location not set'} ·{' '}

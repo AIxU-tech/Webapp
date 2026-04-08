@@ -18,10 +18,12 @@ from sqlalchemy.exc import IntegrityError
 from backend.extensions import db
 from backend.models.event import Event
 from backend.models.event_attendance import EventAttendance
+from backend.models.user import User
 from backend.models.university import University
 from backend.models.university_role import UniversityRole
 from backend.constants import UniversityRoles
-from backend.utils.email import generate_secure_token
+from backend.utils.email import generate_secure_token, send_attendance_account_email
+from backend.utils.validation import validate_edu_email, is_whitelisted_domain
 from backend.services.content_moderator import moderate_content
 
 attendance_bp = Blueprint('attendance', __name__)
@@ -174,9 +176,83 @@ def submit_attendance(token):
         if not EMAIL_REGEX.match(email):
             return jsonify({'error': 'Invalid email format'}), 400
 
-    # Deduplication check
+        # Validate .edu email and find associated university
+        if not is_whitelisted_domain(email):
+            is_valid, err_msg, _ = validate_edu_email(email)
+            if not is_valid:
+                return jsonify({'error': err_msg}), 400
+
+            email_university = University.find_by_email_domain(email)
+            if not email_university:
+                return jsonify({'error': 'No university matches your email domain'}), 400
+        else:
+            email_university = None
+
+    # Resolve user: logged-in session, email match, or create partial account
     user_id = current_user.id if current_user.is_authenticated else None
-    existing = EventAttendance.find_existing(event.id, user_id=user_id, email=email)
+
+    if not user_id and email:
+        matched_user = User.query.filter(
+            db.func.lower(User.email) == email.lower()
+        ).first()
+
+        if not matched_user:
+            # Create a partial account so attendance accumulates across events
+            name_parts = name.split(None, 1)
+            matched_user = User(
+                email=email.lower(),
+                first_name=name_parts[0],
+                last_name=name_parts[1] if len(name_parts) > 1 else '',
+                university=email_university.name if email_university else None,
+                is_partial=True,
+                password_hash='!partial',
+            )
+            db.session.add(matched_user)
+            db.session.flush()
+
+            # Enroll partial user in their university (from email domain)
+            if email_university:
+                email_university.add_member(matched_user.id)
+
+            # Commit user + enrollment before generating token
+            db.session.commit()
+
+        # Send account creation email for partial accounts without a token
+        if matched_user.is_partial and not matched_user.account_creation_token:
+            acct_token = matched_user.generate_account_creation_token()
+            db.session.commit()
+
+            base_url = request.host_url.rstrip('/')
+            account_url = f"{base_url}/app/complete-account?token={acct_token}"
+            club_name = email_university.clubName if email_university else 'AIxU'
+            try:
+                send_attendance_account_email(
+                    email=email,
+                    first_name=matched_user.first_name,
+                    event_title=event.title,
+                    club_name=club_name,
+                    account_creation_url=account_url,
+                )
+            except Exception:
+                pass  # Email failure is non-blocking
+
+        user_id = matched_user.id
+
+    # Deduplication: check by resolved user_id and also by email
+    # (covers the case where an old anonymous record exists for this email)
+    existing = None
+    if user_id:
+        existing = EventAttendance.query.filter_by(
+            event_id=event.id, user_id=user_id
+        ).first()
+    if not existing and email:
+        existing = EventAttendance.query.filter_by(
+            event_id=event.id, email=email, user_id=None
+        ).first()
+        if existing and user_id:
+            # Retroactively link old anonymous record to resolved user
+            existing.user_id = user_id
+            db.session.commit()
     if existing:
         return jsonify({'success': True, 'alreadyCheckedIn': True, 'eventId': event.id}), 200
 
@@ -198,7 +274,7 @@ def submit_attendance(token):
             return jsonify({'success': True, 'alreadyCheckedIn': True, 'eventId': event.id}), 200
         return jsonify({'error': 'Failed to record attendance'}), 500
 
-    # Increment events_attended_count atomically if user is a member of this university
+    # Increment events_attended_count if user is a member of this university
     if user_id:
         db.session.query(UniversityRole).filter_by(
             user_id=user_id,
