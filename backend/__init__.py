@@ -87,6 +87,12 @@ def create_app(config_class=Config):
             delattr(g, '_login_user')
         return response
 
+    # When DISABLE_AUTO_LOGIN is set (./dev.sh --no-login), rotate the
+    # SECRET_KEY so existing session cookies from previous runs are
+    # invalidated. You can still log in manually during this session.
+    if os.environ.get('DISABLE_AUTO_LOGIN', '').lower() == 'true':
+        app.config['SECRET_KEY'] = app.config['SECRET_KEY'] + '-no-login'
+
     # WebSockets: Flask-SocketIO for real-time communication
     # This enables bidirectional communication between server and client
     socketio.init_app(app)

@@ -48,6 +48,7 @@ services:
       DATABASE_URL: ${DEV_DATABASE_URL}
       SECRET_KEY: ${DEV_SECRET_KEY}
       DEV_MODE: ${DEV_MODE:-false}
+      DISABLE_AUTO_LOGIN: ${DISABLE_AUTO_LOGIN:-false}
       # GCS: signed URLs require a service account key (not user ADC). Mount flask-sa-key.json and set path here.
       GCS_CREDENTIALS_PATH: /gcloud/flask-sa-key.json
       # Fallback if key file not mounted (won't work for signed URLs)
