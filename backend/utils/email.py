@@ -13,11 +13,13 @@ All emails are sent via SMTP using configuration from Flask app config.
 import smtplib
 import secrets
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from email.utils import formataddr
 from flask import current_app
 
 
-def send_email(subject: str, body: str, reply_to: str = None, to_email_override: str = None) -> bool:
+def send_email(subject: str, body: str, reply_to: str = None,
+               to_email_override: str = None, html: str = None) -> bool:
     smtp_host = current_app.config.get('SMTP_HOST')
     smtp_port = current_app.config.get('SMTP_PORT', 587)
     smtp_user = current_app.config.get('SMTP_USER')
@@ -33,7 +35,13 @@ def send_email(subject: str, body: str, reply_to: str = None, to_email_override:
         current_app.logger.error('SMTP configuration is missing')
         return False
 
-    msg = MIMEText(body, 'plain', 'utf-8')
+    if html:
+        msg = MIMEMultipart('alternative')
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        msg.attach(MIMEText(html, 'html', 'utf-8'))
+    else:
+        msg = MIMEText(body, 'plain', 'utf-8')
+
     msg['Subject'] = subject
     msg['From'] = formataddr(('AIxU Website', smtp_user)
                              )  # must match Zoho login
@@ -56,6 +64,26 @@ def send_email(subject: str, body: str, reply_to: str = None, to_email_override:
     except Exception as e:
         current_app.logger.exception('Failed to send email: %s', e)
         return False
+
+
+def _wrap_html(body_content: str) -> str:
+    """Wrap email body content in a minimal HTML template."""
+    return f"""\
+<html>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.5; max-width: 600px; margin: 0 auto; padding: 20px;">
+{body_content}
+<p style="color: #666; margin-top: 30px; font-size: 14px;">Best regards,<br>The AIxU Team</p>
+</body>
+</html>"""
+
+
+def _link_button(url: str, label: str) -> str:
+    """Generate an HTML button-style link."""
+    return (
+        f'<a href="{url}" style="display: inline-block; background: #6366f1; '
+        f'color: #ffffff; text-decoration: none; padding: 12px 28px; '
+        f'border-radius: 6px; font-weight: 600; margin: 16px 0;">{label}</a>'
+    )
 
 
 def generate_verification_code():
@@ -183,7 +211,21 @@ If you have any questions or didn't request this, please contact us.
 Best regards,
 The AIxU Team"""
 
-    return send_email(subject, body, to_email_override=email)
+    html = _wrap_html(f"""\
+<p>Hi {first_name},</p>
+<p>Great news! Your request to add <strong>{university_name}</strong> to AIxU has been approved!</p>
+<p>{university_name} is now live on our platform. Complete your account setup below:</p>
+<p>{_link_button(account_creation_url, "Complete Your Account")}</p>
+<p><strong>Important:</strong></p>
+<ul>
+<li>This link is unique to you and will expire in 7 days</li>
+<li>You only need to create a password (your email is already verified)</li>
+<li>Do not share this link with anyone</li>
+</ul>
+<p>Once your account is created, you'll be the founding member of {university_name}'s AIxU community!</p>
+<p>If you have any questions or didn't request this, please contact us.</p>""")
+
+    return send_email(subject, body, to_email_override=email, html=html)
 
 
 def send_attendance_account_email(
@@ -212,7 +254,7 @@ def send_attendance_account_email(
     subject = "Complete Your AIxU Account"
     body = f"""Hi {first_name},
 
-Thanks for using AIxU to attend {event_title} with {club_name}!
+Thanks for using AIxU to mark your attendance!
 
 You can create your AIxU account to autofill attendance, connect with other members, and stay updated on future events:
 
@@ -224,7 +266,14 @@ We hope to see you on there!
 Best regards,
 The AIxU Team"""
 
-    return send_email(subject, body, to_email_override=email)
+    html = _wrap_html(f"""\
+<p>Hi {first_name},</p>
+<p>Thanks for using AIxU to mark your attendance!</p>
+<p>Create your AIxU account to autofill attendance, connect with other members, and stay updated on future events:</p>
+<p>{_link_button(account_creation_url, "Complete Your Account")}</p>
+<p>We hope to see you on there!</p>""")
+
+    return send_email(subject, body, to_email_override=email, html=html)
 
 
 def send_reset_password_email(email: str, reset_url: str, first_name: str = None) -> bool:
@@ -240,6 +289,7 @@ def send_reset_password_email(email: str, reset_url: str, first_name: str = None
         True if email sent successfully, False otherwise
     """
     greeting = f"Hi {first_name}" if first_name else "Hi"
+    html_greeting = f"Hi {first_name}," if first_name else "Hi,"
     subject = "Password Reset Request - AIxU"
     body = f"""{greeting},
 
@@ -258,7 +308,19 @@ If you have any questions, feel free to reply to this email.
 Best regards,
 The AIxU Team"""
 
-    return send_email(subject, body, to_email_override=email)
+    html = _wrap_html(f"""\
+<p>{html_greeting}</p>
+<p>We received a request to reset your password for your AIxU account.</p>
+<p>{_link_button(reset_url, "Reset Your Password")}</p>
+<p><strong>Important:</strong></p>
+<ul>
+<li>This link will expire in 1 hour</li>
+<li>If you didn't request this, you can safely ignore this email</li>
+<li>Your password won't change unless you click the link above</li>
+</ul>
+<p>If you have any questions, feel free to reply to this email.</p>""")
+
+    return send_email(subject, body, to_email_override=email, html=html)
 
 def send_password_reset_confirmation(email: str):
 
@@ -290,6 +352,7 @@ def send_new_conversation_email(
         True if the email was sent successfully, False otherwise.
     """
     greeting = f"Hi {recipient_first_name}" if recipient_first_name else "Hi there"
+    html_greeting = f"Hi {recipient_first_name}," if recipient_first_name else "Hi there,"
     subject = f"You have a new message on AIxU"
     body = f"""{greeting},
 
@@ -300,7 +363,12 @@ def send_new_conversation_email(
 Best regards,
 The AIxU Team"""
 
-    return send_email(subject, body, to_email_override=recipient_email)
+    html = _wrap_html(f"""\
+<p>{html_greeting}</p>
+<p><strong>{sender_name}</strong> sent you a message on AIxU.</p>
+<p>{_link_button(messages_url, "Open Your Inbox")}</p>""")
+
+    return send_email(subject, body, to_email_override=recipient_email, html=html)
 
 
 def send_event_created_email(
@@ -330,6 +398,7 @@ def send_event_created_email(
         True if the email was sent successfully, False otherwise.
     """
     greeting = f"Hi {recipient_first_name}" if recipient_first_name else "Hi there"
+    html_greeting = f"Hi {recipient_first_name}," if recipient_first_name else "Hi there,"
     subject = f"New Event: {event_title} — {club_name}"
 
     details = f"Date: {event_date}"
@@ -351,7 +420,20 @@ RSVP on AIxU:
 Best regards,
 The AIxU Team"""
 
-    return send_email(subject, body, to_email_override=recipient_email)
+    html_details = f"<li><strong>Date:</strong> {event_date}</li>"
+    if event_location:
+        html_details += f"\n<li><strong>Location:</strong> {event_location}</li>"
+    html_desc = f"<p>{event_description}</p>" if event_description else ""
+
+    html = _wrap_html(f"""\
+<p>{html_greeting}</p>
+<p><strong>{club_name}</strong> just posted a new event:</p>
+<h2 style="margin: 0 0 8px 0; font-size: 20px;">{event_title}</h2>
+<ul style="list-style: none; padding: 0;">{html_details}</ul>
+{html_desc}
+<p>{_link_button(rsvp_url, "RSVP on AIxU")}</p>""")
+
+    return send_email(subject, body, to_email_override=recipient_email, html=html)
 
 
 def send_event_cancelled_email(

@@ -564,6 +564,13 @@ def dev_login():
             'error': 'Dev login is only available in development mode'
         }), 403
 
+    # Allow disabling auto-login while keeping other DEV_MODE features
+    # (e.g. ./dev.sh --no-login for testing anonymous flows on phone)
+    if os.environ.get('DISABLE_AUTO_LOGIN', '').lower() == 'true':
+        return jsonify({
+            'error': 'Auto-login disabled (--no-login flag)'
+        }), 403
+
     try:
         # Import the dev user email constant from seed_data
         from backend.seed_data import DEV_USER_EMAIL
