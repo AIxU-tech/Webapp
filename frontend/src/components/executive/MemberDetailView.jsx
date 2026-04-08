@@ -5,7 +5,7 @@
  * Shows member profile card and event attendance history.
  */
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { formatDateTime } from '../../utils';
 import {
   Card,
@@ -53,19 +53,21 @@ export default function MemberDetailView({
   onMakePresident,
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const backPath = location.state?.from || `/executive/${universityId}`;
+  const backLabel = location.state?.fromLabel || 'Back to Members';
   const showEditButton = canManageAny && !isCurrentUser;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
+    <>
         <SecondaryButton
           variant="ghost"
           size="sm"
           icon={<ArrowLeftIcon className="h-4 w-4" />}
-          onClick={() => navigate(`/executive/${universityId}`)}
+          onClick={() => navigate(backPath)}
           className="mb-6 -ml-2"
         >
-          Back to Members
+          {backLabel}
         </SecondaryButton>
 
         <Card padding="lg" className="mb-6">
@@ -135,10 +137,14 @@ export default function MemberDetailView({
                   role="button"
                   tabIndex={0}
                   aria-label={`View event ${evt.eventTitle}`}
-                  onClick={() => navigate(`/executive/${universityId}/events/${evt.eventId}`)}
+                  onClick={() => navigate(`/executive/${universityId}/events/${evt.eventId}`, {
+                    state: { from: `/executive/${universityId}/members/${member.id}`, fromLabel: 'Back to Member' },
+                  })}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
-                      navigate(`/executive/${universityId}/events/${evt.eventId}`);
+                      navigate(`/executive/${universityId}/events/${evt.eventId}`, {
+                        state: { from: `/executive/${universityId}/members/${member.id}`, fromLabel: 'Back to Member' },
+                      });
                     }
                   }}
                   className="flex items-center justify-between py-3 border-b border-border last:border-0 cursor-pointer hover:bg-muted/40 transition-colors rounded-md px-2"
@@ -157,7 +163,6 @@ export default function MemberDetailView({
             </ul>
           )}
         </Card>
-      </div>
-    </div>
+    </>
   );
 }

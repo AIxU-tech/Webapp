@@ -20,7 +20,7 @@ import {
   eventKeys,
 } from '../hooks';
 import { SecondaryButton, BaseModal, ConfirmationModal } from '../components/ui';
-import { MemberDetailView, MemberTableView, ExecutivePortalSkeleton } from '../components/executive';
+import { MemberDetailView, MemberTableView, ExecutivePortalSkeleton, ExecutivePortalLayout } from '../components/executive';
 import { useAuth } from '../contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -188,7 +188,7 @@ export default function ExecutivePortalPage() {
 
   if (userId && selectedMember) {
     return (
-      <>
+      <ExecutivePortalLayout university={university} universityId={universityId}>
         <MemberDetailView
           member={selectedMember}
           universityId={universityId}
@@ -218,13 +218,13 @@ export default function ExecutivePortalPage() {
             </SecondaryButton>
           </div>
         </BaseModal>
-      </>
+      </ExecutivePortalLayout>
     );
   }
 
   if (userId && !selectedMember) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <ExecutivePortalLayout university={university} universityId={universityId}>
         <p className="text-muted-foreground">Member not found.</p>
         <SecondaryButton
           className="mt-4"
@@ -233,14 +233,13 @@ export default function ExecutivePortalPage() {
         >
           Back to Members
         </SecondaryButton>
-      </div>
+      </ExecutivePortalLayout>
     );
   }
 
   return (
-    <>
+    <ExecutivePortalLayout university={university} universityId={universityId}>
       <MemberTableView
-        university={university}
         universityId={universityId}
         members={members}
         permissions={permissions}
@@ -266,6 +265,6 @@ export default function ExecutivePortalPage() {
           </SecondaryButton>
         </div>
       </BaseModal>
-    </>
+    </ExecutivePortalLayout>
   );
 }
