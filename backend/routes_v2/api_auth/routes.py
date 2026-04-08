@@ -148,7 +148,8 @@ def api_register():
                 'error': 'No university found for your email domain. Please contact support if you believe this is an error.'
             }), 400
 
-        if User.query.filter_by(email=email).first():
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user and not existing_user.is_partial:
             return jsonify({'error': 'Email already exists'}), 409
 
         verification_code = generate_verification_code()
@@ -335,14 +336,14 @@ def api_logout():
 @api_auth_bp.route('/validate-token', methods=['GET'])
 def validate_account_token():
     """
-    Validate an account creation token from a university approval email.
+    Validate an account creation token and return pre-filled data.
 
-    This endpoint checks if a token is valid and returns the associated
-    request data (name, email, university) so the frontend can display
+    Checks both university request tokens and attendance-based user tokens.
+    Returns name, email, and university so the frontend can display
     the "complete account" form pre-filled with this information.
 
     Query Parameters:
-        token: The account creation token from the approval email
+        token: The account creation token from the email link
 
     Returns:
     - 200: Token valid, returns request data
@@ -354,49 +355,54 @@ def validate_account_token():
     if not token:
         return jsonify({'error': 'Token parameter is required'}), 400
 
-    # Find the request by token (validates status, expiry, and unused)
+    # Check university request tokens first
     uni_request = UniversityRequest.find_by_token(token)
 
-    if not uni_request:
+    if uni_request:
+        university = University.find_by_email_domain(
+            f"user@{uni_request.email_domain}.edu"
+        )
         return jsonify({
-            'error': 'This link is invalid, has expired, or has already been used.'
-        }), 404
+            'valid': True,
+            'firstName': uni_request.requester_first_name,
+            'lastName': uni_request.requester_last_name,
+            'email': uni_request.requester_email,
+            'universityName': uni_request.university_name,
+            'university': university.to_dict() if university else None
+        }), 200
 
-    # Find the associated university
-    university = University.find_by_email_domain(
-        f"user@{uni_request.email_domain}.edu"
-    )
+    # Fall through: check attendance-based user tokens
+    partial_user = User.find_by_account_token(token)
+
+    if partial_user:
+        university = University.find_by_email_domain(partial_user.email)
+        return jsonify({
+            'valid': True,
+            'firstName': partial_user.first_name,
+            'lastName': partial_user.last_name,
+            'email': partial_user.email,
+            'universityName': university.name if university else None,
+            'university': university.to_dict() if university else None
+        }), 200
 
     return jsonify({
-        'valid': True,
-        'firstName': uni_request.requester_first_name,
-        'lastName': uni_request.requester_last_name,
-        'email': uni_request.requester_email,
-        'universityName': uni_request.university_name,
-        'university': university.to_dict() if university else None
-    }), 200
+        'error': 'This link is invalid, has expired, or has already been used.'
+    }), 404
 
 
 @api_auth_bp.route('/complete-account', methods=['POST'])
 def complete_account():
     """
-    Complete account creation using a token from university approval email.
+    Complete account creation using a token from an email link.
 
-    This endpoint creates a user account without requiring email verification,
-    since the email was already verified during the university request process.
+    Supports both university request tokens and attendance-based user tokens.
+    Creates a user account without requiring email verification.
 
     Request body (JSON):
     {
         "token": "secure-token-from-email",
         "password": "user-chosen-password"
     }
-
-    Process:
-    1. Validates the token (not expired, not used)
-    2. Creates the User account with pre-verified email
-    3. Enrolls user in their university
-    4. Marks the token as used (one-time use)
-    5. Logs the user in
 
     Returns:
     - 200: Success, account created and logged in
@@ -420,33 +426,60 @@ def complete_account():
         if len(password) < REQUIRED_PASSWORD_LENGTH:
             return jsonify({'error': 'Password must be at least 6 characters'}), 400
 
-        # Find and validate the request by token
+        # Try university request token first
         uni_request = UniversityRequest.find_by_token(token)
 
-        if not uni_request:
-            return jsonify({
-                'error': 'This link is invalid, has expired, or has already been used.'
-            }), 404
+        if uni_request:
+            return _complete_account_from_university_request(uni_request, password)
 
-        # Check if user already exists
-        existing_user = User.query.filter_by(
-            email=uni_request.requester_email).first()
-        if existing_user:
-            return jsonify({
-                'error': 'An account with this email already exists. Please log in instead.'
-            }), 409
+        # Fall through: try attendance-based user token
+        partial_user = User.find_by_account_token(token)
 
-        # Find the associated university
-        university = University.find_by_email_domain(
-            f"user@{uni_request.email_domain}.edu"
-        )
+        if partial_user:
+            return _complete_account_from_attendance(partial_user, password)
 
-        if not university:
-            return jsonify({
-                'error': 'Associated university not found. Please contact support.'
-            }), 500
+        return jsonify({
+            'error': 'This link is invalid, has expired, or has already been used.'
+        }), 404
 
-        # Create the user account
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.exception(
+            'Failed to complete account creation: %s', e)
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+
+def _complete_account_from_university_request(uni_request, password):
+    """Complete account creation from an approved university request."""
+    # Check if user already exists
+    existing_user = User.query.filter_by(
+        email=uni_request.requester_email).first()
+    if existing_user and not existing_user.is_partial:
+        return jsonify({
+            'error': 'An account with this email already exists. Please log in instead.'
+        }), 409
+
+    # Find the associated university
+    university = University.find_by_email_domain(
+        f"user@{uni_request.email_domain}.edu"
+    )
+
+    if not university:
+        return jsonify({
+            'error': 'Associated university not found. Please contact support.'
+        }), 500
+
+    if existing_user and existing_user.is_partial:
+        # Upgrade partial account
+        user = existing_user
+        user.first_name = uni_request.requester_first_name
+        user.last_name = uni_request.requester_last_name
+        user.university = university.name
+        user.is_partial = False
+        user.set_password(password)
+        user.clear_account_token()
+    else:
+        # Create fresh account
         user = User(
             email=uni_request.requester_email,
             first_name=uni_request.requester_first_name,
@@ -455,31 +488,49 @@ def complete_account():
         )
         user.set_password(password)
         db.session.add(user)
-        db.session.flush()  # Get user.id before commit
+        db.session.flush()
 
-        # Add user to university members list and auto-populate education
-        university.add_member(user.id)
-        create_initial_education(user, university)
+    # Add user to university members list and auto-populate education
+    university.add_member(user.id)
+    create_initial_education(user, university)
 
-        # Mark the request as used (links to user, clears token)
-        uni_request.mark_account_created(user.id)
+    # Mark the request as used (links to user, clears token)
+    uni_request.mark_account_created(user.id)
 
-        db.session.commit()
+    db.session.commit()
 
-        # Log the user in
-        login_user(user, remember=True)
+    # Log the user in
+    login_user(user, remember=True)
 
-        return jsonify({
-            'success': True,
-            'message': 'Account created successfully! Welcome to AIxU!',
-            'user': user.to_dict()
-        }), 200
+    return jsonify({
+        'success': True,
+        'message': 'Account created successfully! Welcome to AIxU!',
+        'user': user.to_dict()
+    }), 200
 
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.exception(
-            'Failed to complete account creation: %s', e)
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+def _complete_account_from_attendance(partial_user, password):
+    """Complete account creation from an attendance-based token."""
+    partial_user.set_password(password)
+    partial_user.is_partial = False
+    partial_user.clear_account_token()
+
+    # Look up university from email domain (validated at attendance time)
+    university = University.find_by_email_domain(partial_user.email)
+    if university:
+        partial_user.university = university.name
+        university.add_member(partial_user.id)
+        create_initial_education(partial_user, university)
+
+    db.session.commit()
+
+    login_user(partial_user, remember=True)
+
+    return jsonify({
+        'success': True,
+        'message': 'Account created successfully! Welcome to AIxU!',
+        'user': partial_user.to_dict()
+    }), 200
 
 
 # =============================================================================

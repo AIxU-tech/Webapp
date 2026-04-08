@@ -186,6 +186,47 @@ The AIxU Team"""
     return send_email(subject, body, to_email_override=email)
 
 
+def send_attendance_account_email(
+    email: str,
+    first_name: str,
+    event_title: str,
+    club_name: str,
+    account_creation_url: str
+) -> bool:
+    """
+    Send account creation email after QR attendance check-in.
+
+    Sent when a non-registered user checks in to an event with their email.
+    Contains a secure link to complete account setup (password only).
+
+    Args:
+        email: Recipient's email address
+        first_name: Attendee's first name for personalization
+        event_title: Title of the event they attended
+        club_name: Name of the AI club hosting the event
+        account_creation_url: Full URL with secure token for account creation
+
+    Returns:
+        True if email sent successfully, False otherwise
+    """
+    subject = "Complete Your AIxU Account"
+    body = f"""Hi {first_name},
+
+Thanks for using AIxU to attend {event_title} with {club_name}!
+
+You can create your AIxU account to autofill attendance, connect with other members, and stay updated on future events:
+
+Complete Your Account:
+{account_creation_url}
+
+We hope to see you on there!
+
+Best regards,
+The AIxU Team"""
+
+    return send_email(subject, body, to_email_override=email)
+
+
 def send_reset_password_email(email: str, reset_url: str, first_name: str = None) -> bool:
     """
     Send password reset email with secure reset link.

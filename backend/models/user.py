@@ -16,6 +16,8 @@ class User(UserMixin, db.Model):
     # All identification now uses email only
     email = db.Column(db.Text, unique=True, nullable=False)
     password_hash = db.Column(db.Text, nullable=False)
+    is_partial = db.Column(db.Boolean, default=False, nullable=False, server_default='false')
+    account_creation_token = db.Column(db.String(64), nullable=True, unique=True, index=True)
 
     # Extended profile fields
     first_name = db.Column(db.String(50), nullable=True)
@@ -65,6 +67,23 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def generate_account_creation_token(self):
+        from backend.utils.email import generate_secure_token
+        self.account_creation_token = generate_secure_token(32)
+        return self.account_creation_token
+
+    @classmethod
+    def find_by_account_token(cls, token):
+        if not token:
+            return None
+        return cls.query.filter_by(
+            account_creation_token=token,
+            is_partial=True,
+        ).first()
+
+    def clear_account_token(self):
+        self.account_creation_token = None
 
     def get_full_name(self):
         """Return full name or empty string if names not provided"""

@@ -60,10 +60,14 @@ def setup_registration_session(email, password, first_name, last_name, universit
 
 
 def create_db_user(reg_data):
-    """Create a new user from registration data and enroll in university.
+    """Create a new user (or upgrade a partial account) and enroll in university.
+
+    If a partial account exists for the email (created via QR attendance),
+    it is upgraded to a full account, preserving the user ID, university
+    role, and events_attended_count.
 
     Returns:
-        User: The newly created user object
+        User: The newly created or upgraded user object
     """
     # Get the university for auto-enrollment
     # University ID was determined during registration based on email domain
@@ -71,18 +75,33 @@ def create_db_user(reg_data):
     university = University.query.get(
         int(university_id)) if university_id else None
 
-    # Create new user with university already set
-    user = User(
-        email=reg_data['email'],
-        first_name=reg_data['first_name'],
-        last_name=reg_data['last_name'],
-        university=university.name if university else None
-    )
-    user.set_password(reg_data['password'])
-    db.session.add(user)
+    # Check for existing partial account to upgrade
+    existing = User.query.filter_by(email=reg_data['email']).first()
+
+    if existing and existing.is_partial:
+        # Upgrade partial account — preserves id, university role, attendance counts
+        existing.first_name = reg_data['first_name']
+        existing.last_name = reg_data['last_name']
+        existing.university = university.name if university else None
+        existing.is_partial = False
+        existing.set_password(reg_data['password'])
+        existing.clear_account_token()
+        user = existing
+    else:
+        # Create new user with university already set
+        user = User(
+            email=reg_data['email'],
+            first_name=reg_data['first_name'],
+            last_name=reg_data['last_name'],
+            university=university.name if university else None
+        )
+        user.set_password(reg_data['password'])
+        db.session.add(user)
+
     db.session.commit()
 
     # Add user to university members list and auto-populate education
+    # add_member is idempotent — no-op if the partial account was already enrolled
     if university:
         university.add_member(user.id)
         create_initial_education(user, university)
