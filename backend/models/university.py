@@ -206,8 +206,10 @@ class University(db.Model):
 
         Deletes the UniversityRole record for the user at this university.
         If the user is not a member, this is a no-op.
-        Only decrements member_count for non-partial users (partial accounts
-        were never counted).
+        Only skips decrement for partial users (they were never counted in
+        member_count). If the User row is missing, decrement anyway so the
+        cache stays aligned when a role row exists without a user (tests,
+        orphaned data).
 
         Args:
             user_id: The user's ID to remove
@@ -218,9 +220,9 @@ class University(db.Model):
         from backend.models.university_role import UniversityRole
         from backend.models.user import User
 
-        # Check partial status before deleting the role
         user = User.query.get(user_id)
-        should_decrement = user and not user.is_partial
+        # Partial accounts were not included in member_count; everyone else was.
+        should_decrement = user is None or not user.is_partial
 
         # Bulk delete gives us the affected row count, which is race-safe:
         # if another request removed it first, `deleted` will be 0.
