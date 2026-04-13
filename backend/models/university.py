@@ -75,8 +75,9 @@ class University(db.Model):
     # they are automatically enrolled in this university.
     email_domain = db.Column(db.String(100), nullable=True)
 
-    # Cached member count - updated by add_member() and remove_member()
-    # Use refresh_member_count() to recalculate from UniversityRole if needed
+    # Cached count of fully-registered members (excludes partial accounts).
+    # Updated by add_member() and remove_member(); use refresh_member_count()
+    # to recalculate from UniversityRole if the cache drifts.
     member_count = db.Column(db.Integer, default=0)
     recent_posts = db.Column(db.Integer, default=0)
     upcoming_events = db.Column(db.Integer, default=0)
@@ -142,7 +143,7 @@ class University(db.Model):
 
         return [{'user': user, 'role': role} for user, role in results]
 
-    def add_member(self, user_id: int, role: int = None) -> bool:
+    def add_member(self, user_id: int, role: int = None, increment_count: bool = True) -> bool:
         """
         Add a user as a member of this university.
 
@@ -152,6 +153,9 @@ class University(db.Model):
         Args:
             user_id: The user's ID to add
             role: Optional role level (defaults to MEMBER)
+            increment_count: Whether to bump the cached member_count.
+                Pass False for partial accounts (they are not counted until
+                the account is fully created).
 
         Returns:
             True if member was added, False if already a member
@@ -180,8 +184,13 @@ class University(db.Model):
             # The SAVEPOINT is rolled back; the outer transaction stays intact.
             return False
 
-        # Atomic counter increment avoids "lost updates" when multiple requests
-        # add members concurrently.
+        if increment_count:
+            self._increment_member_count()
+
+        return True
+
+    def _increment_member_count(self):
+        """Atomically increment the cached member_count by 1."""
         db.session.query(University).filter(University.id == self.id).update(
             {
                 University.member_count: func.coalesce(University.member_count, 0) + 1,
@@ -191,14 +200,14 @@ class University(db.Model):
         db.session.flush()
         db.session.refresh(self)
 
-        return True
-
     def remove_member(self, user_id: int) -> bool:
         """
         Remove a user from this university.
 
         Deletes the UniversityRole record for the user at this university.
         If the user is not a member, this is a no-op.
+        Only decrements member_count for non-partial users (partial accounts
+        were never counted).
 
         Args:
             user_id: The user's ID to remove
@@ -207,6 +216,11 @@ class University(db.Model):
             True if member was removed, False if not a member
         """
         from backend.models.university_role import UniversityRole
+        from backend.models.user import User
+
+        # Check partial status before deleting the role
+        user = User.query.get(user_id)
+        should_decrement = user and not user.is_partial
 
         # Bulk delete gives us the affected row count, which is race-safe:
         # if another request removed it first, `deleted` will be 0.
@@ -216,19 +230,20 @@ class University(db.Model):
         if not deleted:
             return False
 
-        # Atomic decrement avoids "lost updates" with concurrent add/remove.
-        db.session.query(University).filter(University.id == self.id).update(
-            {
-                University.member_count: case(
-                    (
-                        func.coalesce(University.member_count, 0) > 0,
-                        func.coalesce(University.member_count, 0) - 1,
+        if should_decrement:
+            db.session.query(University).filter(University.id == self.id).update(
+                {
+                    University.member_count: case(
+                        (
+                            func.coalesce(University.member_count, 0) > 0,
+                            func.coalesce(University.member_count, 0) - 1,
+                        ),
+                        else_=0,
                     ),
-                    else_=0,
-                ),
-            },
-            synchronize_session=False,
-        )
+                },
+                synchronize_session=False,
+            )
+
         db.session.flush()
         db.session.refresh(self)
 
@@ -249,16 +264,27 @@ class University(db.Model):
 
     def refresh_member_count(self) -> int:
         """
-        Recalculate and update the cached member_count from UniversityRole.
+        Recalculate and update the cached member_count from UniversityRole,
+        excluding partial (incomplete) accounts.
 
         Use this method to fix any sync issues between the cached count
-        and the actual number of members in UniversityRole.
+        and the actual number of fully-registered members in UniversityRole.
 
         Returns:
             The updated member count
         """
         from backend.models.university_role import UniversityRole
-        count = UniversityRole.query.filter_by(university_id=self.id).count()
+        from backend.models.user import User
+
+        count = (
+            db.session.query(func.count(UniversityRole.id))
+            .join(User, User.id == UniversityRole.user_id)
+            .filter(
+                UniversityRole.university_id == self.id,
+                User.is_partial.is_(False),
+            )
+            .scalar()
+        )
         self.member_count = count
         return count
 

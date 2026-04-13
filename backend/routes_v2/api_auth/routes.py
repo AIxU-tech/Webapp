@@ -469,7 +469,9 @@ def _complete_account_from_university_request(uni_request, password):
             'error': 'Associated university not found. Please contact support.'
         }), 500
 
-    if existing_user and existing_user.is_partial:
+    upgrading_partial = existing_user and existing_user.is_partial
+
+    if upgrading_partial:
         # Upgrade partial account
         user = existing_user
         user.first_name = uni_request.requester_first_name
@@ -490,8 +492,12 @@ def _complete_account_from_university_request(uni_request, password):
         db.session.add(user)
         db.session.flush()
 
-    # Add user to university members list and auto-populate education
-    university.add_member(user.id)
+    # Add user to university members list and auto-populate education.
+    # For partial upgrades the role already exists, so bump the member_count
+    # that was skipped when the partial account was created.
+    added = university.add_member(user.id)
+    if not added and upgrading_partial:
+        university._increment_member_count()
     create_initial_education(user, university)
 
     # Mark the request as used (links to user, clears token)
@@ -519,7 +525,11 @@ def _complete_account_from_attendance(partial_user, password):
     university = University.find_by_email_domain(partial_user.email)
     if university:
         partial_user.university = university.name
-        university.add_member(partial_user.id)
+        # add_member is idempotent — the role already exists from attendance
+        # check-in. Bump member_count now that the account is fully created.
+        added = university.add_member(partial_user.id)
+        if not added:
+            university._increment_member_count()
         create_initial_education(partial_user, university)
 
     db.session.commit()
