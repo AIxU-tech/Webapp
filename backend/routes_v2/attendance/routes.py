@@ -210,9 +210,11 @@ def submit_attendance(token):
             db.session.add(matched_user)
             db.session.flush()
 
-            # Enroll partial user in their university (from email domain)
+            # Enroll partial user in their university (from email domain).
+            # Don't increment member_count — partial accounts are not
+            # counted until the user completes registration.
             if email_university:
-                email_university.add_member(matched_user.id)
+                email_university.add_member(matched_user.id, increment_count=False)
 
             # Commit user + enrollment before generating token
             db.session.commit()

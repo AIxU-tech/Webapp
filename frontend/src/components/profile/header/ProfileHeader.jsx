@@ -65,13 +65,13 @@ export default function ProfileHeader({
         </div>
 
         {/* Name row with edit button */}
-        <div className="flex items-start justify-between gap-4 mb-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-3">
           <div className="min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">
+            <h1 className="text-xl sm:text-3xl font-bold text-foreground mb-1 break-words">
               {user?.full_name || 'Unknown User'}
             </h1>
             {headline && (
-              <p className="text-base text-muted-foreground">{headline}</p>
+              <p className="text-sm sm:text-base text-muted-foreground">{headline}</p>
             )}
           </div>
 
@@ -82,14 +82,14 @@ export default function ProfileHeader({
                 <SecondaryButton
                   variant="outline"
                   onClick={onEditProfile}
-                  className="rounded-full"
+                  className="rounded-full text-sm sm:text-base"
                 >
                   Edit Profile
                 </SecondaryButton>
                 <SecondaryButton
                   variant="outline"
                   onClick={onLogout}
-                  className="rounded-full"
+                  className="rounded-full text-sm sm:text-base"
                   icon={<LogOutIcon size="sm" />}
                 >
                   Log Out
@@ -108,7 +108,7 @@ export default function ProfileHeader({
         </div>
 
         {/* Meta info row */}
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3 text-sm text-muted-foreground">
           {/* Left side: Location, Website */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Location - no background */}

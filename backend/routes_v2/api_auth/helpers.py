@@ -78,7 +78,9 @@ def create_db_user(reg_data):
     # Check for existing partial account to upgrade
     existing = User.query.filter_by(email=reg_data['email']).first()
 
-    if existing and existing.is_partial:
+    upgrading_partial = existing and existing.is_partial
+
+    if upgrading_partial:
         # Upgrade partial account — preserves id, university role, attendance counts
         existing.first_name = reg_data['first_name']
         existing.last_name = reg_data['last_name']
@@ -100,10 +102,14 @@ def create_db_user(reg_data):
 
     db.session.commit()
 
-    # Add user to university members list and auto-populate education
-    # add_member is idempotent — no-op if the partial account was already enrolled
+    # Add user to university members list and auto-populate education.
+    # add_member is idempotent — no-op if the partial account was already enrolled.
+    # For partial upgrades the role already exists, so we explicitly bump the
+    # member_count that was skipped when the partial account was created.
     if university:
-        university.add_member(user.id)
+        added = university.add_member(user.id)
+        if not added and upgrading_partial:
+            university._increment_member_count()
         create_initial_education(user, university)
         db.session.commit()
 
