@@ -61,6 +61,28 @@ export function useUniversityEvents(universityId, options = {}) {
 }
 
 /**
+ * prefetchUniversityEvents
+ *
+ * Imperatively warm the cache for a university's events list. Useful for
+ * hover-based prefetching (e.g. flipping between Upcoming/Past views).
+ *
+ * @param {object} queryClient - React Query client
+ * @param {number} universityId - University ID
+ * @param {object} options - Query options (limit, upcoming) — must match the
+ *   options object passed to useUniversityEvents so the cache key lines up.
+ */
+export function prefetchUniversityEvents(queryClient, universityId, options = {}) {
+  if (!universityId) return;
+
+  return queryClient.prefetchQuery({
+    queryKey: [...eventKeys.university(universityId), options],
+    queryFn: () => fetchUniversityEvents(universityId, options),
+    staleTime: STALE_TIMES.EVENTS,
+    gcTime: GC_TIMES.EVENTS,
+  });
+}
+
+/**
  * useEvent Hook
  *
  * Fetches a single event with attendee details.

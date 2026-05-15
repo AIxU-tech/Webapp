@@ -918,6 +918,58 @@ def seed_speakers(users, universities):
     return speakers
 
 
+def seed_events(users, universities):
+    """Create a handful of events for testing the events UI.
+
+    Currently seeds a single past event for CU Boulder so the Upcoming/Past
+    pill toggle on UniversityEventsTab can be exercised end-to-end.
+    """
+    print("Seeding events...")
+
+    boulder = next(
+        (u for u in universities if u.email_domain == "colorado"),
+        None,
+    )
+    if boulder is None:
+        print("  Skipping events: CU Boulder university not found.")
+        return []
+
+    # Pick the first member of the university as the creator. By the time
+    # seed_university_memberships() has run, the first user at each uni is
+    # the president, which is appropriate for "created by" attribution.
+    creator = next(
+        (u for u in users if u.university == boulder.name),
+        None,
+    )
+    if creator is None:
+        print("  Skipping events: no CU Boulder user available as creator.")
+        return []
+
+    # Naive UTC datetimes — the model stores TIMESTAMP WITHOUT TIME ZONE and
+    # the events route treats them as UTC when filtering upcoming/past.
+    start = datetime(2026, 5, 1, 18, 0)  # May 1, 2026, 6:00 PM UTC (~noon MT)
+    end = datetime(2026, 5, 1, 20, 0)    # 2-hour event
+
+    past_event = Event(
+        university_id=boulder.id,
+        title="Spring 2026 AI Showcase",
+        description=(
+            "End-of-semester showcase featuring student projects in NLP, "
+            "computer vision, and reinforcement learning. Lightning talks "
+            "followed by a poster session and pizza."
+        ),
+        location="Engineering Center, Room 200",
+        start_time=start,
+        end_time=end,
+        created_by_id=creator.id,
+    )
+    db.session.add(past_event)
+    db.session.commit()
+
+    print(f"  Created 1 past event for {boulder.name} (May 1, 2026).")
+    return [past_event]
+
+
 def seed_all():
     """Run all seed functions."""
     print("\n" + "="*50)
@@ -935,6 +987,7 @@ def seed_all():
     seed_follows(users)
     seed_ai_news()
     seed_speakers(users, universities)
+    seed_events(users, universities)
 
     print("\n" + "="*50)
     print("Seeding complete!")

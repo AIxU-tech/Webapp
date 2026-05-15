@@ -42,17 +42,19 @@ login_manager = LoginManager()
 #
 # Configuration:
 # - cors_allowed_origins: Allows connections from any origin (configure for production)
-# - async_mode: Uses eventlet for production, threading for local dev (macOS compatibility)
+# - async_mode: Uses gevent for production, threading for local dev (macOS compatibility)
 # - logger/engineio_logger: Disabled in production for performance
 #
-# Note: eventlet has compatibility issues with kqueue (macOS) and psycopg2.
-# We use threading mode for local development to avoid this issue.
+# Note: gevent monkey-patching (see app.py) must happen before any other imports
+# that touch sockets/threads. We use threading mode for local development to
+# avoid needing monkey-patching during interactive debugging.
 def _get_async_mode():
     """Determine async mode based on environment."""
-    # Use threading for local development on macOS to avoid eventlet/kqueue issues
-    # Use eventlet in production (Render sets RENDER=true)
-    if os.environ.get('RENDER') or os.environ.get('USE_EVENTLET'):
-        return 'eventlet'
+    # Use gevent in production (Render sets RENDER=true, or set USE_GEVENT=true).
+    # USE_EVENTLET is accepted as a legacy alias so existing deployments keep
+    # working until the env var is renamed in infra.
+    if os.environ.get('RENDER') or os.environ.get('USE_GEVENT') or os.environ.get('USE_EVENTLET'):
+        return 'gevent'
     # Default to threading for local dev
     return 'threading'
 

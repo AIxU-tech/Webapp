@@ -32,10 +32,12 @@ COPY backend/ ./backend/
 # Copy built frontend from Stage 1
 COPY --from=frontend-build /app/static/app ./static/app
 
-# Enable eventlet for WebSocket support
-ENV USE_EVENTLET=true
+# Enable gevent (monkey-patching + socketio async_mode) for WebSocket support
+ENV USE_GEVENT=true
 
 EXPOSE 5000
 
-# Run with gunicorn + eventlet (single worker for WebSocket)
-CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:5000", "app:app"]
+# Run with gunicorn + gevent-websocket worker (single worker for WebSocket).
+# Flask-SocketIO + python-engineio require this worker class to handle the
+# WebSocket upgrade; a plain gevent worker is not enough.
+CMD ["gunicorn", "-k", "geventwebsocket.gunicorn.workers.GeventWebSocketWorker", "-w", "1", "--bind", "0.0.0.0:5000", "app:app"]

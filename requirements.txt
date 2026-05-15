@@ -14,7 +14,6 @@ anthropic>=0.40.0
 # WebSocket Support
 python-engineio>=4.8.0
 python-socketio>=5.10.0
-eventlet>=0.35.0
 
 # Security & Utilities
 Werkzeug>=3.1.0
@@ -32,6 +31,8 @@ python-dotenv>=1.0.0
 
 # Production Server
 gunicorn>=21.0.0
+gevent==24.10.1
+gevent-websocket==0.10.1
 
 # Flask migration library
 Flask-Migrate==4.0.5

@@ -9,23 +9,28 @@ Development:
     python app.py
 
 Production:
-    gunicorn --worker-class eventlet -w 1 app:app
+    gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 app:app
 
-Note: WebSockets require the eventlet worker for async support in production.
-Local development uses threading mode to avoid eventlet/kqueue/psycopg2 issues on macOS.
+Note: WebSockets use the gevent-websocket worker for async support in production.
+Local development uses threading mode to avoid monkey-patching the stdlib while
+working on macOS.
 """
 
 import os
 
 # =============================================================================
-# Conditional Eventlet Monkey Patching
+# Conditional Gevent Monkey Patching
 # =============================================================================
-# Only apply eventlet monkey patching in production (Render) or when explicitly requested.
-# On macOS, eventlet has compatibility issues with kqueue and psycopg2 that cause
-# database connection failures. We use threading mode for local development instead.
-if os.environ.get('RENDER') or os.environ.get('USE_EVENTLET'):
-    import eventlet
-    eventlet.monkey_patch()
+# Monkey-patching must happen as early as possible — before any other imports
+# touch the stdlib socket/ssl/threading modules — otherwise psycopg2 and the
+# socketio server can hang or behave unpredictably.
+#
+# Only patch in production (Render) or when explicitly requested via USE_GEVENT.
+# USE_EVENTLET is kept as a legacy alias so existing infra keeps working until
+# renamed.
+if os.environ.get('RENDER') or os.environ.get('USE_GEVENT') or os.environ.get('USE_EVENTLET'):
+    from gevent import monkey
+    monkey.patch_all()
 
 from backend import create_app
 from backend.extensions import socketio
@@ -47,6 +52,6 @@ if __name__ == '__main__':
     #   - port=5000 is the default Flask port
     #   - allow_unsafe_werkzeug=True permits threading mode for local dev
     #
-    # For production, use gunicorn with eventlet worker:
-    #   gunicorn --worker-class eventlet -w 1 app:app
+    # For production, use gunicorn with the gevent-websocket worker:
+    #   gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 app:app
     socketio.run(app, debug=True, port=5000, allow_unsafe_werkzeug=True)

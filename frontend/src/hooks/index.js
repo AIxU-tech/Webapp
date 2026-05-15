@@ -107,6 +107,7 @@ export {
   useDeleteEvent,
   useToggleRsvp,
   eventKeys,
+  prefetchUniversityEvents,
 } from './useEvents';
 
 // =============================================================================
