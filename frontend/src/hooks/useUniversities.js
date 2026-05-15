@@ -40,8 +40,19 @@ export const universityKeys = {
   // Base key for all university queries
   all: ['universities'],
 
-  // Key for the list of all universities
-  list: () => [...universityKeys.all, 'list'],
+  // Prefix key matching any list variant. Used for invalidation so both the
+  // coordinate-aware and basic list caches stay in sync.
+  lists: () => [...universityKeys.all, 'list'],
+
+  // Key for the list of all universities.
+  // includeCoordinates is part of the cache key because the coordinate-aware
+  // response is a superset and triggers lazy geocoding server-side. Keeping
+  // separate cache entries avoids surfacing geocoding cost on non-map pages.
+  list: ({ includeCoordinates = false } = {}) => [
+    ...universityKeys.all,
+    'list',
+    { includeCoordinates },
+  ],
 
   // Key for a specific university's details
   detail: (id) => [...universityKeys.all, 'detail', id],
@@ -88,10 +99,10 @@ export const universityKeys = {
  *   return universities.map(uni => <UniversityCard key={uni.id} {...uni} />);
  * }
  */
-export function useUniversities() {
+export function useUniversities({ includeCoordinates = false } = {}) {
   return useQuery({
-    queryKey: universityKeys.list(),
-    queryFn: getUniversities,
+    queryKey: universityKeys.list({ includeCoordinates }),
+    queryFn: () => getUniversities({ includeCoordinates }),
 
     // -------------------------------------------------------------------------
     // Cache Configuration
@@ -104,10 +115,34 @@ export function useUniversities() {
     gcTime: GC_TIMES.UNIVERSITIES,
 
     // -------------------------------------------------------------------------
+    // Background Polling for Pending Pins
+    // -------------------------------------------------------------------------
+    // When viewing the map, universities without coordinates (status NULL or
+    // 'failed') will be lazily geocoded server-side, max LAZY_GEOCODE_BATCH_SIZE
+    // per request. Poll every 10s so pins gradually appear without manual reload.
+    // Stops polling once all universities are resolved.
+    refetchInterval: includeCoordinates
+      ? (query) => (hasPendingGeocoding(query.state.data) ? 10000 : false)
+      : false,
+
+    // -------------------------------------------------------------------------
     // Data Transformation
     // -------------------------------------------------------------------------
     // The API returns an array, ensure we always have an array
     select: (data) => Array.isArray(data) ? data : [],
+  });
+}
+
+/**
+ * Returns true if any university in the list still needs geocoding.
+ * A university is "pending" when geocodeStatus is null/undefined or 'failed'.
+ * Used to gate background polling.
+ */
+function hasPendingGeocoding(universities) {
+  if (!Array.isArray(universities)) return false;
+  return universities.some((uni) => {
+    const status = uni?.geocodeStatus;
+    return status == null || status === 'failed';
   });
 }
 
@@ -148,9 +183,12 @@ export function useUniversity(id) {
     // Seed from list cache to avoid loading spinner while detail fetches.
     // List items lack detail-only fields (members, permissions, etc.) so add safe defaults.
     placeholderData: () => {
-      const universities = queryClient.getQueryData(universityKeys.list());
-      if (Array.isArray(universities)) {
-        const match = universities.find((uni) => String(uni.id) === String(id));
+      // Seed from either list cache (coordinate-aware or not).
+      const candidates =
+        queryClient.getQueryData(universityKeys.list({ includeCoordinates: true })) ||
+        queryClient.getQueryData(universityKeys.list({ includeCoordinates: false }));
+      if (Array.isArray(candidates)) {
+        const match = candidates.find((uni) => String(uni.id) === String(id));
         if (match) return { ...match, members: [], permissions: {}, isMember: false };
       }
       return undefined;
@@ -229,7 +267,7 @@ export function useRemoveMember() {
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
 
       // Invalidate the universities list to update member counts
-      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+      queryClient.invalidateQueries({ queryKey: universityKeys.lists() });
     },
   });
 }
@@ -330,7 +368,7 @@ export function useUpdateUniversity() {
     // Always refetch after error or success to ensure data is in sync
     onSettled: (_, __, { universityId }) => {
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
-      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+      queryClient.invalidateQueries({ queryKey: universityKeys.lists() });
     },
   });
 }
@@ -358,7 +396,7 @@ export function useCreateUniversity() {
 
     onSuccess: () => {
       // Invalidate universities list to show new university
-      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+      queryClient.invalidateQueries({ queryKey: universityKeys.lists() });
     },
   });
 }
@@ -434,7 +472,7 @@ export function useUploadUniversityLogo() {
 
     onSettled: (_, __, { universityId }) => {
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
-      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+      queryClient.invalidateQueries({ queryKey: universityKeys.lists() });
     },
   });
 }
@@ -493,7 +531,7 @@ export function useUploadUniversityBanner() {
 
     onSettled: (_, __, { universityId }) => {
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
-      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+      queryClient.invalidateQueries({ queryKey: universityKeys.lists() });
     },
   });
 }
@@ -529,7 +567,7 @@ export function useDeleteUniversityLogo() {
 
     onSettled: (_, __, { universityId }) => {
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
-      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+      queryClient.invalidateQueries({ queryKey: universityKeys.lists() });
     },
   });
 }
@@ -565,7 +603,7 @@ export function useDeleteUniversityBanner() {
 
     onSettled: (_, __, { universityId }) => {
       queryClient.invalidateQueries({ queryKey: universityKeys.detail(universityId) });
-      queryClient.invalidateQueries({ queryKey: universityKeys.list() });
+      queryClient.invalidateQueries({ queryKey: universityKeys.lists() });
     },
   });
 }
@@ -591,10 +629,10 @@ export function useDeleteUniversityBanner() {
  *   Universities
  * </Link>
  */
-export function prefetchUniversities(queryClient) {
+export function prefetchUniversities(queryClient, { includeCoordinates = false } = {}) {
   return queryClient.prefetchQuery({
-    queryKey: universityKeys.list(),
-    queryFn: getUniversities,
+    queryKey: universityKeys.list({ includeCoordinates }),
+    queryFn: () => getUniversities({ includeCoordinates }),
     staleTime: STALE_TIMES.UNIVERSITIES,
   });
 }

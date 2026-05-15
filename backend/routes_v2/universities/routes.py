@@ -25,13 +25,19 @@ RESTful Endpoints:
 - DELETE /api/universities/<id>/roles/<user_id> - Remove user role (president or admin)
 """
 
+import os
+
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 import json
 from backend.extensions import db
 from backend.models import University, User, UniversityRole, Event, EventAttendance
 from backend.models.event import _datetime_to_iso_utc
-from backend.constants import UniversityRoles
+from backend.constants import (
+    UniversityRoles,
+    DEFAULT_LAZY_GEOCODE_BATCH_SIZE,
+)
+from backend.services.geocoding import geocode_university
 from backend.utils.permissions import (
     can_manage_university_members,
     can_manage_executives,
@@ -52,20 +58,81 @@ universities_bp = Blueprint('universities', __name__)
 # University CRUD Endpoints
 # =============================================================================
 
+def _parse_bool_query_param(value: str | None) -> bool:
+    """Return True for common truthy query-param spellings ('1', 'true', 'yes')."""
+    if value is None:
+        return False
+    return value.strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def _lazy_geocode_universities(universities: list[University]) -> None:
+    """
+    Run the geocoder against any universities that still need coordinates.
+
+    Caps the batch at LAZY_GEOCODE_BATCH_SIZE (configurable via env) so a
+    single request can never block on more than N provider calls. Any
+    error from a single geocoding attempt is logged and swallowed so it
+    does not poison the whole request.
+
+    Mutations are flushed via a single commit at the end. The caller is
+    expected to refetch the in-memory list shape from the updated rows.
+    """
+    try:
+        batch_size = int(
+            os.environ.get('LAZY_GEOCODE_BATCH_SIZE', str(DEFAULT_LAZY_GEOCODE_BATCH_SIZE))
+        )
+    except ValueError:
+        batch_size = DEFAULT_LAZY_GEOCODE_BATCH_SIZE
+
+    if batch_size <= 0:
+        return
+
+    candidates = [uni for uni in universities if uni.needs_geocoding()][:batch_size]
+    if not candidates:
+        return
+
+    for uni in candidates:
+        try:
+            geocode_university(uni)
+        except Exception as e:
+            # We never want a flaky provider to 500 the list endpoint.
+            current_app.logger.warning(
+                "Lazy geocode failed for university %s: %s", uni.id, e
+            )
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.warning("Failed to commit lazy geocode batch: %s", e)
+        db.session.rollback()
+
+
 # RESTful: GET collection returns list
 @universities_bp.route('/api/universities', methods=['GET'])
 def list_universities():
     """
     Get list of all universities with full details for React frontend.
     Returns universities with stats, tags, and other information needed for the grid display.
+
+    Query params:
+        include_coordinates (bool, default false): When true, the response
+            includes ``latitude``, ``longitude``, and ``geocodeStatus`` for
+            each university AND triggers lazy geocoding for up to
+            LAZY_GEOCODE_BATCH_SIZE rows that have not been geocoded yet.
+            Existing callers that don't opt in pay zero geocoding cost.
     """
+    include_coordinates = _parse_bool_query_param(request.args.get('include_coordinates'))
+
     universities = University.query.order_by(University.name).all()
+
+    if include_coordinates:
+        _lazy_geocode_universities(universities)
 
     universities_data = []
     for uni in universities:
         # NOTE: We use cached recent_posts value instead of calling update_post_count()
         # to avoid N+1 query problem. Post counts are updated when posts are created/deleted.
-        universities_data.append({
+        entry = {
             'id': uni.id,
             'name': uni.name,
             'clubName': uni.clubName or f"{uni.name} AI Club",
@@ -82,7 +149,12 @@ def list_universities():
             'hasLogo': uni.logo_gcs_path is not None,
             'logoUrl': uni.get_logo_url(),
             'bannerUrl': uni.get_banner_url(),
-        })
+        }
+        if include_coordinates:
+            entry['latitude'] = uni.latitude
+            entry['longitude'] = uni.longitude
+            entry['geocodeStatus'] = uni.geocode_status
+        universities_data.append(entry)
 
     return jsonify({
         'universities': universities_data
@@ -646,6 +718,10 @@ def update_university(university_id: int):
         'websiteUrl': 'website_url',
     }
 
+    # Snapshot the location BEFORE applying updates so we can detect a
+    # real change and invalidate any cached geocode below.
+    original_location = uni.location
+
     # Update each provided field
     for json_field, model_field in allowed_fields.items():
         if json_field in data:
@@ -666,6 +742,12 @@ def update_university(university_id: int):
                     setattr(uni, model_field, None)
                 else:
                     return jsonify({'error': f'{json_field} must be a string'}), 400
+
+    # If the location actually changed, drop any cached lat/long so the
+    # next include_coordinates=true request re-geocodes. clear_geocode()
+    # is a no-op for rows with admin-entered (MANUAL) coordinates.
+    if 'location' in data and uni.location != original_location:
+        uni.clear_geocode()
 
     # Handle social links separately (array field)
     if 'socialLinks' in data:

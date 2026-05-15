@@ -30,12 +30,17 @@ whenever members are added or removed.
 
 import json
 import logging
+from datetime import datetime, timedelta
 
 from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
 
 from backend.extensions import db
-from backend.constants import UniversityRoles
+from backend.constants import (
+    UniversityRoles,
+    GeocodeStatus,
+    NOT_FOUND_RETRY_DAYS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +101,24 @@ class University(db.Model):
     # DEPRECATED: members column is no longer used. Membership is tracked via UniversityRole.
     # This column is kept for backwards compatibility during migration but should not be used.
     members = db.Column(db.Text, nullable=True)
+
+    # -------------------------------------------------------------------------
+    # Geocoding fields (used by the map view)
+    # -------------------------------------------------------------------------
+    # latitude/longitude are populated lazily when the universities list
+    # endpoint is hit with `include_coordinates=true`. See
+    # backend/services/geocoding/ for the provider-agnostic geocoder.
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+
+    # UTC timestamp of the last geocoding attempt (success or failure).
+    # Used to expire 'not_found' rows so they get retried periodically.
+    geocoded_at = db.Column(db.DateTime, nullable=True)
+
+    # One of GeocodeStatus.{OK, NOT_FOUND, FAILED, MANUAL} or NULL when
+    # geocoding has never been attempted. See backend.constants.GeocodeStatus
+    # for the meaning of each value.
+    geocode_status = db.Column(db.String(20), nullable=True)
 
     admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
@@ -388,6 +411,60 @@ class University(db.Model):
         self.banner_gcs_path = None
         return old_path
 
+    # -------------------------------------------------------------------------
+    # Geocoding Methods
+    # -------------------------------------------------------------------------
+
+    def has_valid_coords(self) -> bool:
+        """
+        Return True when this university has usable lat/long for the map.
+
+        Both 'ok' (auto-geocoded) and 'manual' (admin-entered) statuses
+        count as valid. Rows in 'failed', 'not_found', or with NULL status
+        are excluded.
+        """
+        return (
+            self.latitude is not None
+            and self.longitude is not None
+            and self.geocode_status in (GeocodeStatus.OK, GeocodeStatus.MANUAL)
+        )
+
+    def needs_geocoding(self) -> bool:
+        """
+        Return True when the lazy fetcher should attempt to geocode this row.
+
+        Logic:
+        - status NULL: never tried, attempt
+        - status 'failed': transient last time, attempt
+        - status 'not_found': only attempt if older than NOT_FOUND_RETRY_DAYS
+        - status 'ok' or 'manual': do not touch
+        """
+        if self.geocode_status is None or self.geocode_status == GeocodeStatus.FAILED:
+            return True
+
+        if self.geocode_status == GeocodeStatus.NOT_FOUND:
+            if self.geocoded_at is None:
+                return True
+            stale_cutoff = datetime.utcnow() - timedelta(days=NOT_FOUND_RETRY_DAYS)
+            return self.geocoded_at < stale_cutoff
+
+        return False
+
+    def clear_geocode(self):
+        """
+        Reset all geocoding fields so the next lazy fetch re-runs.
+
+        Used by update_university() when the location field changes.
+        Skips rows with a protected status (e.g. MANUAL admin-entered
+        coordinates) so we don't blow away hand-curated data.
+        """
+        if self.geocode_status in GeocodeStatus.PROTECTED:
+            return
+        self.latitude = None
+        self.longitude = None
+        self.geocoded_at = None
+        self.geocode_status = None
+
     def to_dict(self):
         """Serialize university to dictionary for API responses."""
         return {
@@ -404,6 +481,9 @@ class University(db.Model):
             'logoUrl': self.get_logo_url(),
             'hasBanner': self.banner_gcs_path is not None,
             'bannerUrl': self.get_banner_url(),
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'geocodeStatus': self.geocode_status,
         }
 
     # -------------------------------------------------------------------------

@@ -243,6 +243,65 @@ class UniversityRoles:
 
 
 # =============================================================================
+# Geocoding Constants
+# =============================================================================
+#
+# Controls how universities are mapped to lat/long coordinates for the
+# map view. Geocoding is provider-agnostic (see backend/services/geocoding/)
+# and runs lazily when the universities list is fetched with the
+# `include_coordinates=true` query param.
+
+class GeocodeStatus:
+    """
+    Status values for the University.geocode_status column.
+
+    NULL (not set in DB):
+        Never attempted. The lazy fetcher will try to geocode this row.
+
+    OK:
+        Geocoding succeeded; latitude/longitude are populated.
+
+    NOT_FOUND:
+        Provider returned zero results. Skipped on subsequent requests
+        unless geocoded_at is older than NOT_FOUND_RETRY_DAYS.
+
+    FAILED:
+        Transient error (network, rate limit, 5xx). Retried on the next
+        request that hits the lazy fetcher.
+
+    MANUAL:
+        Coordinates were entered by hand (e.g. by a site admin). The
+        auto-geocoder will NEVER overwrite a row with this status, even
+        on a location change.
+    """
+
+    OK = 'ok'
+    NOT_FOUND = 'not_found'
+    FAILED = 'failed'
+    MANUAL = 'manual'
+
+    # Statuses that should never be overwritten by automatic geocoding.
+    PROTECTED = frozenset({MANUAL})
+
+    @classmethod
+    def is_valid(cls, status) -> bool:
+        return status in {cls.OK, cls.NOT_FOUND, cls.FAILED, cls.MANUAL}
+
+
+# Number of days after which a 'not_found' row is retried by the lazy
+# fetcher. Place names occasionally start resolving once OSM data improves,
+# so we re-attempt periodically but never on every request.
+NOT_FOUND_RETRY_DAYS = 30
+
+
+# Maximum number of universities to geocode within a single
+# `?include_coordinates=true` request. Bounds worst-case request latency
+# given the geocoder's 1 req/sec rate limit. Overridable via the
+# LAZY_GEOCODE_BATCH_SIZE env var.
+DEFAULT_LAZY_GEOCODE_BATCH_SIZE = 5
+
+
+# =============================================================================
 # Speaker Image Constants
 # =============================================================================
 

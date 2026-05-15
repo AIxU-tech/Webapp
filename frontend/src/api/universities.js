@@ -32,8 +32,11 @@ import { api } from './client';
  * const universities = await getUniversities();
  * universities.forEach(uni => console.log(uni.name, uni.emailDomain));
  */
-export async function getUniversities() {
-  const data = await api.get('/universities');
+export async function getUniversities({ includeCoordinates = false } = {}) {
+  const path = includeCoordinates
+    ? '/universities?include_coordinates=true'
+    : '/universities';
+  const data = await api.get(path);
   // Return just the universities array for easier use
   return data.universities || [];
 }

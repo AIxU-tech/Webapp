@@ -3,8 +3,10 @@ FROM node:20-alpine AS frontend-build
 
 WORKDIR /app/frontend
 
-# Install dependencies first (better caching)
-COPY frontend/package*.json ./
+# Install dependencies first (better caching).
+# .npmrc carries `legacy-peer-deps=true`, required because react-simple-maps@3
+# still lists React 17 as its peer while the project runs on React 19.
+COPY frontend/package*.json frontend/.npmrc ./
 RUN npm ci
 
 # Copy source and build

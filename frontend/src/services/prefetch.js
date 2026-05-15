@@ -78,8 +78,8 @@ export async function prefetchAllAppData(queryClient, currentUser = null) {
     // -------------------------------------------------------------------------
     // Used by: UniversitiesPage, ProfilePage (dropdown), RegisterPage (dropdown)
     queryClient.prefetchQuery({
-      queryKey: universityKeys.list(),
-      queryFn: getUniversities,
+      queryKey: universityKeys.list({ includeCoordinates: false }),
+      queryFn: () => getUniversities({ includeCoordinates: false }),
       staleTime: STALE_TIMES.UNIVERSITIES,
     }),
 
